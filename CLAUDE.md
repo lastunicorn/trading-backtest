@@ -37,13 +37,18 @@ python3 eurusd_narrow_asia_torture_v28.py  research_output_v24_1/EURUSD_M5_CLEAN
 
 Use `python3`, not `python` — this machine has only `/usr/bin/python3` (3.12), so bare `python` fails with `command not found`. Inside an activated venv both names work.
 
-Requires only `pandas` + `numpy` (**not installed in this sandbox** — a venv/pip install is needed before any script will run):
+Requires only `pandas` + `numpy`, installed in the repo-local venv at `.venv/` (gitignored). **Activate it before running anything:**
 
 ```bash
-sudo apt install python3-venv      # one-time; the system Python is PEP 668 "externally managed"
+source .venv/bin/activate      # prompt gains (.venv); `python` and `python3` both work
+```
+
+Pinned versions live in `requirements.txt` (currently pandas 3.0.5, numpy 2.5.2 on Python 3.12.3). To rebuild the environment from scratch:
+
+```bash
+sudo apt install python3.12-venv    # one-time; the system Python is PEP 668 "externally managed"
 python3 -m venv .venv
-source .venv/bin/activate
-pip install pandas numpy
+.venv/bin/pip install -r requirements.txt
 ```
 
 There are no tests, no linter, no build. The unit of verification is the human-readable `*_report.txt`; read that first, drop into the supporting CSV only when a number needs explaining.
@@ -102,4 +107,5 @@ Two ports of that exact rule set exist and **must stay in sync with each other a
 - `eurusd_local_research_v24.py` and the ad-hoc `combine_csv.py` / `convert_m1_to_m5.py` are **superseded** by `v24_1`, which handles headerless MT5 exports, mixed separators, and skips previously-generated combined files. Use v24.1. (`convert_m1_to_m5.py` also mislabels its input as M1 while reading an M5 filename.)
 - `v26` stored absolute minute-of-day in `minutes_after_london`; `v26_1` fixes it to be relative to London open. Any timing conclusion must come from **v26.1 or later**.
 - `narrow_asia_v26_output/` is retained only as the record of the buggy pass.
+- The committed `*_output/` files have **CRLF** line endings; a re-run on Linux writes LF, so a plain `diff` reports every line as changed. Use `diff --strip-trailing-cr` when checking whether a re-run reproduces a stored result. (Verified 2026-08-24: pandas 3.0.5 reproduces all of `behavior_atlas_v25_output/` byte-for-byte modulo line endings.)
 - `/data/` and `__pycache__/` are gitignored; the `*_output/` directories are intended to be tracked.
