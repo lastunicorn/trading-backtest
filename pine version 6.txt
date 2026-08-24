@@ -1,0 +1,726 @@
+//@version=6
+//@strategy_alert_message {{strategy.order.alert_message}}
+
+strategy(
+     "Candle DNA — Narrow Asia London Fade v4 EXACT RE-ENTRY",
+     overlay = true,
+     pyramiding = 0,
+     initial_capital = 10000,
+     default_qty_type = strategy.percent_of_equity,
+     default_qty_value = 1,
+     process_orders_on_close = false,
+     calc_on_order_fills = false,
+     calc_on_every_tick = false)
+
+// ============================================================================
+// INPUTS
+// ============================================================================
+
+groupSession = "Sessions"
+
+// Corrected to reproduce the MT5 research timing.
+// Asia = midnight -> London open.
+// London trade window = 08:00 -> 12:00 London time.
+// Europe/London automatically handles GMT/BST.
+timezoneInput = input.string(
+     "Europe/London",
+     "Session Time Zone",
+     group = groupSession)
+
+asiaSession = input.session(
+     "0000-0800",
+     "Asia Range",
+     group = groupSession)
+
+tradeSession = input.session(
+     "0800-1200",
+     "London Trade Window",
+     group = groupSession)
+
+groupResearch = "Research Window"
+
+useResearchWindow = input.bool(
+     true,
+     "Use Research Window",
+     group = groupResearch)
+
+researchStart = input.time(
+     timestamp("01 Jan 2020 00:00 +0000"),
+     "Start Date",
+     group = groupResearch)
+
+researchEnd = input.time(
+     timestamp("31 Dec 2026 23:59 +0000"),
+     "End Date",
+     group = groupResearch)
+
+groupSetup = "Frozen v28 Setup"
+
+maxAsiaPips = input.float(
+     21.72,
+     "Maximum Asia Range (pips)",
+     step = 0.01,
+     group = groupSetup)
+
+minRelVol = input.float(
+     1.60,
+     "Minimum Breakout Relative Volume",
+     step = 0.05,
+     group = groupSetup)
+
+relVolLength = input.int(
+     20,
+     "Relative Volume Lookback",
+     minval = 2,
+     group = groupSetup)
+
+stopMultiplier = input.float(
+     1.00,
+     "Stop × Asia Range",
+     step = 0.05,
+     group = groupSetup)
+
+groupControl = "Trade Controls"
+
+allowLong = input.bool(
+     true,
+     "Allow Long Fades",
+     group = groupControl)
+
+allowShort = input.bool(
+     true,
+     "Allow Short Fades",
+     group = groupControl)
+
+groupWebhook = "Webhook"
+
+webhookSymbol = input.string(
+     "EURUSD",
+     "Webhook Symbol",
+     group = groupWebhook)
+
+webhookLots = input.float(
+     0.01,
+     "Webhook Lot Size",
+     step = 0.01,
+     group = groupWebhook)
+
+// ============================================================================
+// BASIC VALUES
+// ============================================================================
+
+pip = syminfo.mintick * 10.0
+
+inDateRange =
+     not useResearchWindow or
+     (time >= researchStart and time <= researchEnd)
+
+inAsia =
+     not na(time(timeframe.period, asiaSession, timezoneInput))
+
+inTradeWindow =
+     not na(time(timeframe.period, tradeSession, timezoneInput))
+
+asiaStart =
+     inAsia and not inAsia[1]
+
+asiaEnd =
+     not inAsia and inAsia[1]
+
+tradeWindowEnd =
+     not inTradeWindow and inTradeWindow[1]
+
+newDay =
+     ta.change(time("D", "0000-2359", timezoneInput)) != 0
+
+// ============================================================================
+// RELATIVE VOLUME
+// ============================================================================
+
+volumeAverage = ta.sma(volume, relVolLength)
+
+relativeVolume =
+     volumeAverage > 0
+     ? volume / volumeAverage
+     : na
+
+// ============================================================================
+// DAILY STATE
+// ============================================================================
+
+var float asiaHigh = na
+var float asiaLow = na
+var float asiaMid = na
+var float asiaRangePips = na
+
+var bool rangeFrozen = false
+var bool narrowAsia = false
+
+var bool firstBreakSeen = false
+
+// +1 = high broke first
+// -1 = low broke first
+var int breakDirection = 0
+
+var float breakRelVol = na
+var bool breakQualified = false
+
+// Pending boundary re-entry order
+var bool pendingEntry = false
+var string pendingOrderId = ""
+
+// Frozen execution levels for current setup
+var float pendingEntryPrice = na
+var float pendingStopPrice = na
+var float pendingTargetPrice = na
+
+var bool tradedToday = false
+
+// ============================================================================
+// AUDIT COUNTERS
+// ============================================================================
+
+var int countAsiaRanges = 0
+var int countNarrowAsia = 0
+var int countFirstBreaks = 0
+var int countQualifiedBreaks = 0
+var int countPendingOrders = 0
+var int countFilledTrades = 0
+
+var int countLongTrades = 0
+var int countShortTrades = 0
+
+var int trackedClosedTrades = 0
+var int countWins = 0
+var int countLosses = 0
+
+// ============================================================================
+// CANCEL PENDING ORDER FUNCTIONALITY
+// ============================================================================
+
+// Pine doesn't use a custom function here because we want state changes
+// to remain obvious during debugging.
+
+// ============================================================================
+// DAILY RESET
+// ============================================================================
+
+if newDay
+
+    // Safety cancel anything still pending.
+    strategy.cancel("LONG")
+    strategy.cancel("SHORT")
+
+    asiaHigh := na
+    asiaLow := na
+    asiaMid := na
+    asiaRangePips := na
+
+    rangeFrozen := false
+    narrowAsia := false
+
+    firstBreakSeen := false
+    breakDirection := 0
+    breakRelVol := na
+    breakQualified := false
+
+    pendingEntry := false
+    pendingOrderId := ""
+
+    pendingEntryPrice := na
+    pendingStopPrice := na
+    pendingTargetPrice := na
+
+    tradedToday := false
+
+// ============================================================================
+// BUILD ASIAN RANGE
+// ============================================================================
+
+if inDateRange
+
+    if asiaStart
+
+        asiaHigh := high
+        asiaLow := low
+
+        rangeFrozen := false
+        narrowAsia := false
+
+    else if inAsia
+
+        asiaHigh := math.max(
+             nz(asiaHigh, high),
+             high)
+
+        asiaLow := math.min(
+             nz(asiaLow, low),
+             low)
+
+// ============================================================================
+// FREEZE RANGE AT LONDON OPEN
+// ============================================================================
+
+if asiaEnd and
+   inDateRange and
+   not na(asiaHigh) and
+   not na(asiaLow)
+
+    asiaMid :=
+         (asiaHigh + asiaLow) / 2.0
+
+    asiaRangePips :=
+         (asiaHigh - asiaLow) / pip
+
+    rangeFrozen := true
+
+    narrowAsia :=
+         asiaRangePips <= maxAsiaPips
+
+    countAsiaRanges += 1
+
+    if narrowAsia
+        countNarrowAsia += 1
+
+// ============================================================================
+// FIRST ASIA BREAK
+// ============================================================================
+
+canFindBreak =
+     inDateRange and
+     inTradeWindow and
+     rangeFrozen and
+     narrowAsia and
+     not firstBreakSeen and
+     not tradedToday
+
+breakHigh =
+     canFindBreak and
+     high >= asiaHigh
+
+breakLow =
+     canFindBreak and
+     low <= asiaLow
+
+// ============================================================================
+// AMBIGUOUS BAR
+// ============================================================================
+
+if breakHigh and breakLow
+
+    // We cannot know which side broke first from 5-minute OHLC.
+    // Exactly as in Python, discard the day.
+
+    firstBreakSeen := true
+    breakDirection := 0
+    breakQualified := false
+
+    countFirstBreaks += 1
+
+// ============================================================================
+// HIGH BREAK -> PREPARE SHORT RE-ENTRY ORDER
+// ============================================================================
+
+else if breakHigh
+
+    firstBreakSeen := true
+    breakDirection := 1
+
+    breakRelVol :=
+         relativeVolume
+
+    breakQualified :=
+         relativeVolume >= minRelVol
+
+    countFirstBreaks += 1
+
+    if breakQualified and allowShort
+
+        countQualifiedBreaks += 1
+
+        // Python v28:
+        // breakout above Asia high
+        // then enter SHORT when a later bar trades back through Asia high.
+
+        pendingEntryPrice :=
+             asiaHigh
+
+        stopDistance =
+             asiaRangePips *
+             stopMultiplier *
+             pip
+
+        pendingStopPrice :=
+             pendingEntryPrice +
+             stopDistance
+
+        pendingTargetPrice :=
+             asiaMid
+
+        entryMessage =
+             '{"action":"SELL",' +
+             '"symbol":"' + webhookSymbol + '",' +
+             '"lots":' + str.tostring(webhookLots) + ',' +
+             '"entry":' + str.tostring(pendingEntryPrice, format.mintick) + ',' +
+             '"sl":' + str.tostring(pendingStopPrice, format.mintick) + ',' +
+             '"tp":' + str.tostring(pendingTargetPrice, format.mintick) + ',' +
+             '"strategy":"CANDLE_DNA_ASIA_FADE_V4"}'
+
+        // IMPORTANT:
+        // Current price is ABOVE Asia High after the breakout.
+        //
+        // A SHORT stop order at Asia High will trigger only when price
+        // moves DOWN through the boundary.
+        //
+        // This creates the actual boundary-reentry execution.
+
+        strategy.entry(
+             "SHORT",
+             strategy.short,
+             stop = pendingEntryPrice,
+             alert_message = entryMessage)
+
+        strategy.exit(
+             "SHORT EXIT",
+             from_entry = "SHORT",
+             stop = pendingStopPrice,
+             limit = pendingTargetPrice,
+             alert_message =
+                 '{"action":"CLOSE",' +
+                 '"symbol":"' + webhookSymbol + '",' +
+                 '"side":"SHORT",' +
+                 '"strategy":"CANDLE_DNA_ASIA_FADE_V4"}')
+
+        pendingEntry := true
+        pendingOrderId := "SHORT"
+
+        countPendingOrders += 1
+
+// ============================================================================
+// LOW BREAK -> PREPARE LONG RE-ENTRY ORDER
+// ============================================================================
+
+else if breakLow
+
+    firstBreakSeen := true
+    breakDirection := -1
+
+    breakRelVol :=
+         relativeVolume
+
+    breakQualified :=
+         relativeVolume >= minRelVol
+
+    countFirstBreaks += 1
+
+    if breakQualified and allowLong
+
+        countQualifiedBreaks += 1
+
+        pendingEntryPrice :=
+             asiaLow
+
+        stopDistance =
+             asiaRangePips *
+             stopMultiplier *
+             pip
+
+        pendingStopPrice :=
+             pendingEntryPrice -
+             stopDistance
+
+        pendingTargetPrice :=
+             asiaMid
+
+        entryMessage =
+             '{"action":"BUY",' +
+             '"symbol":"' + webhookSymbol + '",' +
+             '"lots":' + str.tostring(webhookLots) + ',' +
+             '"entry":' + str.tostring(pendingEntryPrice, format.mintick) + ',' +
+             '"sl":' + str.tostring(pendingStopPrice, format.mintick) + ',' +
+             '"tp":' + str.tostring(pendingTargetPrice, format.mintick) + ',' +
+             '"strategy":"CANDLE_DNA_ASIA_FADE_V4"}'
+
+        // Current price is BELOW Asia Low.
+        //
+        // A LONG stop order at Asia Low triggers when price moves
+        // UP through the broken boundary.
+
+        strategy.entry(
+             "LONG",
+             strategy.long,
+             stop = pendingEntryPrice,
+             alert_message = entryMessage)
+
+        strategy.exit(
+             "LONG EXIT",
+             from_entry = "LONG",
+             stop = pendingStopPrice,
+             limit = pendingTargetPrice,
+             alert_message =
+                 '{"action":"CLOSE",' +
+                 '"symbol":"' + webhookSymbol + '",' +
+                 '"side":"LONG",' +
+                 '"strategy":"CANDLE_DNA_ASIA_FADE_V4"}')
+
+        pendingEntry := true
+        pendingOrderId := "LONG"
+
+        countPendingOrders += 1
+
+// ============================================================================
+// DETECT ACTUAL ORDER FILL
+// ============================================================================
+
+// Previous bar flat -> now position open.
+
+newPositionOpened =
+     strategy.position_size != 0 and
+     strategy.position_size[1] == 0
+
+if newPositionOpened
+
+    tradedToday := true
+    pendingEntry := false
+
+    countFilledTrades += 1
+
+    if strategy.position_size > 0
+        countLongTrades += 1
+
+    if strategy.position_size < 0
+        countShortTrades += 1
+
+// ============================================================================
+// CANCEL UNFILLED ENTRY AT END OF LONDON WINDOW
+// ============================================================================
+
+if tradeWindowEnd and
+   pendingEntry and
+   strategy.position_size == 0
+
+    strategy.cancel("LONG")
+    strategy.cancel("SHORT")
+
+    pendingEntry := false
+    pendingOrderId := ""
+
+// ============================================================================
+// CLOSED TRADE AUDIT
+// ============================================================================
+
+if strategy.closedtrades > trackedClosedTrades
+
+    lastTrade =
+         strategy.closedtrades - 1
+
+    tradeProfit =
+         strategy.closedtrades.profit(lastTrade)
+
+    if tradeProfit > 0
+        countWins += 1
+    else
+        countLosses += 1
+
+    trackedClosedTrades :=
+         strategy.closedtrades
+
+// ============================================================================
+// VISUALS
+// ============================================================================
+
+plot(
+     rangeFrozen ? asiaHigh : na,
+     "Asia High",
+     color = color.blue,
+     linewidth = 2,
+     style = plot.style_linebr)
+
+plot(
+     rangeFrozen ? asiaLow : na,
+     "Asia Low",
+     color = color.blue,
+     linewidth = 2,
+     style = plot.style_linebr)
+
+plot(
+     rangeFrozen ? asiaMid : na,
+     "Asia Midpoint",
+     color = color.orange,
+     linewidth = 2,
+     style = plot.style_linebr)
+
+// Pending entry
+plot(
+     pendingEntry
+     ? pendingEntryPrice
+     : na,
+     "Pending Re-entry",
+     color = color.yellow,
+     linewidth = 2,
+     style = plot.style_linebr)
+
+// Stop
+plot(
+     pendingEntry or strategy.position_size != 0
+     ? pendingStopPrice
+     : na,
+     "Stop",
+     color = color.red,
+     linewidth = 1,
+     style = plot.style_linebr)
+
+// Target
+plot(
+     pendingEntry or strategy.position_size != 0
+     ? pendingTargetPrice
+     : na,
+     "Target",
+     color = color.green,
+     linewidth = 1,
+     style = plot.style_linebr)
+
+bgcolor(
+     inAsia
+     ? color.new(color.blue, 92)
+     : na)
+
+// Break markers
+plotshape(
+     breakHigh and not breakLow,
+     title = "Asia High Break",
+     style = shape.triangleup,
+     location = location.abovebar,
+     size = size.tiny,
+     color =
+         breakQualified
+         ? color.red
+         : color.gray,
+     text = "BH")
+
+plotshape(
+     breakLow and not breakHigh,
+     title = "Asia Low Break",
+     style = shape.triangledown,
+     location = location.belowbar,
+     size = size.tiny,
+     color =
+         breakQualified
+         ? color.lime
+         : color.gray,
+     text = "BL")
+
+// ============================================================================
+// AUDIT TABLE
+// ============================================================================
+
+var table audit =
+     table.new(
+         position.top_right,
+         2,
+         15,
+         border_width = 1)
+
+winRate =
+     countFilledTrades > 0
+     ? countWins * 100.0 / countFilledTrades
+     : na
+
+if barstate.islast
+
+    table.cell(
+         audit,
+         0,
+         0,
+         "Candle DNA v4")
+
+    table.cell(
+         audit,
+         1,
+         0,
+         "EXACT ENTRY")
+
+    table.cell(audit, 0, 1, "Asia ranges")
+    table.cell(audit, 1, 1, str.tostring(countAsiaRanges))
+
+    table.cell(audit, 0, 2, "Narrow Asia")
+    table.cell(audit, 1, 2, str.tostring(countNarrowAsia))
+
+    table.cell(audit, 0, 3, "First breaks")
+    table.cell(audit, 1, 3, str.tostring(countFirstBreaks))
+
+    table.cell(audit, 0, 4, "Qualified")
+    table.cell(audit, 1, 4, str.tostring(countQualifiedBreaks))
+
+    table.cell(audit, 0, 5, "Pending orders")
+    table.cell(audit, 1, 5, str.tostring(countPendingOrders))
+
+    table.cell(audit, 0, 6, "Filled trades")
+    table.cell(audit, 1, 6, str.tostring(countFilledTrades))
+
+    table.cell(audit, 0, 7, "Wins")
+    table.cell(audit, 1, 7, str.tostring(countWins))
+
+    table.cell(audit, 0, 8, "Losses")
+    table.cell(audit, 1, 8, str.tostring(countLosses))
+
+    table.cell(audit, 0, 9, "Win rate")
+    table.cell(
+         audit,
+         1,
+         9,
+         na(winRate)
+         ? "n/a"
+         : str.tostring(winRate, "#.0") + "%")
+
+    table.cell(audit, 0, 10, "Long")
+    table.cell(audit, 1, 10, str.tostring(countLongTrades))
+
+    table.cell(audit, 0, 11, "Short")
+    table.cell(audit, 1, 11, str.tostring(countShortTrades))
+
+    table.cell(audit, 0, 12, "Asia range")
+    table.cell(
+         audit,
+         1,
+         12,
+         na(asiaRangePips)
+         ? "n/a"
+         : str.tostring(asiaRangePips, "#.##") + "p")
+
+    table.cell(audit, 0, 13, "Break RelVol")
+    table.cell(
+         audit,
+         1,
+         13,
+         na(breakRelVol)
+         ? "n/a"
+         : str.tostring(breakRelVol, "#.##"))
+
+    table.cell(audit, 0, 14, "Pending")
+    table.cell(
+         audit,
+         1,
+         14,
+         pendingEntry
+         ? pendingOrderId
+         : "NO")
+
+// ============================================================================
+// DATA WINDOW
+// ============================================================================
+
+plot(
+     asiaRangePips,
+     "Asia Range Pips",
+     display = display.data_window)
+
+plot(
+     relativeVolume,
+     "Relative Volume",
+     display = display.data_window)
+
+plot(
+     breakRelVol,
+     "Breakout Relative Volume",
+     display = display.data_window)
