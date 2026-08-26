@@ -22,7 +22,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from domain.dataset import CleanDataset, build_clean_dataset
+from domain.dataset import CleanDataset, build_clean_dataset, timeframe_label
 
 DEFAULT_FOLDER = "data/eurusd/1min"
 DEFAULT_OUTDIR = "clean_m5_output"
@@ -32,15 +32,9 @@ REPORT_NAME = "data_quality.txt"
 # 90-column rules, matching the v24.1 reports.
 WIDTH = 90
 
-TIMEFRAME_LABELS = {"1min": "M1", "5min": "M5", "15min": "M15", "30min": "M30", "1h": "H1"}
 
-
-def timeframe_label(rule: str) -> str:
-    return TIMEFRAME_LABELS.get(rule, rule)
-
-
-def quality_report(dataset: CleanDataset, outpath: Path, rule: str) -> str:
-    label = timeframe_label(rule)
+def quality_report(dataset: CleanDataset, outpath: Path) -> str:
+    label = dataset.label
     lines = [
         f"CLEAN {label} DATA QUALITY REPORT",
         "=" * WIDTH,
@@ -92,7 +86,7 @@ def main() -> None:
     outpath = outdir / args.name
     dataset.frame.to_csv(outpath, index=False)
     (outdir / REPORT_NAME).write_text(
-        quality_report(dataset, outpath, args.rule), encoding="utf-8"
+        quality_report(dataset, outpath), encoding="utf-8"
     )
 
     print(f"\nClean {label} created:")

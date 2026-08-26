@@ -27,11 +27,13 @@ from domain.frames import read_frame, resample_ohlc
 
 __all__ = [
     "DEFAULT_SKIP_NAME_PARTS",
+    "TIMEFRAME_LABELS",
     "CleanDataset",
     "FileStat",
     "LoadError",
     "build_clean_dataset",
     "select_sources",
+    "timeframe_label",
 ]
 
 # Filename fragments that mark a file as something this loader produced (or an
@@ -48,7 +50,25 @@ DEFAULT_SKIP_NAME_PARTS = (
     "v24_",
 )
 
+# Broker-facing name for a pandas resample rule. A rule the table does not
+# cover is shown as itself, so an unusual timeframe still reads sensibly.
+TIMEFRAME_LABELS = {
+    "1min": "M1",
+    "5min": "M5",
+    "15min": "M15",
+    "30min": "M30",
+    "1h": "H1",
+}
+
 Progress = Callable[[str], None]
+
+
+def timeframe_label(rule: str) -> str:
+    """Name a resample rule the way a broker does: "5min" -> "M5".
+
+    Module-level for callers that need the label before a dataset exists.
+    """
+    return TIMEFRAME_LABELS.get(rule, rule)
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,12 +93,22 @@ class LoadError:
 
 @dataclass(slots=True)
 class CleanDataset:
-    """The combined result, plus the numbers a data-quality report needs."""
+    """The combined result, plus the numbers a data-quality report needs.
+
+    Carries the `rule` it was built on so a caller writing a report does not
+    have to keep the timeframe alongside the dataset it describes.
+    """
 
     frame: pd.DataFrame
     stats: list[FileStat] = field(default_factory=list)
     errors: list[LoadError] = field(default_factory=list)
     duplicates_removed: int = 0
+    rule: str = "5min"
+
+    @property
+    def label(self) -> str:
+        """The timeframe these bars are on, named the way a broker names it."""
+        return timeframe_label(self.rule)
 
     @property
     def first(self) -> datetime:
@@ -170,4 +200,4 @@ def build_clean_dataset(
     before = len(combined)
     combined = combined.drop_duplicates("datetime", keep="last").reset_index(drop=True)
 
-    return CleanDataset(combined, stats, errors, before - len(combined))
+    return CleanDataset(combined, stats, errors, before - len(combined), rule)

@@ -94,6 +94,7 @@ m5 = resample_ohlc(read_frame("data/eurusd/1min/EURUSD_2020_01.csv"), "5min")
 
 dataset = build_clean_dataset("data/eurusd/1min", progress=print)  # all 84 exports
 dataset.frame, dataset.stats, dataset.errors, dataset.duplicates_removed
+dataset.rule, dataset.label      # "5min" / "M5" — a report never has to be told the timeframe
 ```
 
 `build_clean_dataset` returns data and never prints or writes — reporting belongs to the caller. `rebuild_clean_m5.py` is that caller:
