@@ -13,6 +13,7 @@ A quantitative research log for **one** EURUSD intraday strategy ("Candle DNA �
 ```
 data/eurusd/1min/EURUSD_YYYY_MM.csv     raw MT5 M1 exports, 84 monthly files (gitignored)
   └─ eurusd_local_research_v24_1.py     robust MT5 loader → M1→M5 → dedupe → data-quality report
+     eurusd_local_research_v24_2.py     same study on the shared ports/ + domain/ loader
        └─ research_output_v24_1/EURUSD_M5_CLEAN_2020_2026.csv   ← the canonical dataset
             ├─ eurusd_behavior_atlas_v25.py       behavior discovery (no optimization)
             ├─ eurusd_narrow_asia_reversion_v26.py / _v26_1.py  trajectory analysis
@@ -26,7 +27,8 @@ Everything from v25 onward takes the clean M5 CSV as its single positional argum
 
 ```bash
 # Stage 0 — rebuild the clean M5 dataset from raw MT5 exports (only if raw data changed)
-python3 eurusd_local_research_v24_1.py --folder data/eurusd/1min
+python3 eurusd_local_research_v24_2.py --folder data/eurusd/1min --out research_output_v24_2
+python3 eurusd_local_research_v24_2.py --clean-csv research_output_v24_1/EURUSD_M5_CLEAN_2020_2026.csv
 
 # Stages 1-4 — each writes CSVs + a <version>_report.txt into its own --out dir
 python3 eurusd_behavior_atlas_v25.py       research_output_v24_1/EURUSD_M5_CLEAN_2020_2026.csv
@@ -102,6 +104,8 @@ python3 rebuild_clean_m5.py --folder data/eurusd/1min --out clean_m5_output
 
 It writes the clean CSV plus a `data_quality.txt`. Point `--out` at a scratch directory unless you deliberately mean to regenerate the committed `research_output_v24_1/`. v24.1 keeps its own copy of the loader and is still the script of record for what produced that directory.
 
+`eurusd_local_research_v24_2.py` is the research-stage counterpart: the *same* v24.1 study — stage-0 build plus the range/delay/stop/reward grid — with the private loader deleted in favour of `build_clean_dataset()`. Its grid half is carried over unchanged and reproduces v24.1's `range_grid.csv` and `session_report.txt` byte-for-byte on identical input (verified on a two-month subset). What it adds: unparsable source lines are counted in the quality report instead of vanishing, sorting is stable (see the `rebuild_clean_m5.py` gotcha below), `--out` is a free-standing path rather than a fixed directory inside `--folder`, and `--clean-csv` skips the rebuild to study an existing clean M5 file. Prefer v24.2 for new stage-0 runs; v24.1 stays untouched as the provenance of `research_output_v24_1/`.
+
 ```bash
 python3 show_m1_csv.py                       # first 20 bars of data/eurusd/1min/EURUSD_2020_01.csv
 python3 show_m1_csv.py --tail --rows 5
@@ -135,6 +139,7 @@ Two ports of that exact rule set exist and **must stay in sync with each other a
 - `eurusd_local_research_v24.py` and the ad-hoc `combine_csv.py` / `convert_m1_to_m5.py` are **superseded** by `v24_1`, which handles headerless MT5 exports, mixed separators, and skips previously-generated combined files. Use v24.1. (`convert_m1_to_m5.py` also mislabels its input as M1 while reading an M5 filename.)
 - `v26` stored absolute minute-of-day in `minutes_after_london`; `v26_1` fixes it to be relative to London open. Any timing conclusion must come from **v26.1 or later**.
 - `narrow_asia_v26_output/` is retained only as the record of the buggy pass.
+- `eurusd_local_research_v24_2.py` supersedes `v24_1` as the script to *run*, but not as the record: `research_output_v24_1/` was produced by v24.1 and the stable-sort difference means v24.2 does not reproduce it byte-for-byte (same two causes as `rebuild_clean_m5.py`, below). Send v24.2's output to `research_output_v24_2/`.
 - `rebuild_clean_m5.py` does **not** reproduce `research_output_v24_1/EURUSD_M5_CLEAN_2020_2026.csv` byte-for-byte, in two known ways. (1) `tick_volume` is written as `31`, not `31.0` — pandas 3.0.5 keeps the summed column integral where the pandas that built the stored file promoted it to float; running v24.1 itself today shows the same drift, so it is a pandas-version artifact, not a port bug. (2) **12 rows differ**, all at month-boundary midnights. v24.1 sorted with the default non-stable quicksort before `drop_duplicates(keep="last")`, so when a month export's stray trailing bar, the next month's file and the yearly `*_all.csv` all claimed one timestamp, the surviving row was arbitrary — the stored dataset kept 1-to-5-tick fragments there (e.g. `2021-06-01 00:00` has `tick_volume` 1 instead of 19). The extracted loader sorts `kind="stable"`, so "last file wins" is what actually happens. Values are otherwise identical across all 485,160 rows.
 - The committed `*_output/` files have **CRLF** line endings; a re-run on Linux writes LF, so a plain `diff` reports every line as changed. Use `diff --strip-trailing-cr` when checking whether a re-run reproduces a stored result. (Verified 2026-08-24: pandas 3.0.5 reproduces all of `behavior_atlas_v25_output/` byte-for-byte modulo line endings.)
 - `/data/` and `__pycache__/` are gitignored; the `*_output/` directories are intended to be tracked.
