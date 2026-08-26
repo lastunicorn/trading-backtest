@@ -1,8 +1,45 @@
+"""
+combine_csv.py — ad-hoc concatenator for the raw monthly MT5 EURUSD exports.
+
+What it does
+------------
+1. Globs every CSV under ``data/eurusd/1min/`` (the raw MT5 M1 monthly exports).
+2. Reads each one with pandas, trying tab-separated first and falling back to
+   comma-separated when the tab parse yields a single column. Files that fail to
+   parse are reported and skipped, not fatal.
+3. Concatenates all frames, builds a helper ``_datetime`` from the ``<DATE>`` and
+   ``<TIME>`` MT5 header columns, sorts chronologically, and drops duplicate
+   timestamps (keeping the last occurrence — i.e. the most recently exported
+   copy of an overlapping bar).
+4. Prints the resulting data range and writes the merged table to
+   ``EURUSD_M5_2020_2026.csv`` in the current directory.
+
+If the ``<DATE>``/``<TIME>`` columns are absent (headerless exports), it warns,
+lists the columns it did find, and writes the concatenation unsorted and
+un-deduplicated.
+
+Usage
+-----
+    python3 combine_csv.py      # no arguments; paths are hardcoded
+
+Caveats
+-------
+- **Superseded.** ``eurusd_local_research_v24_1.py`` does this job properly —
+  it handles headerless exports, mixed separators, resampling and the
+  data-quality report. Use v24.1 for anything that feeds the research pipeline;
+  this script is kept only as the earlier ad-hoc version.
+- The output filename says *M5* but the input is M1 and **no resampling
+  happens here** — the file contains 1-minute bars.
+- The self-exclusion filter on line ``f != "EURUSD_M5_2020_2026.csv"`` compares a
+  full glob path against a bare filename, so it never matches; it only works
+  because the output is written outside the globbed folder.
+"""
+
 import pandas as pd
 import glob
 import os
 
-files = glob.glob("*.csv")
+files = glob.glob("data/eurusd/1min/*.csv")
 files = [f for f in files if f != "EURUSD_M5_2020_2026.csv"]
 
 print(f"Found {len(files)} CSV files.")

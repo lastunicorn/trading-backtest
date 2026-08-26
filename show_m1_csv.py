@@ -9,7 +9,7 @@ export actually contains before feeding it to eurusd_local_research_v24_1.py.
     python3 show_m1_csv.py --all | less
     python3 show_m1_csv.py path/to/other.csv
 
-Stdlib only (pandas is not installed in this sandbox).
+Stdlib only (pandas is not used).
 """
 
 import argparse
