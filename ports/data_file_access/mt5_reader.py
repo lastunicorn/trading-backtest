@@ -4,7 +4,7 @@ Turns an export into typed `Bar` objects so callers never re-implement
 timestamp/price parsing. Pure I/O: no cleaning, no resampling, no strategy
 logic. Stdlib only, so it works without pandas.
 
-    from ports.data_file_import.bar import read_bars, iter_bars
+    from ports.data_file_access import read_bars, iter_bars
 
     bars = read_bars("data/eurusd/1min/EURUSD_2020_01.csv")   # list[Bar]
     print(bars[0].dt, bars[0].close)
@@ -28,7 +28,7 @@ from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from datetime import date as _date, datetime, time as _time
 
-__all__ = ["Bar", "BarParseError", "iter_bars", "read_bars"]
+__all__ = ["Bar", "BarParseError", "detect_layout", "iter_bars", "read_bars"]
 
 DELIMITERS = (",", "\t", ";")
 
@@ -167,6 +167,50 @@ def _positional_layout(n_fields: int) -> dict[str, int]:
     return {name: index for index, name in enumerate(names)}
 
 
+def _layout_for_row(fields: list[str]) -> tuple[dict[str, int], bool]:
+    """Layout implied by the file's first non-empty row.
+
+    Returns (layout, row_is_header) so the caller knows whether that row still
+    has to be consumed as data.
+    """
+    if _looks_like_header(fields):
+        layout = _layout_from_header(fields)
+
+        # Header present but unusable -- fall back to positions.
+        if not all(name in layout for name in REQUIRED_FIELDS):
+            layout = _positional_layout(len(fields))
+
+        return layout, True
+
+    return _positional_layout(len(fields)), False
+
+
+def detect_layout(path: str) -> dict[str, int]:
+    """Map field name -> column index for `path`, without parsing any bars.
+
+    Tells a caller which fields the export actually carries: a 7-column MT5 M1
+    file yields date/time/OHLC/tick_volume and no spread or real_volume. Returns
+    an empty dict for an empty file.
+    """
+    with open(path, newline="", encoding="utf-8-sig", errors="replace") as handle:
+        first_line = handle.readline()
+
+        if not first_line:
+            return {}
+
+        delimiter = _detect_delimiter(first_line)
+        handle.seek(0)
+
+        for fields in csv.reader(handle, delimiter=delimiter):
+            if not fields or not any(field.strip() for field in fields):
+                continue
+
+            layout, _ = _layout_for_row(fields)
+            return layout
+
+    return {}
+
+
 def _parse_datetime(date_text: str, time_text: str) -> datetime:
     stamp = f"{date_text.strip()} {time_text.strip()}"
 
@@ -247,16 +291,10 @@ def iter_bars(
                 continue
 
             if layout is None:
-                if _looks_like_header(fields):
-                    layout = _layout_from_header(fields)
+                layout, row_is_header = _layout_for_row(fields)
 
-                    # Header present but unusable -- fall back to positions.
-                    if not all(name in layout for name in REQUIRED_FIELDS):
-                        layout = _positional_layout(len(fields))
-
+                if row_is_header:
                     continue  # never treat the header row as data
-
-                layout = _positional_layout(len(fields))
 
             try:
                 yield _build_bar(fields, layout)

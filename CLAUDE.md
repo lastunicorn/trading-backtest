@@ -57,22 +57,50 @@ Session-window flags exist on every script (`--asia-start`, `--asia-end`, `--lon
 
 ## Tooling outside the pipeline
 
-`ports/` and `show_m1_csv.py` are **not** research stages. They are shared, **stdlib-only** helpers (no pandas, no numpy) for inspecting raw data, so they run in this sandbox as-is. They are versionless and freely editable — the immutability rule applies only to `eurusd_*_vNN.py`.
+`ports/`, `domain/`, `show_m1_csv.py` and `rebuild_clean_m5.py` are **not** research stages. They are shared code: reading raw data, and building the clean dataset the pipeline consumes. They are versionless and freely editable — the immutability rule applies only to `eurusd_*_vNN.py`.
+
+The split between the two packages is the point of the layout:
+
+- **`ports/`** knows *file formats*. A port parses one record into one `Bar` and stops — no cleaning, no deduplication, no resampling. **Stdlib-only** (no pandas, no numpy), so it runs in any sandbox as-is.
+- **`domain/`** knows *what the data should look like*: how bars collapse into a coarser timeframe, which of two rows claiming the same timestamp wins, what counts as a raw source file, what a quality report must account for. This is where pandas lives.
 
 ```
-ports/data_file_import/bar.py   MT5 CSV → typed `Bar` objects (dt, OHLC, volumes, spread)
-show_m1_csv.py                  CLI that prints an export as an aligned table
+ports/data_file_access/mt5_reader.py   MT5 CSV → typed `Bar` objects (dt, OHLC, volumes, spread)  [stdlib]
+domain/frames.py                       Bars → pandas frame; dedupe; resample to a coarser timeframe
+domain/dataset.py                      folder of exports → one clean, deduplicated dataset
+show_m1_csv.py                         CLI that prints an export as an aligned table
+rebuild_clean_m5.py                    CLI that rebuilds the clean M5 dataset (stage 0)
 ```
 
 ```python
-from ports.data_file_import import read_bars, iter_bars   # short form (re-exported)
+from ports.data_file_access import read_bars, iter_bars   # short form (re-exported)
 
 bars = read_bars(path)      # list[Bar] — fine for one monthly export (~31k bars)
 for bar in iter_bars(path): # generator — constant memory; use on multi-million-row files
     ...
 ```
 
-The reader detects the separator (comma/tab/semicolon) and handles both headerless exports and `<DATE>`-style MT5 headers. `strict=True` (default) raises `BarParseError` on a malformed line; `strict=False` skips it and reports via an `on_skip` callback. It does **no** cleaning, deduping or resampling — that remains `eurusd_local_research_v24_1.py`'s job.
+The reader detects the separator (comma/tab/semicolon) and handles both headerless exports and `<DATE>`-style MT5 headers. `strict=True` (default) raises `BarParseError` on a malformed line; `strict=False` skips it and reports via an `on_skip` callback. `detect_layout(path)` reports which fields an export carries without parsing it.
+
+Everything after parsing is `domain/` — the loading half of `eurusd_local_research_v24_1.py`, extracted so tooling and future stages stop re-implementing it:
+
+```python
+from domain.frames import read_frame, resample_ohlc
+from domain.dataset import build_clean_dataset
+
+m5 = resample_ohlc(read_frame("data/eurusd/1min/EURUSD_2020_01.csv"), "5min")
+
+dataset = build_clean_dataset("data/eurusd/1min", progress=print)  # all 84 exports
+dataset.frame, dataset.stats, dataset.errors, dataset.duplicates_removed
+```
+
+`build_clean_dataset` returns data and never prints or writes — reporting belongs to the caller. `rebuild_clean_m5.py` is that caller:
+
+```bash
+python3 rebuild_clean_m5.py --folder data/eurusd/1min --out clean_m5_output
+```
+
+It writes the clean CSV plus a `data_quality.txt`. Point `--out` at a scratch directory unless you deliberately mean to regenerate the committed `research_output_v24_1/`. v24.1 keeps its own copy of the loader and is still the script of record for what produced that directory.
 
 ```bash
 python3 show_m1_csv.py                       # first 20 bars of data/eurusd/1min/EURUSD_2020_01.csv
@@ -81,7 +109,7 @@ python3 show_m1_csv.py --all | less
 python3 show_m1_csv.py path/to/export.csv --decimals 3
 ```
 
-`ports/` is a regular package (both levels have `__init__.py`), and `show_m1_csv.py` must stay at the repo root for the `ports.*` import to resolve from any working directory.
+`ports/`, `ports/data_file_access/` and `domain/` are regular packages (each has an `__init__.py`), and the two CLIs must stay at the repo root for `ports.*` / `domain.*` to resolve from any working directory.
 
 ## Methodology invariants
 
@@ -107,5 +135,6 @@ Two ports of that exact rule set exist and **must stay in sync with each other a
 - `eurusd_local_research_v24.py` and the ad-hoc `combine_csv.py` / `convert_m1_to_m5.py` are **superseded** by `v24_1`, which handles headerless MT5 exports, mixed separators, and skips previously-generated combined files. Use v24.1. (`convert_m1_to_m5.py` also mislabels its input as M1 while reading an M5 filename.)
 - `v26` stored absolute minute-of-day in `minutes_after_london`; `v26_1` fixes it to be relative to London open. Any timing conclusion must come from **v26.1 or later**.
 - `narrow_asia_v26_output/` is retained only as the record of the buggy pass.
+- `rebuild_clean_m5.py` does **not** reproduce `research_output_v24_1/EURUSD_M5_CLEAN_2020_2026.csv` byte-for-byte, in two known ways. (1) `tick_volume` is written as `31`, not `31.0` — pandas 3.0.5 keeps the summed column integral where the pandas that built the stored file promoted it to float; running v24.1 itself today shows the same drift, so it is a pandas-version artifact, not a port bug. (2) **12 rows differ**, all at month-boundary midnights. v24.1 sorted with the default non-stable quicksort before `drop_duplicates(keep="last")`, so when a month export's stray trailing bar, the next month's file and the yearly `*_all.csv` all claimed one timestamp, the surviving row was arbitrary — the stored dataset kept 1-to-5-tick fragments there (e.g. `2021-06-01 00:00` has `tick_volume` 1 instead of 19). The extracted loader sorts `kind="stable"`, so "last file wins" is what actually happens. Values are otherwise identical across all 485,160 rows.
 - The committed `*_output/` files have **CRLF** line endings; a re-run on Linux writes LF, so a plain `diff` reports every line as changed. Use `diff --strip-trailing-cr` when checking whether a re-run reproduces a stored result. (Verified 2026-08-24: pandas 3.0.5 reproduces all of `behavior_atlas_v25_output/` byte-for-byte modulo line endings.)
 - `/data/` and `__pycache__/` are gitignored; the `*_output/` directories are intended to be tracked.

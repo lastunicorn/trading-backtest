@@ -1,6 +1,6 @@
 """Print a raw MT5 export to the console.
 
-Utility, not a research stage: reads via ports.data_file_import and displays --
+Utility, not a research stage: reads via ports.data_file_access and displays --
 no cleaning, no resampling, nothing written to disk. Use it to eyeball what an
 export actually contains before feeding it to eurusd_local_research_v24_1.py.
 
@@ -17,7 +17,7 @@ import os
 import sys
 from collections import deque
 
-from ports.data_file_import import BarParseError, iter_bars
+from ports.data_file_access import BarParseError, iter_bars
 
 DEFAULT_FILE = os.path.join("data", "eurusd", "1min", "EURUSD_2020_01.csv")
 
