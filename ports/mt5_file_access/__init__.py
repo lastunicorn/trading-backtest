@@ -5,10 +5,10 @@ or resampled. Everything downstream of that is `domain/`.
 
 Re-exported so callers can use the short form:
 
-    from ports.data_file_access import read_bars, iter_bars, Bar
+    from ports.mt5_file_access import read_bars, iter_bars, Bar
 """
 
-from ports.data_file_access.mt5_reader import (
+from ports.mt5_file_access.mt5_reader import (
     Bar,
     BarParseError,
     detect_layout,

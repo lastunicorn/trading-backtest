@@ -140,7 +140,7 @@ def resample_m5(df):
 
 def select_sources(folder):
     files=[]
-    for f in sorted(folder.glob("*.csv")):
+    for f in sorted(folder.glob("data/eurusd/1min/*.csv")):
         low=f.name.lower()
         if any(part.lower() in low for part in SKIP_NAME_PARTS):
             continue

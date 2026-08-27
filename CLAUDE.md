@@ -59,7 +59,7 @@ Session-window flags exist on every script (`--asia-start`, `--asia-end`, `--lon
 
 ## Tooling outside the pipeline
 
-`ports/`, `domain/`, `show_m1_csv.py` and `rebuild_clean_m5.py` are **not** research stages. They are shared code: reading raw data, and building the clean dataset the pipeline consumes. They are versionless and freely editable — the immutability rule applies only to `eurusd_*_vNN.py`.
+`ports/`, `domain/`, `show_m1_csv.py`, `rebuild_clean_m5.py` and `resample_m1_to_m5.py` are **not** research stages. They are shared code: reading raw data, and building the clean dataset the pipeline consumes. They are versionless and freely editable — the immutability rule applies only to `eurusd_*_vNN.py`.
 
 The split between the two packages is the point of the layout:
 
@@ -67,15 +67,16 @@ The split between the two packages is the point of the layout:
 - **`domain/`** knows *what the data should look like*: how bars collapse into a coarser timeframe, which of two rows claiming the same timestamp wins, what counts as a raw source file, what a quality report must account for. This is where pandas lives.
 
 ```
-ports/data_file_access/mt5_reader.py   MT5 CSV → typed `Bar` objects (dt, OHLC, volumes, spread)  [stdlib]
+ports/mt5_file_access/mt5_reader.py    MT5 CSV → typed `Bar` objects (dt, OHLC, volumes, spread)  [stdlib]
 domain/frames.py                       Bars → pandas frame; dedupe; resample to a coarser timeframe
 domain/dataset.py                      folder of exports → one clean, deduplicated dataset
 show_m1_csv.py                         CLI that prints an export as an aligned table
 rebuild_clean_m5.py                    CLI that rebuilds the clean M5 dataset (stage 0)
+resample_m1_to_m5.py                   CLI that only resamples M1 -> M5 into one CSV
 ```
 
 ```python
-from ports.data_file_access import read_bars, iter_bars   # short form (re-exported)
+from ports.mt5_file_access import read_bars, iter_bars   # short form (re-exported)
 
 bars = read_bars(path)      # list[Bar] — fine for one monthly export (~31k bars)
 for bar in iter_bars(path): # generator — constant memory; use on multi-million-row files
@@ -107,6 +108,15 @@ It writes the clean CSV plus a `data_quality.txt`. Point `--out` at a scratch di
 
 `eurusd_local_research_v24_2.py` is the research-stage counterpart: the *same* v24.1 study — stage-0 build plus the range/delay/stop/reward grid — with the private loader deleted in favour of `build_clean_dataset()`. Its grid half is carried over unchanged and reproduces v24.1's `range_grid.csv` and `session_report.txt` byte-for-byte on identical input (verified on a two-month subset). What it adds: unparsable source lines are counted in the quality report instead of vanishing, sorting is stable (see the `rebuild_clean_m5.py` gotcha below), `--out` is a free-standing path rather than a fixed directory inside `--folder`, and `--clean-csv` skips the rebuild to study an existing clean M5 file. Prefer v24.2 for new stage-0 runs; v24.1 stays untouched as the provenance of `research_output_v24_1/`.
 
+`resample_m1_to_m5.py` is the same build with the reporting dropped — step 1 of `eurusd_local_research_v24_2.py` (read M1, resample, save) and nothing else. It writes one CSV and no quality report, defaulting to `data/eurusd/1min/` in and `data/eurusd/5min/EURUSD.csv` out, overwriting an existing file after printing an `INFO:` line:
+
+```bash
+python3 resample_m1_to_m5.py
+python3 resample_m1_to_m5.py --rule 15min --out data/eurusd/15min/EURUSD.csv
+```
+
+Use it when you just want the dataset somewhere; use `rebuild_clean_m5.py` when you also want the `data_quality.txt` that accounts for skipped files and unparsable lines.
+
 ```bash
 python3 show_m1_csv.py                       # first 20 bars of data/eurusd/1min/EURUSD_2020_01.csv
 python3 show_m1_csv.py --tail --rows 5
@@ -114,7 +124,7 @@ python3 show_m1_csv.py --all | less
 python3 show_m1_csv.py path/to/export.csv --decimals 3
 ```
 
-`ports/`, `ports/data_file_access/` and `domain/` are regular packages (each has an `__init__.py`), and the two CLIs must stay at the repo root for `ports.*` / `domain.*` to resolve from any working directory.
+`ports/`, `ports/mt5_file_access/` and `domain/` are regular packages (each has an `__init__.py`), and the CLIs must stay at the repo root for `ports.*` / `domain.*` to resolve from any working directory.
 
 ## Methodology invariants
 

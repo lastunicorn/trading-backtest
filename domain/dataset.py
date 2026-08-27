@@ -19,11 +19,11 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
-from pathlib import Path
 
 import pandas as pd
 
 from domain.frames import read_frame, resample_ohlc
+from ports.file_system_access import find_files
 
 __all__ = [
     "DEFAULT_SKIP_NAME_PARTS",
@@ -32,7 +32,6 @@ __all__ = [
     "FileStat",
     "LoadError",
     "build_clean_dataset",
-    "select_sources",
     "timeframe_label",
 ]
 
@@ -123,20 +122,6 @@ class CleanDataset:
         return sum(stat.skipped_lines for stat in self.stats)
 
 
-def select_sources(
-    folder,
-    skip_parts: Sequence[str] = DEFAULT_SKIP_NAME_PARTS,
-) -> list[Path]:
-    """The raw exports in `folder`, sorted by name, generated files excluded."""
-    lowered = [part.lower() for part in skip_parts]
-
-    return [
-        path
-        for path in sorted(Path(folder).glob("*.csv"))
-        if not any(part in path.name.lower() for part in lowered)
-    ]
-
-
 def build_clean_dataset(
     folder,
     *,
@@ -154,7 +139,7 @@ def build_clean_dataset(
     progress -- called with one human-readable line per file; pass `print` for a
     CLI, leave it None for library use.
     """
-    files = select_sources(folder, skip_parts)
+    files = find_files(folder, skip_parts=skip_parts)
     say = progress or (lambda _message: None)
     say(f"Found {len(files)} candidate source CSV files.")
 

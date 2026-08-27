@@ -5,7 +5,7 @@ Stage 0 of the pipeline: the loading half of `eurusd_local_research_v24_1.py`,
 run on its own. It reads every raw export in a folder, converts each to M5,
 merges them, drops duplicate timestamps, and writes the canonical CSV plus a
 data-quality report -- the same two outputs v24.1 produced, from the same rules,
-now split between `ports/data_file_access/` (parsing) and `domain/` (processing).
+now split between `ports/mt5_file_access/` (parsing) and `domain/` (processing).
 
     python3 rebuild_clean_m5.py --folder data/eurusd/1min --out research_output_v24_1
 

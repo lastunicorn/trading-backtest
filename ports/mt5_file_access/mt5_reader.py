@@ -4,7 +4,7 @@ Turns an export into typed `Bar` objects so callers never re-implement
 timestamp/price parsing. Pure I/O: no cleaning, no resampling, no strategy
 logic. Stdlib only, so it works without pandas.
 
-    from ports.data_file_access import read_bars, iter_bars
+    from ports.mt5_file_access import read_bars, iter_bars
 
     bars = read_bars("data/eurusd/1min/EURUSD_2020_01.csv")   # list[Bar]
     print(bars[0].dt, bars[0].close)

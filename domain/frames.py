@@ -1,6 +1,6 @@
 """Bars -> DataFrame, and one timeframe -> a coarser one.
 
-The first step out of the port: `ports.data_file_access` hands back `Bar`
+The first step out of the port: `ports.mt5_file_access` hands back `Bar`
 objects, and this module turns them into the table shape the research pipeline
 works in -- ``datetime, open, high, low, close, tick_volume, volume, spread``,
 with the trailing columns present only when the export actually carried them --
@@ -22,13 +22,20 @@ from collections.abc import Callable, Iterable
 
 import pandas as pd
 
-from ports.data_file_access import Bar, detect_layout, iter_bars
+from ports.mt5_file_access import Bar, detect_layout, iter_bars
 
-__all__ = ["FRAME_COLUMNS", "bars_to_frame", "read_frame", "resample_ohlc"]
+__all__ = ["FRAME_COLUMNS", "read_frame", "resample_ohlc", "write_frame"]
 
 # Column order the pipeline's clean CSVs use. `real_volume` is spelled `volume`
 # in the frame, the name the research scripts already read.
-FRAME_COLUMNS = ("open", "high", "low", "close", "tick_volume", "volume", "spread")
+FRAME_COLUMNS = (
+    "open",
+    "high",
+    "low",
+    "close",
+    "tick_volume",
+    "volume", "spread"
+)
 
 # Frame column -> the name the Bar attribute and `detect_layout` both use.
 _BAR_ATTRS = {
@@ -41,7 +48,12 @@ _BAR_ATTRS = {
     "spread": "spread",
 }
 
-OHLC = ["open", "high", "low", "close"]
+OHLC = [
+    "open",
+    "high",
+    "low",
+    "close"
+]
 
 # How each column collapses when bars are merged into a longer timeframe.
 _AGGREGATIONS = {
@@ -55,7 +67,7 @@ _AGGREGATIONS = {
 }
 
 
-def bars_to_frame(
+def _bars_to_frame(
     bars: Iterable[Bar],
     *,
     columns: Iterable[str] | None = None,
@@ -91,7 +103,7 @@ def read_frame(
     layout = detect_layout(path)
     present = {name for name, field in _BAR_ATTRS.items() if field in layout}
 
-    frame = bars_to_frame(
+    frame = _bars_to_frame(
         iter_bars(path, strict=strict, on_skip=on_skip),
         columns=present,
     )
@@ -123,3 +135,8 @@ def resample_ohlc(frame: pd.DataFrame, rule: str = "5min") -> pd.DataFrame:
     resampled = indexed.resample(rule).agg(agg)
 
     return resampled.dropna(subset=OHLC).reset_index()
+
+
+def write_frame(frame: pd.DataFrame, path: str) -> None:
+    """Write a DataFrame to a CSV file."""
+    frame.to_csv(path, index=False)
