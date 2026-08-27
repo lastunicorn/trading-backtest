@@ -67,7 +67,7 @@ def data_quality_report(dataset: CleanDataset, outpath: Path) -> str:
         "=" * 90,
         f"Successful source files: {len(dataset.stats)}",
         f"Failed/skipped source files: {len(dataset.errors)}",
-        f"Duplicate M5 timestamps removed: {dataset.duplicates_removed:,}",
+        f"Duplicate M5 timestamps removed: {dataset.duplicates_removed_count:,}",
         f"Final M5 candles: {len(dataset.frame):,}",
         f"First candle: {dataset.first}",
         f"Last candle: {dataset.last}",
@@ -81,9 +81,9 @@ def data_quality_report(dataset: CleanDataset, outpath: Path) -> str:
     lines += [f"{error.name} | {error.reason}" for error in dataset.errors]
     lines += ["", "SUCCESSFUL FILES", "-" * 90]
     lines += [
-        f"{stat.name} | source {stat.source_rows:,} -> M5 {stat.output_rows:,}"
+        f"{stat.name} | source {stat.source_rows_count:,} -> M5 {stat.output_rows_count:,}"
         f" | {stat.first} -> {stat.last}"
-        + (f" | {stat.skipped_lines:,} lines skipped" if stat.skipped_lines else "")
+        + (f" | {stat.skipped_lines_count:,} lines skipped" if stat.skipped_lines_count else "")
         for stat in dataset.stats
     ]
 
@@ -104,7 +104,7 @@ def build_clean_m5(folder: Path, outdir: Path):
     print(outpath)
     print(f"Candles: {len(dataset.frame):,}")
     print(f"Dates: {dataset.first} -> {dataset.last}")
-    print(f"Duplicates removed: {dataset.duplicates_removed:,}")
+    print(f"Duplicates removed: {dataset.duplicates_removed_count:,}")
 
     if dataset.skipped_lines:
         print(f"Unparsable lines skipped: {dataset.skipped_lines:,}")

@@ -76,11 +76,11 @@ class FileStat:
     """What one source file contributed."""
 
     name: str
-    source_rows: int
-    output_rows: int
+    source_rows_count: int
+    output_rows_count: int
     first: datetime
     last: datetime
-    skipped_lines: int = 0
+    skipped_lines_count: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -102,7 +102,7 @@ class CleanDataset:
     frame: pd.DataFrame
     stats: list[FileStat] = field(default_factory=list)
     errors: list[LoadError] = field(default_factory=list)
-    duplicates_removed: int = 0
+    duplicates_removed_count: int = 0
     rule: str = "5min"
 
     @property
@@ -120,17 +120,26 @@ class CleanDataset:
 
     @property
     def skipped_lines(self) -> int:
-        return sum(stat.skipped_lines for stat in self.stats)
+        return sum(stat.skipped_lines_count for stat in self.stats)
+
+
+def _combine_pieces(pieces: list[pd.DataFrame]) -> pd.DataFrame:
+    combined = pd.concat(pieces, ignore_index=True).sort_values(
+        "datetime", kind="stable"
+    )
+    before = len(combined)
+    combined = combined.drop_duplicates("datetime", keep="last").reset_index(drop=True)
+    return combined, before - len(combined)
 
 
 def build_clean_dataset(
-    folder,
+    input_directory,
     *,
     rule: str = "5min",
     skip_parts: Sequence[str] = DEFAULT_SKIP_NAME_PARTS,
     progress: Progress | None = None,
 ) -> CleanDataset:
-    """Convert every export in `folder` to `rule` bars and merge them.
+    """Convert every csv in `input_directory` to `rule` bars and merge them.
 
     Each file is resampled on its own before the pieces are concatenated, so
     peak memory is one month rather than the whole history. A file that fails to
@@ -140,7 +149,7 @@ def build_clean_dataset(
     progress -- called with one human-readable line per file; pass `print` for a
     CLI, leave it None for library use.
     """
-    files = find_files(folder, skip_parts=skip_parts)
+    files = find_files(input_directory, skip_parts=skip_parts)
     say = progress or (lambda _message: None)
     say(f"Found {len(files)} candidate source CSV files.")
 
@@ -188,10 +197,6 @@ def build_clean_dataset(
         raise RuntimeError("No usable source files. See errors above.")
 
     say("Combining converted pieces...")
-    combined = pd.concat(pieces, ignore_index=True).sort_values(
-        "datetime", kind="stable"
-    )
-    before = len(combined)
-    combined = combined.drop_duplicates("datetime", keep="last").reset_index(drop=True)
+    combined, droppedCount = _combine_pieces(pieces)
 
-    return CleanDataset(combined, stats, errors, before - len(combined), rule)
+    return CleanDataset(combined, stats, errors, droppedCount, rule)

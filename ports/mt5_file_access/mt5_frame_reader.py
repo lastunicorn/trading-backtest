@@ -95,4 +95,6 @@ def read_frame(
 
 def write_frame(frame: pd.DataFrame, path: str) -> None:
     """Write a DataFrame to a CSV file."""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
     frame.to_csv(path, index=False)

@@ -40,7 +40,7 @@ def quality_report(dataset: CleanDataset, outpath: Path) -> str:
         "=" * WIDTH,
         f"Successful source files: {len(dataset.stats)}",
         f"Failed/skipped source files: {len(dataset.errors)}",
-        f"Duplicate {label} timestamps removed: {dataset.duplicates_removed:,}",
+        f"Duplicate {label} timestamps removed: {dataset.duplicates_removed_count:,}",
         f"Final {label} candles: {len(dataset.frame):,}",
         f"First candle: {dataset.first}",
         f"Last candle: {dataset.last}",
@@ -54,9 +54,9 @@ def quality_report(dataset: CleanDataset, outpath: Path) -> str:
     lines += [f"{error.name} | {error.reason}" for error in dataset.errors]
     lines += ["", "SUCCESSFUL FILES", "-" * WIDTH]
     lines += [
-        f"{stat.name} | source {stat.source_rows:,} -> {label} {stat.output_rows:,}"
+        f"{stat.name} | source {stat.source_rows_count:,} -> {label} {stat.output_rows_count:,}"
         f" | {stat.first} -> {stat.last}"
-        + (f" | {stat.skipped_lines:,} lines skipped" if stat.skipped_lines else "")
+        + (f" | {stat.skipped_lines_count:,} lines skipped" if stat.skipped_lines_count else "")
         for stat in dataset.stats
     ]
 
@@ -93,7 +93,7 @@ def main() -> None:
     print(outpath)
     print(f"Candles: {len(dataset.frame):,}")
     print(f"Dates: {dataset.first} -> {dataset.last}")
-    print(f"Duplicates removed: {dataset.duplicates_removed:,}")
+    print(f"Duplicates removed: {dataset.duplicates_removed_count:,}")
 
     if dataset.skipped_lines:
         print(f"Unparsable lines skipped: {dataset.skipped_lines:,}")
