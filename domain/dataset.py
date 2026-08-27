@@ -173,6 +173,6 @@ def build_clean_dataset(
         raise RuntimeError("No usable source files. See errors above.")
 
     say("Combining converted pieces...")
-    combined, droppedCount = _combine_pieces(pieces)
+    combined, dropped_count = _combine_pieces(pieces)
 
-    return CleanDataset(combined, stats, errors, droppedCount, timeframe)
+    return CleanDataset(combined, stats, errors, dropped_count, timeframe)

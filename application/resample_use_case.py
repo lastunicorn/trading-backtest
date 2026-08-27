@@ -10,8 +10,11 @@ exports duplicate, and write the merged frame to `output_path`.
     report = resample("data/eurusd/1min", "data/eurusd/5min/EURUSD.csv", progress=print)
     report.candle_count, report.first_candle_time, report.last_candle_time
 
-Unlike `build_clean_dataset`, this writes the CSV itself (through the mt5 port)
-and returns only the summary numbers a caller reports -- never the frame.
+Two files land next to each other: the merged CSV at `output_path`, and a
+`data_quality.txt` beside it -- the same provenance report `rebuild_clean_m5.py`
+writes (failed files, per-file source->output row counts). Unlike
+`build_clean_dataset`, this does the writing itself (through the mt5 port) and
+returns only the summary numbers a caller reports -- never the frame.
 """
 
 from __future__ import annotations
@@ -31,6 +34,7 @@ __all__ = [
     "ResampleReport",
     "FileStat",
     "LoadError",
+    "format_quality_report",
     "resample",
 ]
 
@@ -38,6 +42,13 @@ __all__ = [
 # case-insensitively on any part of the name. Empty by default: the CLI's
 # source and destination folders differ, so a re-run never sees its own output.
 DEFAULT_SKIP_NAME_PARTS = ()
+
+# Name of the data-quality report, written beside the CSV. Matches the file
+# `rebuild_clean_m5.py` produces.
+REPORT_NAME = "resample_report.txt"
+
+# Column width the report rules use, matching the pipeline's other reports.
+_WIDTH = 90
 
 Progress = Callable[[str], None]
 
@@ -67,12 +78,15 @@ class ResampleReport:
     """The summary of one `resample()` run.
 
     The bars themselves are already written to disk, so this carries only the
-    numbers a caller reports: candle count, span, and per-file provenance.
+    numbers a caller reports -- candle count, span, per-file provenance -- plus
+    the paths of the two files the run produced.
     """
 
     candle_count: int
     first_candle_time: datetime
     last_candle_time: datetime
+    csv_path: Path
+    report_path: Path
     stats: list[FileStat] = field(default_factory=list)
     errors: list[LoadError] = field(default_factory=list)
     duplicates_removed_count: int = 0
@@ -81,6 +95,43 @@ class ResampleReport:
     @property
     def skipped_lines_count(self) -> int:
         return sum(stat.skipped_lines_count for stat in self.stats)
+
+
+def format_quality_report(report: ResampleReport) -> str:
+    """Render `report` as the plain-text data-quality report written to disk.
+
+    Same layout as `rebuild_clean_m5.py`: the headline counts, then the
+    failed/skipped files, then one line per successful source file.
+    """
+    label = report.timeframe
+    lines = [
+        f"CLEAN {label} DATA QUALITY REPORT",
+        "=" * _WIDTH,
+        f"Successful source files: {len(report.stats)}",
+        f"Failed/skipped source files: {len(report.errors)}",
+        f"Duplicate {label} timestamps removed: {report.duplicates_removed_count:,}",
+        f"Final {label} candles: {report.candle_count:,}",
+        f"First candle: {report.first_candle_time}",
+        f"Last candle: {report.last_candle_time}",
+        f"Clean {label} saved at: {report.csv_path}",
+    ]
+
+    if report.skipped_lines_count:
+        lines.append(
+            f"Unparsable source lines skipped: {report.skipped_lines_count:,}"
+        )
+
+    lines += ["", "FAILED/SKIPPED FILES", "-" * _WIDTH]
+    lines += [f"{error.name} | {error.reason}" for error in report.errors]
+    lines += ["", "SUCCESSFUL FILES", "-" * _WIDTH]
+    lines += [
+        f"{stat.name} | source {stat.source_rows_count:,} -> {label} {stat.output_rows_count:,}"
+        f" | {stat.first} -> {stat.last}"
+        + (f" | {stat.skipped_lines_count:,} lines skipped" if stat.skipped_lines_count else "")
+        for stat in report.stats
+    ]
+
+    return "\n".join(lines)
 
 
 def _combine_pieces(pieces: list[pd.DataFrame]) -> tuple[pd.DataFrame, int]:
@@ -93,8 +144,8 @@ def _combine_pieces(pieces: list[pd.DataFrame]) -> tuple[pd.DataFrame, int]:
 
 
 def resample(
-    input_directory,
-    output_path,
+    input_directory_path,
+    output_file_path,
     *,
     timeframe: str = "M5",
     skip_parts: Sequence[str] = DEFAULT_SKIP_NAME_PARTS,
@@ -108,16 +159,19 @@ def resample(
     parse is recorded in `errors` and skipped -- one bad export never aborts the
     build. Where two files cover the same timestamp the later-sorted one wins.
 
-    The merged frame is written to `output_path` through the mt5 port; the
-    returned `ResampleReport` carries only the summary numbers, not the bars.
+    The merged frame is written to `output_path` through the mt5 port, and a
+    `data_quality.txt` is written beside it (see `format_quality_report`). The
+    returned `ResampleReport` carries the summary numbers and both paths, not
+    the bars.
 
     progress -- called with one human-readable line per file; pass `print` for a
     CLI, leave it None for silent use.
     """
 
-    output_path = Path(output_path)
+    output_file_path = Path(output_file_path)
+    report_path = output_file_path.with_name(REPORT_NAME)
 
-    files = find_files(input_directory, skip_parts=skip_parts)
+    files = find_files(input_directory_path, skip_parts=skip_parts)
     say = progress or (lambda _message: None)
     say(f"Found {len(files)} candidate source CSV files.")
 
@@ -167,14 +221,21 @@ def resample(
     say("Combining converted pieces...")
     combined, dropped_count = _combine_pieces(pieces)
 
-    write_frame(combined, output_path)
+    write_frame(combined, output_file_path)
 
-    return ResampleReport(
+    report = ResampleReport(
         candle_count=len(combined),
         first_candle_time=combined["datetime"].min(),
         last_candle_time=combined["datetime"].max(),
+        csv_path=output_file_path,
+        report_path=report_path,
         stats=stats,
         errors=errors,
         duplicates_removed_count=dropped_count,
         timeframe=timeframe,
     )
+
+    report_path.write_text(format_quality_report(report), encoding="utf-8")
+    say(f"Wrote data-quality report: {report_path}")
+
+    return report

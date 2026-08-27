@@ -9,16 +9,16 @@ absent; this script produces a dataset, not a finding.
 
     python3 resample_m1_to_m5.py
 
-By default that reads `data/eurusd/1min/` and writes `data/eurusd/5min/EURUSD.csv`,
-overwriting the file if it is already there (and saying so). Both ends and the
-timeframe are overridable:
+By default that reads `data/eurusd/1min/` and writes `data/eurusd/5min/EURUSD.csv`
+plus a `data_quality.txt` beside it, overwriting the files if they are already
+there (and saying so). Both ends and the timeframe are overridable:
 
     python3 resample_m1_to_m5.py --folder data/eurusd/1min --out data/eurusd/5min/EURUSD.csv
     python3 resample_m1_to_m5.py --timeframe M15 --out data/eurusd/15min/EURUSD.csv
 
-This is tooling, not a research stage: it is versionless and editable. For the
-canonical dataset the pipeline consumes, see `rebuild_clean_m5.py`, which writes
-the same CSV plus a data-quality report.
+This is tooling, not a research stage: it is versionless and editable. It writes
+the same two outputs as `rebuild_clean_m5.py`; that script differs only in taking
+an output directory (plus `--name`) rather than a single file path.
 
 Requires pandas (see requirements.txt); activate .venv first.
 """
@@ -40,7 +40,7 @@ WIDTH = 90
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     
-    parser.add_argument("--folder",
+    parser.add_argument("--in",
         default=DEFAULT_FOLDER,
         help="folder of raw MT5 M1 exports")
     
@@ -60,26 +60,26 @@ def main() -> None:
     args = _parse_args()
 
     folder = Path(args.folder).resolve()
-    outpath = Path(args.out).resolve()
+    output_file_path = Path(args.out).resolve()
     destination_timeframe = args.timeframe
 
     print("=" * WIDTH)
     print(f"EURUSD M1 -> {destination_timeframe} RESAMPLER")
     print("=" * WIDTH)
     print("Source folder:", folder)
-    print("Destination:  ", outpath)
+    print("Destination:  ", output_file_path)
 
-    if outpath.exists():
-        print(f"INFO: {outpath} already exists and will be overwritten.")
+    if output_file_path.exists():
+        print(f"INFO: {output_file_path} already exists and will be overwritten.")
 
     # Build the clean dataset from the raw M1 exports.
 
-    report = resample(folder, output_path=outpath, timeframe=destination_timeframe, progress=print)
+    report = resample(folder, output_file_path=output_file_path, timeframe=destination_timeframe, progress=print)
 
     # Print summary of the resampling process.
 
     print(f"\nClean {destination_timeframe} written:")
-    print(outpath)
+    print(output_file_path)
     print(f"Candles: {report.candle_count:,}")
     print(f"Dates: {report.first_candle_time} -> {report.last_candle_time}")
     print(f"Source files: {len(report.stats)} used, {len(report.errors)} skipped")
@@ -89,6 +89,7 @@ def main() -> None:
         print(f"Unparsable lines skipped: {report.skipped_lines_count:,}")
 
     print("\nDONE.")
+    print("Report:", report.report_path)
 
 
 if __name__ == "__main__":
