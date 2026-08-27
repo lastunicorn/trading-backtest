@@ -11,7 +11,7 @@ Re-exported so callers can use the short form:
 """
 
 from ports.mt5_file_access.mt5_frame_reader import read_frame, write_frame
-from ports.mt5_file_access.mt5_reader import (
+from ports.mt5_file_access.mt5_bar_reader import (
     Bar,
     BarParseError,
     detect_layout,

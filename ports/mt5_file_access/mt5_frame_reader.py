@@ -4,7 +4,7 @@ from collections.abc import Callable, Iterable
 
 import pandas as pd
 
-from ports.mt5_file_access.mt5_reader import Bar, detect_layout, iter_bars
+from ports.mt5_file_access.mt5_bar_reader import Bar, detect_layout, iter_bars
 
 __all__ = ["FRAME_COLUMNS", "read_frame", "resample_ohlc", "write_frame"]
 
