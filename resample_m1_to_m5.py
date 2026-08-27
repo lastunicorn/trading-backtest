@@ -28,8 +28,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from domain.dataset import build_clean_dataset
-from ports.mt5_file_access import write_frame
+from domain.resample_use_case import resample
 
 DEFAULT_FOLDER = "data/eurusd/1min"
 DEFAULT_OUT = "data/eurusd/5min/EURUSD.csv"
@@ -62,10 +61,10 @@ def main() -> None:
 
     folder = Path(args.folder).resolve()
     outpath = Path(args.out).resolve()
-    label = args.timeframe
+    destination_timeframe = args.timeframe
 
     print("=" * WIDTH)
-    print(f"EURUSD M1 -> {label} RESAMPLER")
+    print(f"EURUSD M1 -> {destination_timeframe} RESAMPLER")
     print("=" * WIDTH)
     print("Source folder:", folder)
     print("Destination:  ", outpath)
@@ -75,23 +74,19 @@ def main() -> None:
 
     # Build the clean dataset from the raw M1 exports.
 
-    dataset = build_clean_dataset(folder, timeframe=args.timeframe, progress=print)
-
-    # Write the resampled dataset to CSV.
-
-    write_frame(dataset.frame, outpath)
+    report = resample(folder, output_path=outpath, timeframe=destination_timeframe, progress=print)
 
     # Print summary of the resampling process.
 
-    print(f"\nClean {label} written:")
+    print(f"\nClean {destination_timeframe} written:")
     print(outpath)
-    print(f"Candles: {len(dataset.frame):,}")
-    print(f"Dates: {dataset.first} -> {dataset.last}")
-    print(f"Source files: {len(dataset.stats)} used, {len(dataset.errors)} skipped")
-    print(f"Duplicates removed: {dataset.duplicates_removed_count:,}")
+    print(f"Candles: {report.candle_count:,}")
+    print(f"Dates: {report.first_candle_time} -> {report.last_candle_time}")
+    print(f"Source files: {len(report.stats)} used, {len(report.errors)} skipped")
+    print(f"Duplicates removed: {report.duplicates_removed_count:,}")
 
-    if dataset.skipped_lines:
-        print(f"Unparsable lines skipped: {dataset.skipped_lines:,}")
+    if report.skipped_lines_count:
+        print(f"Unparsable lines skipped: {report.skipped_lines_count:,}")
 
     print("\nDONE.")
 
