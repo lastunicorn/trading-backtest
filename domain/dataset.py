@@ -22,8 +22,9 @@ from datetime import datetime
 
 import pandas as pd
 
-from domain.frames import read_frame, resample_ohlc
+from domain.frames import resample_ohlc
 from ports.file_system_access import find_files
+from ports.mt5_file_access import read_frame
 
 __all__ = [
     "DEFAULT_SKIP_NAME_PARTS",
@@ -157,6 +158,14 @@ def build_clean_dataset(
 
         try:
             source = read_frame(path, strict=False, on_skip=count_skip)
+            # The port only parses -- sorting and same-file dedup are this
+            # module's decision, so they happen here rather than in the port.
+            if not source.empty:
+                source = (
+                    source.sort_values("datetime", kind="stable")
+                    .drop_duplicates("datetime", keep="last")
+                    .reset_index(drop=True)
+                )
             bars = resample_ohlc(source, rule)
         except Exception as exc:  # a bad file must not abort the whole build
             say(f"    ERROR: {exc}")

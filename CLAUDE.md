@@ -8,6 +8,13 @@ A quantitative research log for **one** EURUSD intraday strategy ("Candle DNA �
 
 **Do not edit a completed vNN script to change its findings.** New analysis goes in a new version file (the established convention: `v26` → `v26_1` for a bugfix pass, `v27` → `v28` for a new question). The committed `*_output/` directories are the record of what each script produced; regenerating them changes history, so only do it deliberately.
 
+## Reviewing requests
+
+Before implementing a request as literally stated, check it against good practice, and say so if a better approach exists rather than silently building the literal ask. "Good" means:
+
+- Easy for a human to read, easy to maintain long-term, easy to debug and extend.
+- Leaves a seam where a future need is genuinely likely — a parameter, a hook, a clear boundary — without building the extension itself. A small amount of extra effort here is worth it; building the unrequested feature is not.
+
 ## Pipeline (strictly sequential)
 
 ```
@@ -63,16 +70,17 @@ Session-window flags exist on every script (`--asia-start`, `--asia-end`, `--lon
 
 The split between the two packages is the point of the layout:
 
-- **`ports/`** knows *file formats*. A port parses one record into one `Bar` and stops — no cleaning, no deduplication, no resampling. **Stdlib-only** (no pandas, no numpy), so it runs in any sandbox as-is.
+- **`ports/`** knows *file formats*. A port parses records and stops — no cleaning, no deduplication, no resampling, whether it hands back `Bar` objects or a DataFrame. Most ports are **stdlib-only** (no pandas, no numpy), so they run in any sandbox as-is; `mt5_file_access.mt5_frame_reader` is the deliberate exception, using pandas to build the DataFrame directly instead of going through `Bar` + `domain/frames.py`.
 - **`domain/`** knows *what the data should look like*: how bars collapse into a coarser timeframe, which of two rows claiming the same timestamp wins, what counts as a raw source file, what a quality report must account for. This is where pandas lives.
 
 ```
-ports/mt5_file_access/mt5_reader.py    MT5 CSV → typed `Bar` objects (dt, OHLC, volumes, spread)  [stdlib]
-domain/frames.py                       Bars → pandas frame; dedupe; resample to a coarser timeframe
-domain/dataset.py                      folder of exports → one clean, deduplicated dataset
-show_m1_csv.py                         CLI that prints an export as an aligned table
-rebuild_clean_m5.py                    CLI that rebuilds the clean M5 dataset (stage 0)
-resample_m1_to_m5.py                   CLI that only resamples M1 -> M5 into one CSV
+ports/mt5_file_access/mt5_reader.py       MT5 CSV → typed `Bar` objects (dt, OHLC, volumes, spread)  [stdlib]
+ports/mt5_file_access/mt5_frame_reader.py MT5 CSV → pandas frame directly, same fields                [pandas]
+domain/frames.py                          resample a frame to a coarser timeframe
+domain/dataset.py                         folder of exports → one clean, deduplicated dataset
+show_m1_csv.py                            CLI that prints an export as an aligned table
+rebuild_clean_m5.py                       CLI that rebuilds the clean M5 dataset (stage 0)
+resample_m1_to_m5.py                      CLI that only resamples M1 -> M5 into one CSV
 ```
 
 ```python
@@ -88,7 +96,8 @@ The reader detects the separator (comma/tab/semicolon) and handles both headerle
 Everything after parsing is `domain/` — the loading half of `eurusd_local_research_v24_1.py`, extracted so tooling and future stages stop re-implementing it:
 
 ```python
-from domain.frames import read_frame, resample_ohlc
+from ports.mt5_file_access import read_frame
+from domain.frames import resample_ohlc
 from domain.dataset import build_clean_dataset
 
 m5 = resample_ohlc(read_frame("data/eurusd/1min/EURUSD_2020_01.csv"), "5min")
