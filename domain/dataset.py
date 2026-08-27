@@ -28,12 +28,10 @@ from ports.mt5_file_access import read_frame
 
 __all__ = [
     "DEFAULT_SKIP_NAME_PARTS",
-    "TIMEFRAME_LABELS",
     "CleanDataset",
     "FileStat",
     "LoadError",
     "build_clean_dataset",
-    "timeframe_label",
 ]
 
 # Filename fragments that mark a file as something this loader produced (or an
@@ -50,25 +48,7 @@ DEFAULT_SKIP_NAME_PARTS = (
     "v24_",
 )
 
-# Broker-facing name for a pandas resample rule. A rule the table does not
-# cover is shown as itself, so an unusual timeframe still reads sensibly.
-TIMEFRAME_LABELS = {
-    "1min": "M1",
-    "5min": "M5",
-    "15min": "M15",
-    "30min": "M30",
-    "1h": "H1",
-}
-
 Progress = Callable[[str], None]
-
-
-def timeframe_label(rule: str) -> str:
-    """Name a resample rule the way a broker does: "5min" -> "M5".
-
-    Module-level for callers that need the label before a dataset exists.
-    """
-    return TIMEFRAME_LABELS.get(rule, rule)
 
 
 @dataclass(frozen=True, slots=True)
@@ -95,20 +75,16 @@ class LoadError:
 class CleanDataset:
     """The combined result, plus the numbers a data-quality report needs.
 
-    Carries the `rule` it was built on so a caller writing a report does not
-    have to keep the timeframe alongside the dataset it describes.
+    Carries the `timeframe` it was built on (a broker label like "M5") so a
+    caller writing a report does not have to keep it alongside the dataset it
+    describes.
     """
 
     frame: pd.DataFrame
     stats: list[FileStat] = field(default_factory=list)
     errors: list[LoadError] = field(default_factory=list)
     duplicates_removed_count: int = 0
-    rule: str = "5min"
-
-    @property
-    def label(self) -> str:
-        """The timeframe these bars are on, named the way a broker names it."""
-        return timeframe_label(self.rule)
+    timeframe: str = "M5"
 
     @property
     def first(self) -> datetime:
@@ -135,11 +111,11 @@ def _combine_pieces(pieces: list[pd.DataFrame]) -> pd.DataFrame:
 def build_clean_dataset(
     input_directory,
     *,
-    rule: str = "5min",
+    timeframe: str = "M5",
     skip_parts: Sequence[str] = DEFAULT_SKIP_NAME_PARTS,
     progress: Progress | None = None,
 ) -> CleanDataset:
-    """Convert every csv in `input_directory` to `rule` bars and merge them.
+    """Convert every csv in `input_directory` to `timeframe` bars and merge them.
 
     Each file is resampled on its own before the pieces are concatenated, so
     peak memory is one month rather than the whole history. A file that fails to
@@ -175,7 +151,7 @@ def build_clean_dataset(
                     .drop_duplicates("datetime", keep="last")
                     .reset_index(drop=True)
                 )
-            bars = resample_ohlc(source, rule)
+            bars = resample_ohlc(source, timeframe)
         except Exception as exc:  # a bad file must not abort the whole build
             say(f"    ERROR: {exc}")
             errors.append(LoadError(path.name, str(exc)))
@@ -199,4 +175,4 @@ def build_clean_dataset(
     say("Combining converted pieces...")
     combined, droppedCount = _combine_pieces(pieces)
 
-    return CleanDataset(combined, stats, errors, droppedCount, rule)
+    return CleanDataset(combined, stats, errors, droppedCount, timeframe)

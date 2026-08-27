@@ -22,7 +22,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from domain.dataset import CleanDataset, build_clean_dataset, timeframe_label
+from domain.dataset import CleanDataset, build_clean_dataset
 
 DEFAULT_FOLDER = "data/eurusd/1min"
 DEFAULT_OUTDIR = "clean_m5_output"
@@ -34,7 +34,7 @@ WIDTH = 90
 
 
 def quality_report(dataset: CleanDataset, outpath: Path) -> str:
-    label = dataset.label
+    label = dataset.timeframe
     lines = [
         f"CLEAN {label} DATA QUALITY REPORT",
         "=" * WIDTH,
@@ -68,20 +68,20 @@ def main() -> None:
     parser.add_argument("--folder", default=DEFAULT_FOLDER, help="folder of raw MT5 exports")
     parser.add_argument("--out", default=DEFAULT_OUTDIR, help="directory to write into")
     parser.add_argument("--name", default=DEFAULT_NAME, help="filename for the clean CSV")
-    parser.add_argument("--rule", default="5min", help="pandas resample rule, e.g. 5min")
+    parser.add_argument("--timeframe", default="M5", help="broker timeframe label, e.g. M5")
     args = parser.parse_args()
 
     folder = Path(args.folder).resolve()
     outdir = Path(args.out).resolve()
     outdir.mkdir(parents=True, exist_ok=True)
 
-    label = timeframe_label(args.rule)
+    label = args.timeframe
     print("=" * WIDTH)
     print(f"CLEAN {label} DATASET BUILDER")
     print("=" * WIDTH)
     print("Source folder:", folder)
 
-    dataset = build_clean_dataset(folder, rule=args.rule, progress=print)
+    dataset = build_clean_dataset(folder, timeframe=args.timeframe, progress=print)
 
     outpath = outdir / args.name
     dataset.frame.to_csv(outpath, index=False)

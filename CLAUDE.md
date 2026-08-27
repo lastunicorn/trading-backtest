@@ -100,11 +100,11 @@ from ports.mt5_file_access import read_frame
 from domain.frames import resample_ohlc
 from domain.dataset import build_clean_dataset
 
-m5 = resample_ohlc(read_frame("data/eurusd/1min/EURUSD_2020_01.csv"), "5min")
+m5 = resample_ohlc(read_frame("data/eurusd/1min/EURUSD_2020_01.csv"), "M5")
 
 dataset = build_clean_dataset("data/eurusd/1min", progress=print)  # all 84 exports
 dataset.frame, dataset.stats, dataset.errors, dataset.duplicates_removed
-dataset.rule, dataset.label      # "5min" / "M5" — a report never has to be told the timeframe
+dataset.timeframe                # "M5" — a report never has to be told the timeframe
 ```
 
 `build_clean_dataset` returns data and never prints or writes — reporting belongs to the caller. `rebuild_clean_m5.py` is that caller:
@@ -121,7 +121,7 @@ It writes the clean CSV plus a `data_quality.txt`. Point `--out` at a scratch di
 
 ```bash
 python3 resample_m1_to_m5.py
-python3 resample_m1_to_m5.py --rule 15min --out data/eurusd/15min/EURUSD.csv
+python3 resample_m1_to_m5.py --timeframe M15 --out data/eurusd/15min/EURUSD.csv
 ```
 
 Use it when you just want the dataset somewhere; use `rebuild_clean_m5.py` when you also want the `data_quality.txt` that accounts for skipped files and unparsable lines.

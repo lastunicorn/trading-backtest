@@ -92,7 +92,7 @@ def data_quality_report(dataset: CleanDataset, outpath: Path) -> str:
 
 def build_clean_m5(folder: Path, outdir: Path):
     """Stage 0: folder of raw M1 exports -> the clean M5 CSV + quality report."""
-    dataset = build_clean_dataset(folder, rule="5min", progress=print)
+    dataset = build_clean_dataset(folder, timeframe="M5", progress=print)
 
     outpath = outdir / M5_NAME
     dataset.frame.to_csv(outpath, index=False)

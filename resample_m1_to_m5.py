@@ -14,7 +14,7 @@ overwriting the file if it is already there (and saying so). Both ends and the
 timeframe are overridable:
 
     python3 resample_m1_to_m5.py --folder data/eurusd/1min --out data/eurusd/5min/EURUSD.csv
-    python3 resample_m1_to_m5.py --rule 15min --out data/eurusd/15min/EURUSD.csv
+    python3 resample_m1_to_m5.py --timeframe M15 --out data/eurusd/15min/EURUSD.csv
 
 This is tooling, not a research stage: it is versionless and editable. For the
 canonical dataset the pipeline consumes, see `rebuild_clean_m5.py`, which writes
@@ -28,12 +28,12 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from domain.dataset import build_clean_dataset, timeframe_label
+from domain.dataset import build_clean_dataset
 from ports.mt5_file_access import write_frame
 
 DEFAULT_FOLDER = "data/eurusd/1min"
 DEFAULT_OUT = "data/eurusd/5min/EURUSD.csv"
-DEFAULT_RULE = "5min"
+DEFAULT_TIMEFRAME = "M5"
 
 # 90-column rules, matching the reports the pipeline scripts print.
 WIDTH = 90
@@ -49,9 +49,9 @@ def _parse_args() -> argparse.Namespace:
         default=DEFAULT_OUT,
         help="path of the CSV to write (overwritten if it exists)")
     
-    parser.add_argument("--rule",
-        default=DEFAULT_RULE,
-        help="pandas resample rule, e.g. 5min")
+    parser.add_argument("--timeframe",
+        default=DEFAULT_TIMEFRAME,
+        help="broker timeframe label, e.g. M5")
     
     return parser.parse_args()
 
@@ -62,7 +62,7 @@ def main() -> None:
 
     folder = Path(args.folder).resolve()
     outpath = Path(args.out).resolve()
-    label = timeframe_label(args.rule)
+    label = args.timeframe
 
     print("=" * WIDTH)
     print(f"EURUSD M1 -> {label} RESAMPLER")
@@ -75,7 +75,7 @@ def main() -> None:
 
     # Build the clean dataset from the raw M1 exports.
 
-    dataset = build_clean_dataset(folder, rule=args.rule, progress=print)
+    dataset = build_clean_dataset(folder, timeframe=args.timeframe, progress=print)
 
     # Write the resampled dataset to CSV.
 
