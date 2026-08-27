@@ -5,7 +5,7 @@ it instead of re-implementing it: pick the source files, resample each export on
 its own, concatenate, drop the timestamps that overlapping monthly/yearly
 exports duplicate, and write the merged frame to `output_path`.
 
-    from domain.resample_use_case import resample
+    from application.resample_use_case import resample
 
     report = resample("data/eurusd/1min", "data/eurusd/5min/EURUSD.csv", progress=print)
     report.candle_count, report.first_candle_time, report.last_candle_time

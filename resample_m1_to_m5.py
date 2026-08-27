@@ -28,7 +28,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from domain.resample_use_case import resample
+from application.resample_use_case import resample
 
 DEFAULT_FOLDER = "data/eurusd/1min"
 DEFAULT_OUT = "data/eurusd/5min/EURUSD.csv"

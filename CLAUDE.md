@@ -66,18 +66,20 @@ Session-window flags exist on every script (`--asia-start`, `--asia-end`, `--lon
 
 ## Tooling outside the pipeline
 
-`ports/`, `domain/`, `show_m1_csv.py`, `rebuild_clean_m5.py` and `resample_m1_to_m5.py` are **not** research stages. They are shared code: reading raw data, and building the clean dataset the pipeline consumes. They are versionless and freely editable — the immutability rule applies only to `eurusd_*_vNN.py`.
+`ports/`, `domain/`, `application/`, `show_m1_csv.py`, `rebuild_clean_m5.py` and `resample_m1_to_m5.py` are **not** research stages. They are shared code: reading raw data, and building the clean dataset the pipeline consumes. They are versionless and freely editable — the immutability rule applies only to `eurusd_*_vNN.py`.
 
-The split between the two packages is the point of the layout:
+The split between the packages is the point of the layout:
 
 - **`ports/`** knows *file formats*. A port parses records and stops — no cleaning, no deduplication, no resampling, whether it hands back `Bar` objects or a DataFrame. Most ports are **stdlib-only** (no pandas, no numpy), so they run in any sandbox as-is; `mt5_file_access.mt5_frame_reader` is the deliberate exception, using pandas to build the DataFrame directly instead of going through `Bar` + `domain/frames.py`.
-- **`domain/`** knows *what the data should look like*: how bars collapse into a coarser timeframe, which of two rows claiming the same timestamp wins, what counts as a raw source file, what a quality report must account for. This is where pandas lives.
+- **`domain/`** knows *what the data should look like*: how bars collapse into a coarser timeframe, which of two rows claiming the same timestamp wins, what counts as a raw source file, what a quality report must account for. This is where pandas lives. It never reads or writes files.
+- **`application/`** wires `ports/` and `domain/` into a whole task: read the raw exports, resample and merge, write the result, return the numbers a CLI prints. The I/O that `domain/` refuses lives here.
 
 ```
 ports/mt5_file_access/mt5_reader.py       MT5 CSV → typed `Bar` objects (dt, OHLC, volumes, spread)  [stdlib]
 ports/mt5_file_access/mt5_frame_reader.py MT5 CSV → pandas frame directly, same fields                [pandas]
 domain/frames.py                          resample a frame to a coarser timeframe
 domain/dataset.py                         folder of exports → one clean, deduplicated dataset
+application/resample_use_case.py          folder of M1 exports → merged CSV on a coarser grid + report
 show_m1_csv.py                            CLI that prints an export as an aligned table
 rebuild_clean_m5.py                       CLI that rebuilds the clean M5 dataset (stage 0)
 resample_m1_to_m5.py                      CLI that only resamples M1 -> M5 into one CSV
@@ -133,7 +135,7 @@ python3 show_m1_csv.py --all | less
 python3 show_m1_csv.py path/to/export.csv --decimals 3
 ```
 
-`ports/`, `ports/mt5_file_access/` and `domain/` are regular packages (each has an `__init__.py`), and the CLIs must stay at the repo root for `ports.*` / `domain.*` to resolve from any working directory.
+`ports/`, `ports/mt5_file_access/`, `domain/` and `application/` are regular packages (each has an `__init__.py`), and the CLIs must stay at the repo root for `ports.*` / `domain.*` / `application.*` to resolve from any working directory.
 
 ## Methodology invariants
 
