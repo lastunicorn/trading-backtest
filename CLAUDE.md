@@ -119,12 +119,12 @@ It writes the clean CSV plus a `data_quality.txt`. Point `--out` at a scratch di
 
 `eurusd_local_research_v24_2.py` is the research-stage counterpart: the *same* v24.1 study — stage-0 build plus the range/delay/stop/reward grid — with the private loader deleted in favour of `build_clean_dataset()`. Its grid half is carried over unchanged and reproduces v24.1's `range_grid.csv` and `session_report.txt` byte-for-byte on identical input (verified on a two-month subset). What it adds: unparsable source lines are counted in the quality report instead of vanishing, sorting is stable (see the `rebuild_clean_m5.py` gotcha below), `--out` is a free-standing path rather than a fixed directory inside `--folder`, and `--clean-csv` skips the rebuild to study an existing clean M5 file. Prefer v24.2 for new stage-0 runs; v24.1 stays untouched as the provenance of `research_output_v24_1/`.
 
-`resample_m1_to_m5.py` runs the same stage-0 build through `application/resample_use_case.py` instead of `build_clean_dataset()`. It writes the same two outputs as `rebuild_clean_m5.py` — the clean CSV and a `data_quality.txt` beside it — defaulting to `data/eurusd/1min/` in and `data/eurusd/5min/EURUSD.csv` out, overwriting an existing file after printing an `INFO:` line. `--source` accepts either a folder of raw exports or a single csv file:
+`resample_m1_to_m5.py` runs the same stage-0 build through `application/resample_use_case.py` instead of `build_clean_dataset()`. It writes the same two outputs as `rebuild_clean_m5.py` — the clean CSV and a `data_quality.txt` beside it — overwriting an existing file after printing an `INFO:` line. `--source`, `--destination` and `--timeframe` are all required (no defaults); `--source` accepts either a folder of raw exports or a single csv file:
 
 ```bash
-python3 resample_m1_to_m5.py
-python3 resample_m1_to_m5.py --timeframe M15 --destination data/eurusd/15min/EURUSD.csv
-python3 resample_m1_to_m5.py --source data/eurusd/1min/EURUSD_2020_01.csv --destination scratch/jan.csv
+python3 resample_m1_to_m5.py --source data/eurusd/1min --destination data/eurusd/5min/EURUSD.csv --timeframe M5
+python3 resample_m1_to_m5.py --source data/eurusd/1min --destination data/eurusd/15min/EURUSD.csv --timeframe M15
+python3 resample_m1_to_m5.py --source data/eurusd/1min/EURUSD_2020_01.csv --destination scratch/jan.csv --timeframe M5
 ```
 
 The two scripts now differ only in shape: `resample_m1_to_m5.py` takes a single output **file path** (`--destination`), `rebuild_clean_m5.py` takes an output **directory** (`--out`) plus `--name`, and only `rebuild_clean_m5.py` skips previously-generated files via `DEFAULT_SKIP_NAME_PARTS`. The report text is identical; `rebuild_clean_m5.py` still formats its own copy from a `CleanDataset` rather than calling `application.resample_use_case.format_quality_report`.
