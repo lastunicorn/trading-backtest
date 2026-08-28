@@ -96,7 +96,7 @@ else:
     print("Columns found:")
     print(list(combined.columns))
 
-combined = combined.drop(columns=["SOURCE_FILE"])
+combined = combined.drop(columns=["SOURCE_FILEreport"])
 
 combined.to_csv(
     "EURUSD_M5_2020_2026.csv",

@@ -28,7 +28,15 @@ from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from datetime import date as _date, datetime, time as _time
 
-__all__ = ["Bar", "BarParseError", "detect_layout", "iter_bars", "read_bars"]
+__all__ = [
+    "Bar",
+    "BarParseError",
+    "SourceLayout",
+    "detect_layout",
+    "iter_bars",
+    "read_bars",
+    "sniff_layout",
+]
 
 DELIMITERS = (",", "\t", ";")
 
@@ -109,6 +117,23 @@ class Bar:
         return self.close > self.open
 
 
+@dataclass(frozen=True, slots=True)
+class SourceLayout:
+    """What an export's first row reveals, without parsing the rest.
+
+    `columns` maps canonical field name -> column index (exactly the old
+    `detect_layout` return). `has_header` says whether the first row is a header
+    a reader must not treat as data; `field_count` is how many columns that row
+    split into. Enough for a bulk reader (`mt5_frame_reader.read_frame`) to hand
+    the file straight to a parser without sniffing it a second time.
+    """
+
+    delimiter: str
+    columns: dict[str, int]
+    has_header: bool
+    field_count: int
+
+
 def _detect_delimiter(sample: str) -> str:
     """Pick the delimiter that splits the sample line into the most fields."""
     best = ","
@@ -180,18 +205,18 @@ def _layout_for_row(fields: list[str]) -> tuple[dict[str, int], bool]:
     return _positional_layout(len(fields)), False
 
 
-def detect_layout(path: str) -> dict[str, int]:
-    """Map field name -> column index for `path`, without parsing any bars.
+def sniff_layout(path: str) -> SourceLayout | None:
+    """Inspect the first non-empty row of `path`; None for an empty file.
 
-    Tells a caller which fields the export actually carries: a 7-column MT5 M1
-    file yields date/time/OHLC/tick_volume and no spread or real_volume. Returns
-    an empty dict for an empty file.
+    One cheap read decides everything a bulk parser needs: the delimiter,
+    whether row 1 is a header, and which column each field sits in. `detect_layout`
+    is this with only the column map kept.
     """
     with open(path, newline="", encoding="utf-8-sig", errors="replace") as handle:
         first_line = handle.readline()
 
         if not first_line:
-            return {}
+            return None
 
         delimiter = _detect_delimiter(first_line)
         handle.seek(0)
@@ -200,10 +225,21 @@ def detect_layout(path: str) -> dict[str, int]:
             if not fields or not any(field.strip() for field in fields):
                 continue
 
-            layout, _ = _layout_for_row(fields)
-            return layout
+            layout, row_is_header = _layout_for_row(fields)
+            return SourceLayout(delimiter, layout, row_is_header, len(fields))
 
-    return {}
+    return None
+
+
+def detect_layout(path: str) -> dict[str, int]:
+    """Map field name -> column index for `path`, without parsing any bars.
+
+    Tells a caller which fields the export actually carries: a 7-column MT5 M1
+    file yields date/time/OHLC/tick_volume and no spread or real_volume. Returns
+    an empty dict for an empty file.
+    """
+    found = sniff_layout(path)
+    return found.columns if found is not None else {}
 
 
 def _parse_datetime(date_text: str, time_text: str) -> datetime:

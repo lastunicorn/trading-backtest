@@ -14,17 +14,21 @@ from ports.mt5_file_access.mt5_frame_reader import read_frame, write_frame
 from ports.mt5_file_access.mt5_bar_reader import (
     Bar,
     BarParseError,
+    SourceLayout,
     detect_layout,
     iter_bars,
     read_bars,
+    sniff_layout,
 )
 
 __all__ = [
     "Bar",
     "BarParseError",
+    "SourceLayout",
     "detect_layout",
     "iter_bars",
     "read_bars",
     "read_frame",
+    "sniff_layout",
     "write_frame",
 ]
