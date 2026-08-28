@@ -4,10 +4,10 @@ Utility, not a research stage: reads via ports.mt5_file_access and displays --
 no cleaning, no resampling, nothing written to disk. Use it to eyeball what an
 export actually contains before feeding it to eurusd_local_research_v24_1.py.
 
-    python3 show_mt5_csv.py                       # first 20 bars of Jan 2020
-    python3 show_mt5_csv.py --tail --rows 5
-    python3 show_mt5_csv.py --all | less
-    python3 show_mt5_csv.py path/to/other.csv
+    python3 show_csv.py data/eurusd/1min/EURUSD_2020_01.csv        # first 20 bars
+    python3 show_csv.py data/eurusd/1min/EURUSD_2020_01.csv --tail --rows 5
+    python3 show_csv.py data/eurusd/1min/EURUSD_2020_01.csv --all | less
+    python3 show_csv.py path/to/other.csv
 
 Stdlib only (pandas is not used).
 """
@@ -19,8 +19,6 @@ from collections import deque
 
 from ports.mt5_file_access import BarParseError, iter_bars
 
-DEFAULT_FILE = os.path.join("data", "eurusd", "1min", "EURUSD_2020_01.csv")
-
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -29,9 +27,7 @@ def parse_args():
 
     parser.add_argument(
         "file",
-        nargs="?",
-        default=DEFAULT_FILE,
-        help=f"CSV to display (default: {DEFAULT_FILE})",
+        help="CSV to display.",
     )
 
     parser.add_argument(
