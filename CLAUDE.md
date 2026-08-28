@@ -70,15 +70,16 @@ Session-window flags exist on every script (`--asia-start`, `--asia-end`, `--lon
 
 The split between the packages is the point of the layout:
 
-- **`ports/`** knows *file formats*. A port parses records and stops — no cleaning, no deduplication, no resampling, whether it hands back `Bar` objects or a DataFrame. Most ports are **stdlib-only** (no pandas, no numpy), so they run in any sandbox as-is; `mt5_file_access.mt5_frame_reader` is the deliberate exception, using pandas to build the DataFrame directly instead of going through `Bar` + `domain/frames.py`.
-- **`domain/`** knows *what the data should look like*: how bars collapse into a coarser timeframe, which of two rows claiming the same timestamp wins, what counts as a raw source file, what a quality report must account for. This is where pandas lives. It never reads or writes files.
+- **`ports/`** knows *file formats*. A port parses records and stops — no cleaning, no deduplication, no resampling, whether it hands back `Bar` objects or a DataFrame. Most ports are **stdlib-only** (no pandas, no numpy), so they run in any sandbox as-is; `mt5_file_access.mt5_frame_reader` is the deliberate exception, using pandas to build the DataFrame directly. `Bar` itself is a `domain/` entity (`domain/bar.py`) — the MT5 port parses files into it but does not own it.
+- **`domain/`** knows *what the data means*: what one OHLC candle is (`bar.Bar`), how bars collapse into a coarser timeframe (`frames.resample_ohlc`), which of two rows claiming the same timestamp wins. `domain/frames.py` is where pandas lives; `domain/bar.py` is stdlib-only, which is what lets `ports/` depend on it. `domain/` never reads or writes files, and never imports `ports/` or `application/`.
 - **`application/`** wires `ports/` and `domain/` into a whole task: read the raw exports, resample and merge, write the result, return the numbers a CLI prints. The I/O that `domain/` refuses lives here.
 
 ```
 ports/mt5_file_access/mt5_reader.py       MT5 CSV → typed `Bar` objects (dt, OHLC, volumes, spread)  [stdlib]
 ports/mt5_file_access/mt5_frame_reader.py MT5 CSV → pandas frame directly, same fields                [pandas]
+domain/bar.py                             the `Bar` entity — one OHLC candle (dt, OHLC, volumes, spread)  [stdlib]
 domain/frames.py                          resample a frame to a coarser timeframe
-domain/dataset.py                         folder of exports → one clean, deduplicated dataset
+application/build_clean_dataset_use_case.py  folder of exports → one clean, deduplicated dataset (in memory)
 application/resample_use_case.py          folder of M1 exports → merged CSV on a coarser grid + report
 show_m1_csv.py                            CLI that prints an export as an aligned table
 rebuild_clean_m5.py                       CLI that rebuilds the clean M5 dataset (stage 0)
@@ -95,12 +96,12 @@ for bar in iter_bars(path): # generator — constant memory; use on multi-millio
 
 The reader detects the separator (comma/tab/semicolon) and handles both headerless exports and `<DATE>`-style MT5 headers. `strict=True` (default) raises `BarParseError` on a malformed line; `strict=False` skips it and reports via an `on_skip` callback. `detect_layout(path)` reports which fields an export carries without parsing it.
 
-Everything after parsing is `domain/` — the loading half of `eurusd_local_research_v24_1.py`, extracted so tooling and future stages stop re-implementing it:
+Everything after parsing is `domain/` (concepts) and `application/` (use cases) — the loading half of `eurusd_local_research_v24_1.py`, extracted so tooling and future stages stop re-implementing it:
 
 ```python
 from ports.mt5_file_access import read_frame
 from domain.frames import resample_ohlc
-from domain.dataset import build_clean_dataset
+from application.build_clean_dataset_use_case import build_clean_dataset
 
 m5 = resample_ohlc(read_frame("data/eurusd/1min/EURUSD_2020_01.csv"), "M5")
 

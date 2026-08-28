@@ -1,17 +1,19 @@
-"""Build one clean dataset out of a folder of MT5 exports.
+"""Build one clean dataset out of a folder of MT5 exports, in memory.
 
-The loading half of `eurusd_local_research_v24_1.py`, lifted out so tooling and
-future research stages share it instead of re-implementing it: pick the source
-files, convert each M1 export to M5 on its own, concatenate, and drop the
-timestamps that overlapping monthly/yearly exports duplicate.
+The use case that turns raw exports into the frame the research pipeline runs
+on: pick the source files, resample each M1 export to the target timeframe on
+its own, concatenate, and drop the timestamps that overlapping monthly/yearly
+exports duplicate.
 
-    from domain.dataset import build_clean_dataset
+    from application.build_clean_dataset_use_case import build_clean_dataset
 
     dataset = build_clean_dataset("data/eurusd/1min", progress=print)
     dataset.frame.to_csv("EURUSD_M5_CLEAN_2020_2026.csv", index=False)
 
-It returns data and never prints or writes: reporting is the caller's job, which
-is what makes the same function usable from a CLI, a notebook and a test.
+Unlike `resample_use_case.resample`, this does no file I/O of its own -- it
+returns the frame plus the counters a data-quality report needs and leaves
+writing (and reporting) to the caller, which is what makes it equally usable
+from a CLI, a notebook and a test.
 """
 
 from __future__ import annotations

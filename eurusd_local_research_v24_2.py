@@ -39,7 +39,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from domain.dataset import CleanDataset, build_clean_dataset
+from application.build_clean_dataset_use_case import CleanDataset, build_clean_dataset
 
 warnings.filterwarnings("ignore")
 

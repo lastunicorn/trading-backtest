@@ -1,8 +1,9 @@
 """Reader for raw MT5 CSV exports.
 
-Turns an export into typed `Bar` objects so callers never re-implement
-timestamp/price parsing. Pure I/O: no cleaning, no resampling, no strategy
-logic. Stdlib only, so it works without pandas.
+Parses an export into `Bar` objects (the domain entity, `domain.bar.Bar`) so
+callers never re-implement timestamp/price parsing. Pure I/O: no cleaning, no
+resampling, no strategy logic. This module's own code is stdlib only -- its one
+non-stdlib dependency is the pandas-free `domain.bar`.
 
     from ports.mt5_file_access import read_bars, iter_bars
 
@@ -26,10 +27,12 @@ import csv
 import os
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
-from datetime import date as _date, datetime, time as _time
+from datetime import datetime
+
+from domain.bar import Bar
 
 __all__ = [
-    "Bar",
+    "Bar",  # re-exported for convenience; canonical import is `from domain.bar import Bar`
     "BarParseError",
     "SourceLayout",
     "detect_layout",
@@ -84,37 +87,6 @@ class BarParseError(ValueError):
         location = f"{os.path.basename(path)}:{line_no}"
         detail = f"  |  {line.strip()[:80]}" if line else ""
         super().__init__(f"{location}: {reason}{detail}")
-
-
-@dataclass(frozen=True, slots=True)
-class Bar:
-    """One OHLC candle. Immutable, and cheap enough to hold a month of them."""
-
-    dt: datetime
-    open: float
-    high: float
-    low: float
-    close: float
-    tick_volume: int = 0
-    real_volume: int = 0
-    spread: int | None = None
-
-    @property
-    def date(self) -> _date:
-        return self.dt.date()
-
-    @property
-    def time(self) -> _time:
-        return self.dt.time()
-
-    @property
-    def range(self) -> float:
-        """High-low, in price units."""
-        return self.high - self.low
-
-    @property
-    def is_bullish(self) -> bool:
-        return self.close > self.open
 
 
 @dataclass(frozen=True, slots=True)
