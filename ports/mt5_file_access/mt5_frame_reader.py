@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
+from pathlib import Path
 
 import pandas as pd
 
@@ -93,8 +94,21 @@ def read_frame(
     )
 
 
-def write_frame(frame: pd.DataFrame, path: str) -> None:
-    """Write a DataFrame to a CSV file."""
+def write_frame(frame: pd.DataFrame, path: str | Path) -> None:
+    """Write a DataFrame to a CSV file in MT5 export shape.
+
+    The single `datetime` column is split into two: `date` formatted
+    `YYYY.MM.DD` and `time` formatted `HH:MM` (no seconds -- the grid is
+    minute-aligned). Every other column is written unchanged, in order, after
+    them. This is the inverse of `read_frame`: the two columns and their formats
+    are exactly what its `%Y.%m.%d %H:%M` parse reads back.
+    """
+    path = Path(path)
+
+    stamps = pd.to_datetime(frame["datetime"])
+    out = frame.drop(columns="datetime")
+    out.insert(0, "time", stamps.dt.strftime("%H:%M"))
+    out.insert(0, "date", stamps.dt.strftime("%Y.%m.%d"))
 
     path.parent.mkdir(parents=True, exist_ok=True)
-    frame.to_csv(path, index=False)
+    out.to_csv(path, index=False)

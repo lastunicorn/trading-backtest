@@ -127,7 +127,7 @@ python3 resample_m1_to_m5.py --source data/eurusd/1min --destination data/eurusd
 python3 resample_m1_to_m5.py --source data/eurusd/1min/EURUSD_2020_01.csv --destination scratch/jan.csv --timeframe M5
 ```
 
-The two scripts now differ only in shape: `resample_m1_to_m5.py` takes a single output **file path** (`--destination`), `rebuild_clean_m5.py` takes an output **directory** (`--out`) plus `--name`, and only `rebuild_clean_m5.py` skips previously-generated files via `DEFAULT_SKIP_NAME_PARTS`. The report text is identical; `rebuild_clean_m5.py` still formats its own copy from a `CleanDataset` rather than calling `application.resample_use_case.format_quality_report`.
+The two scripts now differ only in shape: `resample_m1_to_m5.py` takes a single output **file path** (`--destination`) — or a directory, in which case it writes `output_<timeframe>.csv` inside it — `rebuild_clean_m5.py` takes an output **directory** (`--out`) plus `--name`, and only `rebuild_clean_m5.py` skips previously-generated files via `DEFAULT_SKIP_NAME_PARTS`. The report text is identical; `rebuild_clean_m5.py` still formats its own copy from a `CleanDataset` rather than calling `application.resample_use_case.format_quality_report`.
 
 ```bash
 python3 show_m1_csv.py                       # first 20 bars of data/eurusd/1min/EURUSD_2020_01.csv

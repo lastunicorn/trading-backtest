@@ -11,9 +11,10 @@ absent; this script produces a dataset, not a finding.
         --destination data/eurusd/5min/EURUSD.csv --timeframe M5
 
 `--source`, `--destination` and `--timeframe` are all required -- there are no
-defaults. `--source` is either a folder of raw MT5 exports or a single csv file;
-`--destination` is the CSV to write, with a `data_quality.txt` beside it,
-overwritten if it already exists (and saying so).
+defaults. `--source` is either a folder of raw MT5 exports or a single csv file.
+`--destination` is the CSV to write, with a `resample_report.txt` beside it,
+overwritten if it already exists (and saying so); if it points at an existing
+directory, the CSV is written inside it as `output_<timeframe>.csv`.
 
     python3 resample_m1_to_m5.py --source data/eurusd/1min/EURUSD_2020_01.csv \
         --destination scratch/jan.csv --timeframe M5
@@ -47,7 +48,8 @@ def _parse_args() -> argparse.Namespace:
 
     parser.add_argument("--destination",
         required=True,
-        help="path of the CSV to write (overwritten if it exists)")
+        help="CSV to write (overwritten if it exists); a directory means "
+             "output_<timeframe>.csv inside it")
 
     parser.add_argument("--timeframe",
         required=True,
@@ -61,23 +63,23 @@ def main() -> None:
     args = _parse_args()
 
     source_path = Path(args.source).resolve()
-    output_file_path = Path(args.destination).resolve()
+    destination = Path(args.destination).resolve()
     destination_timeframe = args.timeframe
 
     print("=" * WIDTH)
     print(f"EURUSD M1 -> {destination_timeframe} RESAMPLER")
     print("=" * WIDTH)
     print("Source:      ", source_path, "(file)" if source_path.is_file() else "(folder)")
-    print("Destination: ", output_file_path)
+    print("Destination: ", destination)
 
     # Resample the source M1 data to the desired timeframe and write the output.
     
-    report = resample(source_path, output_file_path=output_file_path, timeframe=destination_timeframe, progress=print)
+    report = resample(source_path, destination_path=destination, timeframe=destination_timeframe, progress=print)
 
     # Print summary of the resampling process.
 
     print(f"\nClean {destination_timeframe} written:")
-    print(output_file_path)
+    print(report.destination_file_path)
     print(f"Candles: {report.candle_count:,}")
     print(f"Dates: {report.first_candle_time} -> {report.last_candle_time}")
     print(f"Source files: {len(report.stats)} used, {len(report.errors)} skipped")
