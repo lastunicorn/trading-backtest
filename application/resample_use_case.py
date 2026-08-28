@@ -12,10 +12,11 @@ exports duplicate, and write the merged frame to `destination_path`.
     report.candle_count, report.first_candle_time, report.last_candle_time
 
 Two files land next to each other: the merged CSV at `destination_path`, and a
-`resample_report.txt` beside it -- the same provenance report `rebuild_clean_m5.py`
-writes (failed files, per-file source->output row counts). Unlike
-`build_clean_dataset`, this does the writing itself (through the mt5 port) and
-returns only the summary numbers a caller reports -- never the frame.
+provenance report beside it, named for the CSV -- `output_M5.csv` yields
+`output_M5.report.txt` -- listing failed files and per-file source->output row
+counts. Unlike `build_clean_dataset`, this does the writing itself (through the
+mt5 port) and returns only the summary numbers a caller reports -- never the
+frame.
 """
 
 from __future__ import annotations
@@ -44,9 +45,9 @@ __all__ = [
 # source and destination folders differ, so a re-run never sees its own output.
 DEFAULT_SKIP_NAME_PARTS = ()
 
-# Name of the data-quality report, written beside the CSV. Matches the file
-# `rebuild_clean_m5.py` produces.
-REPORT_NAME = "resample_report.txt"
+# The data-quality report is written beside the CSV, sharing its name with the
+# extension swapped for this: `output_M5.csv` -> `output_M5.report.txt`.
+REPORT_SUFFIX = ".report.txt"
 
 # CSV filename used when the caller's destination is a directory rather than a
 # file path -- `output_M5.csv`, `output_M15.csv`, ... keyed by timeframe.
@@ -169,10 +170,10 @@ def resample(
     parse is recorded in `errors` and skipped -- one bad export never aborts the
     build. Where two files cover the same timestamp the later-sorted one wins.
 
-    The merged frame is written through the mt5 port, and a `resample_report.txt`
-    (`REPORT_NAME`) is written beside it (see `format_quality_report`). The
-    returned `ResampleReport` carries the summary numbers and both paths, not
-    the bars.
+    The merged frame is written through the mt5 port, and a data-quality report
+    named for it (`REPORT_SUFFIX`: `output_M5.csv` -> `output_M5.report.txt`) is
+    written beside it (see `format_quality_report`). The returned
+    `ResampleReport` carries the summary numbers and both paths, not the bars.
 
     progress -- called with one human-readable line per file; pass `print` for a
     CLI, leave it None for silent use.
@@ -190,7 +191,7 @@ def resample(
     if output_file_path.exists():
         say(f"INFO: {output_file_path} already exists and will be overwritten.")
 
-    report_path = output_file_path.with_name(REPORT_NAME)
+    report_path = output_file_path.with_suffix(REPORT_SUFFIX)
 
     files = find_files(source_path, skip_parts=skip_parts)
 

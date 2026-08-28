@@ -12,8 +12,8 @@ absent; this script produces a dataset, not a finding.
 
 `--source`, `--destination` and `--timeframe` are all required -- there are no
 defaults. `--source` is either a folder of raw MT5 exports or a single csv file.
-`--destination` is the CSV to write, with a `resample_report.txt` beside it,
-overwritten if it already exists (and saying so); if it points at an existing
+`--destination` is the CSV to write, with a matching `<name>.report.txt` beside
+it, overwritten if it already exists (and saying so); if it points at an existing
 directory, the CSV is written inside it as `output_<timeframe>.csv`.
 
     python3 resample_m1_to_m5.py --source data/eurusd/1min/EURUSD_2020_01.csv \
