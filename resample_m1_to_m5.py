@@ -11,10 +11,12 @@ absent; this script produces a dataset, not a finding.
 
 By default that reads `data/eurusd/1min/` and writes `data/eurusd/5min/EURUSD.csv`
 plus a `data_quality.txt` beside it, overwriting the files if they are already
-there (and saying so). Both ends and the timeframe are overridable:
+there (and saying so). `--source` also accepts a single csv file, in which case
+only that file is processed. Both ends and the timeframe are overridable:
 
-    python3 resample_m1_to_m5.py --folder data/eurusd/1min --out data/eurusd/5min/EURUSD.csv
-    python3 resample_m1_to_m5.py --timeframe M15 --out data/eurusd/15min/EURUSD.csv
+    python3 resample_m1_to_m5.py --source data/eurusd/1min --destination data/eurusd/5min/EURUSD.csv
+    python3 resample_m1_to_m5.py --source data/eurusd/1min/EURUSD_2020_01.csv --destination scratch/jan.csv
+    python3 resample_m1_to_m5.py --timeframe M15 --destination data/eurusd/15min/EURUSD.csv
 
 This is tooling, not a research stage: it is versionless and editable. It writes
 the same two outputs as `rebuild_clean_m5.py`; that script differs only in taking
@@ -30,8 +32,8 @@ from pathlib import Path
 
 from application.resample_use_case import resample
 
-DEFAULT_FOLDER = "data/eurusd/1min"
-DEFAULT_OUT = "data/eurusd/5min/EURUSD.csv"
+DEFAULT_SOURCE = "data/eurusd/1min"
+DEFAULT_DESTINATION = "data/eurusd/5min/EURUSD.csv"
 DEFAULT_TIMEFRAME = "M5"
 
 # 90-column rules, matching the reports the pipeline scripts print.
@@ -40,12 +42,13 @@ WIDTH = 90
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     
-    parser.add_argument("--in",
-        default=DEFAULT_FOLDER,
-        help="folder of raw MT5 M1 exports")
-    
-    parser.add_argument("--out",
-        default=DEFAULT_OUT,
+    parser.add_argument("--source",
+        default=DEFAULT_SOURCE,
+        metavar="PATH",
+        help="folder of raw MT5 M1 exports, or a single csv file")
+
+    parser.add_argument("--destination",
+        default=DEFAULT_DESTINATION,
         help="path of the CSV to write (overwritten if it exists)")
     
     parser.add_argument("--timeframe",
@@ -59,22 +62,19 @@ def main() -> None:
 
     args = _parse_args()
 
-    folder = Path(args.folder).resolve()
-    output_file_path = Path(args.out).resolve()
+    source_path = Path(args.source).resolve()
+    output_file_path = Path(args.destination).resolve()
     destination_timeframe = args.timeframe
 
     print("=" * WIDTH)
     print(f"EURUSD M1 -> {destination_timeframe} RESAMPLER")
     print("=" * WIDTH)
-    print("Source folder:", folder)
-    print("Destination:  ", output_file_path)
+    print("Source:      ", source_path, "(file)" if source_path.is_file() else "(folder)")
+    print("Destination: ", output_file_path)
 
-    if output_file_path.exists():
-        print(f"INFO: {output_file_path} already exists and will be overwritten.")
-
-    # Build the clean dataset from the raw M1 exports.
-
-    report = resample(folder, output_file_path=output_file_path, timeframe=destination_timeframe, progress=print)
+    # Resample the source M1 data to the desired timeframe and write the output.
+    
+    report = resample(source_path, output_file_path=output_file_path, timeframe=destination_timeframe, progress=print)
 
     # Print summary of the resampling process.
 

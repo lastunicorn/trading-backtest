@@ -32,14 +32,10 @@ __all__ = ["Bar", "BarParseError", "detect_layout", "iter_bars", "read_bars"]
 
 DELIMITERS = (",", "\t", ";")
 
-DATETIME_FORMATS = (
-    "%Y.%m.%d %H:%M:%S",
-    "%Y.%m.%d %H:%M",
-    "%Y-%m-%d %H:%M:%S",
-    "%Y-%m-%d %H:%M",
-    "%Y/%m/%d %H:%M:%S",
-    "%Y/%m/%d %H:%M",
-)
+# Every export under data/eurusd/ uses this one shape: `2020.01.02,00:00`.
+# A file in any other layout fails the parse -- skipped when strict=False,
+# raised otherwise -- rather than being silently reinterpreted.
+DATETIME_FORMAT = "%Y.%m.%d %H:%M"
 
 # Canonical field name -> the header spellings that map onto it.
 HEADER_ALIASES = {
@@ -62,8 +58,7 @@ POSITIONAL_LAYOUTS = {
     6: ("date", "time", "open", "high", "low", "close"),
     7: ("date", "time", "open", "high", "low", "close", "tick_volume"),
     8: ("date", "time", "open", "high", "low", "close", "tick_volume", "spread"),
-    9: ("date", "time", "open", "high", "low", "close", "tick_volume",
-        "real_volume", "spread"),
+    9: ("date", "time", "open", "high", "low", "close", "tick_volume", "real_volume", "spread"),
 }
 
 REQUIRED_FIELDS = ("date", "time", "open", "high", "low", "close")
@@ -214,13 +209,10 @@ def detect_layout(path: str) -> dict[str, int]:
 def _parse_datetime(date_text: str, time_text: str) -> datetime:
     stamp = f"{date_text.strip()} {time_text.strip()}"
 
-    for fmt in DATETIME_FORMATS:
-        try:
-            return datetime.strptime(stamp, fmt)
-        except ValueError:
-            continue
-
-    raise ValueError(f"unrecognized timestamp {stamp!r}")
+    try:
+        return datetime.strptime(stamp, DATETIME_FORMAT)
+    except ValueError:
+        raise ValueError(f"unrecognized timestamp {stamp!r}") from None
 
 
 def _to_int(text: str) -> int:
