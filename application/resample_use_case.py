@@ -1,5 +1,5 @@
-"""Resample raw MT5 M1 exports -- a whole folder, or one file -- into one clean
-CSV on a coarser grid.
+"""Resample raw MT5 M1 exports -- a whole folder, or one M1 csv file -- into one
+clean CSV on a coarser grid. The source data must always be M1.
 
 The M1->M5 build extracted from the pipeline so tooling and future stages share
 it instead of re-implementing it: pick the source files, resample each export on
@@ -157,13 +157,13 @@ def resample(
     skip_parts: Sequence[str] = DEFAULT_SKIP_NAME_PARTS,
     progress: Progress | None = None,
 ) -> ResampleReport:
-    """Resample the source csv(s) to `timeframe` bars, merge them, and write the
-    result to `destination_path`.
+    """Resample the source M1 csv(s) to `timeframe` bars, merge them, and write
+    the result to `destination_path`.
 
-    `source_path` is either a folder of raw exports or a single csv file (see
-    `find_files`). `destination_path` is the csv to write; if it points at an
-    existing directory, the csv is written inside it under `DEFAULT_CSV_NAME`
-    (`output_<timeframe>.csv`).
+    `source_path` is either a folder of raw M1 exports or a single M1 csv file
+    (see `find_files`) -- the source data must always be M1. `destination_path`
+    is the csv to write; if it points at an existing directory, the csv is
+    written inside it under `DEFAULT_CSV_NAME` (`output_<timeframe>.csv`).
 
     Each file is resampled on its own before the pieces are concatenated, so
     peak memory is one month rather than the whole history. A file that fails to

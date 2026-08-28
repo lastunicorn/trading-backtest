@@ -11,7 +11,8 @@ absent; this script produces a dataset, not a finding.
         --destination data/eurusd/5min/EURUSD.csv --timeframe M5
 
 `--source`, `--destination` and `--timeframe` are all required -- there are no
-defaults. `--source` is either a folder of raw MT5 exports or a single csv file.
+defaults. `--source` is either a folder of raw MT5 M1 exports or a single csv
+file of M1 bars -- the source data must always be M1.
 `--destination` is the CSV to write, with a matching `<name>.report.txt` beside
 it, overwritten if it already exists (and saying so); if it points at an existing
 directory, the CSV is written inside it as `output_<timeframe>.csv`.
@@ -44,7 +45,8 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--source",
         required=True,
         metavar="PATH",
-        help="folder of raw MT5 M1 exports, or a single csv file")
+        help="folder of raw MT5 M1 exports, or a single csv file of M1 bars "
+             "(the source data must always be M1)")
 
     parser.add_argument("--destination",
         required=True,
@@ -63,18 +65,18 @@ def main() -> None:
     args = _parse_args()
 
     source_path = Path(args.source).resolve()
-    destination = Path(args.destination).resolve()
+    destination_path = Path(args.destination).resolve()
     destination_timeframe = args.timeframe
 
     print("=" * WIDTH)
     print(f"EURUSD M1 -> {destination_timeframe} RESAMPLER")
     print("=" * WIDTH)
     print("Source:      ", source_path, "(file)" if source_path.is_file() else "(folder)")
-    print("Destination: ", destination)
+    print("Destination: ", destination_path)
 
     # Resample the source M1 data to the desired timeframe and write the output.
     
-    report = resample(source_path, destination_path=destination, timeframe=destination_timeframe, progress=print)
+    report = resample(source_path, destination_path=destination_path, timeframe=destination_timeframe, progress=print)
 
     # Print summary of the resampling process.
 
