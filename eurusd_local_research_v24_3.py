@@ -40,15 +40,11 @@ import numpy as np
 import pandas as pd
 
 from application.build_clean_dataset_use_case import CleanDataset, build_clean_dataset
-from show_csv import parse_args
 
 warnings.filterwarnings("ignore")
 
 PIP = 0.0001
 COST_PIPS = 1.7
-DEFAULT_FOLDER = "data/eurusd/5min"
-OUTDIR_NAME = "research_output_v24_3"
-M5_NAME = "EURUSD_M5_CLEAN_2020_2026.csv"
 
 RANGE_MINUTES = [30, 45, 60, 75, 90, 120]
 ENTRY_DELAYS = [0, 5, 10, 15, 30]
@@ -89,34 +85,6 @@ def data_quality_report(dataset: CleanDataset, outpath: Path) -> str:
     ]
 
     return "\n".join(lines)
-
-
-def build_clean_m5(folder: Path, outdir: Path):
-    """Stage 0 (already-M5 input): merge + dedup the M5 export(s) in `folder`.
-
-    `timeframe="M5"` is passed explicitly: the files are already on the M5 grid,
-    so the resample step inside `build_clean_dataset` is an identity op and this
-    call is being used only for source selection, cross-file dedup and the
-    data-quality counters.
-    """
-    dataset = build_clean_dataset(folder, timeframe="M5", progress=print)
-
-    outpath = outdir / M5_NAME
-    dataset.frame.to_csv(outpath, index=False)
-    (outdir / "v24_3_data_quality.txt").write_text(
-        data_quality_report(dataset, outpath), encoding="utf-8"
-    )
-
-    print("\nClean M5 created:")
-    print(outpath)
-    print(f"Candles: {len(dataset.frame):,}")
-    print(f"Dates: {dataset.first} -> {dataset.last}")
-    print(f"Duplicates removed: {dataset.duplicates_removed_count:,}")
-
-    if dataset.skipped_lines:
-        print(f"Unparsable lines skipped: {dataset.skipped_lines:,}")
-
-    return dataset.frame
 
 
 # ---------------------------------------------------------------------------
@@ -315,19 +283,14 @@ def parse_args():
     ap = argparse.ArgumentParser()
 
     ap.add_argument(
-        "--folder",
-        default=DEFAULT_FOLDER,
-        help="folder holding the pre-built M5 export(s)")
-
-    ap.add_argument(
         "--out",
-        default=OUTDIR_NAME,
+        default="output/research_output_v24_3",
         help="directory to write into")
 
     ap.add_argument(
         "--clean-csv",
-        default=None,
-        help="study this existing clean M5 CSV instead of rebuilding one")
+        default="data/eurusd/5min/EURUSD_M5.csv",
+        help="study this existing clean M5 CSV")
 
     ap.add_argument(
         "--session-open",
@@ -360,20 +323,16 @@ def main():
     if args.clean_csv:
         clean = Path(args.clean_csv).resolve()
         print("Clean M5 source:", clean)
-        m5 = pd.read_csv(clean)
+        #m5 = pd.read_csv(clean)
+        dataset = build_clean_dataset(clean, progress=print)
+        m5 = dataset.frame
         print(f"Candles: {len(m5):,}")
-    else:
-        folder = Path(args.folder).resolve()
-        print("Source folder:", folder)
-        m5 = build_clean_m5(folder, outdir)
 
     run_grid(m5, oh, om, ch, cm, outdir)
 
     print("\nDONE.")
     print("Open:", outdir)
     print("Read these text files:")
-    if not args.clean_csv:
-        print("  v24_3_data_quality.txt")
     print("  v24_3_session_report.txt")
 
 
