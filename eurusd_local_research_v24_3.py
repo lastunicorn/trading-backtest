@@ -40,6 +40,7 @@ import numpy as np
 import pandas as pd
 
 from application.build_clean_dataset_use_case import CleanDataset, build_clean_dataset
+from show_csv import parse_args
 
 warnings.filterwarnings("ignore")
 
@@ -310,16 +311,41 @@ def run_grid(df, oh, om, ch, cm, outdir):
     (outdir / "v24_3_session_report.txt").write_text("\n".join(rep), encoding="utf-8")
 
 
-def main():
+def parse_args():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--folder", default=DEFAULT_FOLDER,
-                    help="folder holding the pre-built M5 export(s)")
-    ap.add_argument("--out", default=OUTDIR_NAME, help="directory to write into")
-    ap.add_argument("--clean-csv", default=None,
-                    help="study this existing clean M5 CSV instead of rebuilding one")
-    ap.add_argument("--session-open", default="10:00", help="BROKER SERVER TIME")
-    ap.add_argument("--cutoff", default="14:00", help="BROKER SERVER TIME")
+
+    ap.add_argument(
+        "--folder",
+        default=DEFAULT_FOLDER,
+        help="folder holding the pre-built M5 export(s)")
+
+    ap.add_argument(
+        "--out",
+        default=OUTDIR_NAME,
+        help="directory to write into")
+
+    ap.add_argument(
+        "--clean-csv",
+        default=None,
+        help="study this existing clean M5 CSV instead of rebuilding one")
+
+    ap.add_argument(
+        "--session-open",
+        default="10:00",
+        help="BROKER SERVER TIME")
+
+    ap.add_argument(
+        "--cutoff",
+        default="14:00",
+        help="BROKER SERVER TIME")
+
     args = ap.parse_args()
+
+    return args
+
+
+def main():
+    args = parse_args()
 
     outdir = Path(args.out).resolve()
     outdir.mkdir(parents=True, exist_ok=True)

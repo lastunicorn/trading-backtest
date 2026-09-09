@@ -101,13 +101,20 @@ class CleanDataset:
         return sum(stat.skipped_lines_count for stat in self.stats)
 
 
-def _combine_pieces(pieces: list[pd.DataFrame]) -> pd.DataFrame:
+def _combine_pieces(pieces: list[pd.DataFrame], say: Progress) -> tuple[pd.DataFrame, int]:
+    say("Combining converted pieces...")
     combined = pd.concat(pieces, ignore_index=True).sort_values(
         "datetime", kind="stable"
     )
-    before = len(combined)
+
+    count_before = len(combined)
     combined = combined.drop_duplicates("datetime", keep="last").reset_index(drop=True)
-    return combined, before - len(combined)
+
+    count_after = len(combined)
+    removed_count = count_before - count_after
+
+    say(f"Removed {removed_count:,} duplicate timestamps.")
+    return combined, removed_count
 
 
 def build_clean_dataset(
@@ -174,7 +181,6 @@ def build_clean_dataset(
     if not pieces:
         raise RuntimeError("No usable source files. See errors above.")
 
-    say("Combining converted pieces...")
-    combined, dropped_count = _combine_pieces(pieces)
+    combined, dropped_count = _combine_pieces(pieces, say)
 
     return CleanDataset(combined, stats, errors, dropped_count, timeframe)

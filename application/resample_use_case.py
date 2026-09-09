@@ -140,13 +140,20 @@ def format_quality_report(report: ResampleReport) -> str:
     return "\n".join(lines)
 
 
-def _combine_pieces(pieces: list[pd.DataFrame]) -> tuple[pd.DataFrame, int]:
+def _combine_pieces(pieces: list[pd.DataFrame], say: Progress) -> tuple[pd.DataFrame, int]:
+    say("Combining converted pieces...")
     combined = pd.concat(pieces, ignore_index=True).sort_values(
         "datetime", kind="stable"
     )
-    before = len(combined)
+
+    count_before = len(combined)
     combined = combined.drop_duplicates("datetime", keep="last").reset_index(drop=True)
-    return combined, before - len(combined)
+
+    count_after = len(combined)
+    removed_count = count_before - count_after
+
+    say(f"Removed {removed_count:,} duplicate timestamps.")
+    return combined, removed_count
 
 
 def resample(
@@ -240,8 +247,7 @@ def resample(
     if not pieces:
         raise RuntimeError("No usable source files. See errors above.")
 
-    say("Combining converted pieces...")
-    combined, dropped_count = _combine_pieces(pieces)
+    combined, dropped_count = _combine_pieces(pieces, say)
 
     write_frame(combined, output_file_path)
 
