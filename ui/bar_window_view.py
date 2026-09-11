@@ -1,4 +1,4 @@
-"""Console display for a `tools.bar_window.BarWindow`.
+"""Console display for a `ui.bar_window.BarWindow`.
 
     from ui.bar_window_view import display_bar_window
 

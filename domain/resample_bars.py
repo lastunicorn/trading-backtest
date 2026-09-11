@@ -6,8 +6,8 @@ as `ports.mt5_file_access.iter_bars`), so a multi-year stream resamples in
 constant memory without ever going through pandas.
 
     from ports.mt5_file_access import iter_bars
-    from tools.resample_bars import resample_bars
-    from tools.sample_interval import SampleInterval
+    from domain.resample_bars import resample_bars
+    from domain.sample_interval import SampleInterval
 
     for bar in resample_bars(iter_bars(path), SampleInterval.Parse("5m")):
         ...
@@ -36,7 +36,7 @@ from collections.abc import Iterable, Iterator
 from datetime import date as _date, datetime, timedelta
 
 from domain.bar import Bar
-from tools.sample_interval import SampleInterval, SampleUnit
+from domain.sample_interval import SampleInterval, SampleUnit
 
 __all__ = ["resample_bars"]
 

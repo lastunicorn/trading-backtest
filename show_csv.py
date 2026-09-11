@@ -15,7 +15,7 @@ resample interval.
 `source` is a single file or a folder of exports (see ports.file_system_access
 .find_files) -- a folder's files are read in name order, which is chronological
 for this repo's monthly exports. `--interval` resamples via
-tools.resample_bars before display; omit it to show bars as read. See that
+domain.resample_bars before display; omit it to show bars as read. See that
 module's docstring for the interval syntax (5m, 4h, 7d, 2w, 3M, ...) and what
 each unit anchors to.
 
@@ -25,11 +25,11 @@ Stdlib only (pandas is not used).
 import argparse
 import sys
 
+from domain.resample_bars import resample_bars
+from domain.sample_interval import SampleInterval
 from ports.file_system_access.file_system import find_files
 from ports.mt5_file_access import BarParseError, iter_bars
-from tools.bar_window import BarWindow
-from tools.resample_bars import resample_bars
-from tools.sample_interval import SampleInterval
+from ui.bar_window import BarWindow
 from ui.bar_window_view import display_bar_window
 
 

@@ -1,6 +1,6 @@
 """BarWindow: the collection of at most `count` bars selected from a stream.
 
-    from tools.bar_window import BarWindow
+    from ui.bar_window import BarWindow
 
     window = BarWindow(bars, count=20, tail=False)
     for bar in window:      # first iteration reads the source and caches the result

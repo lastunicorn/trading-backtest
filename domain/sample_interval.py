@@ -3,7 +3,7 @@
 Stdlib only. The unit letters are case-sensitive so "m" (minute) and "M"
 (month) don't collide -- see `SampleUnit`.
 
-    from tools.sample_interval import SampleInterval, SampleUnit
+    from domain.sample_interval import SampleInterval, SampleUnit
 
     spec = SampleInterval.Parse("4h")
     spec.amount, spec.unit             # 4, SampleUnit.Hour
