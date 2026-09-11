@@ -1,33 +1,48 @@
-"""Print a raw MT5 export to the console.
+"""Print an MT5 export to the console, raw or resampled.
 
 Utility, not a research stage: reads via ports.mt5_file_access and displays --
-no cleaning, no resampling, nothing written to disk. Use it to eyeball what an
-export actually contains before feeding it to eurusd_local_research_v24_1.py.
+nothing written to disk. Use it to eyeball what an export actually contains
+before feeding it to eurusd_local_research_v24_1.py, or to sanity-check a
+resample interval.
 
     python3 show_csv.py data/eurusd/1min/EURUSD_2020_01.csv        # first 20 bars
     python3 show_csv.py data/eurusd/1min/EURUSD_2020_01.csv --tail --rows 5
     python3 show_csv.py data/eurusd/1min/EURUSD_2020_01.csv --all | less
-    python3 show_csv.py path/to/other.csv
+    python3 show_csv.py data/eurusd/1min --interval 5               # whole folder, resampled to M5
+    python3 show_csv.py path/to/other.csv --decimals 3
+
+`source` is a single file or a folder of exports (see ports.file_system_access
+.find_files) -- a folder's files are read in name order, which is chronological
+for this repo's monthly exports. `--interval` resamples via
+tools.resample_bars before display; 0 (the default) shows bars as read.
 
 Stdlib only (pandas is not used).
 """
 
 import argparse
-import os
 import sys
 from collections import deque
 
+from ports.file_system_access.file_system import find_files
 from ports.mt5_file_access import BarParseError, iter_bars
+from tools.resample_bars import resample_bars
 
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Display a raw MT5 CSV export in the console."
+        description="Display an MT5 CSV export in the console, raw or resampled."
     )
 
     parser.add_argument(
-        "file",
-        help="CSV to display.",
+        "source",
+        help="CSV file, or a folder of exports, to display.",
+    )
+
+    parser.add_argument(
+        "--interval",
+        type=int,
+        default=0,
+        help="Resample to N-minute bars before display (default: 0, meaning raw bars).",
     )
 
     parser.add_argument(
@@ -65,18 +80,29 @@ def parse_args():
     return parser.parse_args()
 
 
-def scan(path, *, want, tail, show_all, on_skip):
+def read_bars(paths, on_skip):
+    for path in paths:
+        yield from iter_bars(str(path), strict=False, on_skip=on_skip)
+
+
+def scan(paths, *, interval_minutes, want, tail, show_all, on_skip):
     """One streaming pass: collect the bars to display, count the rest.
 
     Keeps only what gets printed, so a 2.5M-row file costs no more memory than
-    a 31k-row one (unless --all was asked for).
+    a 31k-row one (unless --all was asked for). `interval_minutes` > 0 resamples
+    the stream before it's counted or selected from.
     """
+    bars = read_bars(paths, on_skip)
+
+    if interval_minutes:
+        bars = resample_bars(bars, interval_minutes)
+
     selected = [] if not tail else deque(maxlen=want)
     total = 0
     first = None
     last = None
 
-    for bar in iter_bars(path, strict=False, on_skip=on_skip):
+    for bar in bars:
         total += 1
 
         if first is None:
@@ -148,8 +174,14 @@ def format_table(header, rows):
 def main():
     args = parse_args()
 
-    if not os.path.isfile(args.file):
-        print(f"ERROR: file not found: {args.file}", file=sys.stderr)
+    paths = find_files(args.source)
+
+    if not paths:
+        print(f"ERROR: no csv files found at {args.source!r}", file=sys.stderr)
+        return 1
+
+    if args.interval < 0:
+        print(f"ERROR: --interval must not be negative, got {args.interval}", file=sys.stderr)
         return 1
 
     skipped = []
@@ -159,7 +191,8 @@ def main():
 
     try:
         bars, total, first, last = scan(
-            args.file,
+            paths,
+            interval_minutes=args.interval,
             want=max(args.rows, 0),
             tail=args.tail,
             show_all=args.all,
@@ -169,22 +202,26 @@ def main():
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
     except OSError as exc:
-        print(f"ERROR: could not read {args.file}: {exc}", file=sys.stderr)
+        print(f"ERROR: could not read {args.source}: {exc}", file=sys.stderr)
         return 1
 
     if total == 0:
-        print(f"ERROR: no bars found in {args.file}", file=sys.stderr)
+        print(f"ERROR: no bars found at {args.source}", file=sys.stderr)
         return 1
 
     if args.strict and skipped:
         line_no, reason = skipped[0]
-        print(f"ERROR: {args.file}:{line_no}: {reason}", file=sys.stderr)
+        print(f"ERROR: {args.source}: line {line_no}: {reason}", file=sys.stderr)
         return 1
 
     span = last.dt - first.dt
 
     print("=" * 64)
-    print(f"FILE: {args.file}")
+    print(f"SOURCE: {args.source}" + (f"  ({len(paths)} files)" if len(paths) > 1 else ""))
+
+    if args.interval:
+        print(f"RESAMPLE: {args.interval}-minute bars")
+
     print("=" * 64)
     print(f"Bars:   {total:,}")
     print(f"First:  {first.dt:%Y.%m.%d %H:%M}")

@@ -66,7 +66,7 @@ The v25–v28 scripts take session-window flags in **broker server time**, not U
 
 ## Tooling outside the pipeline
 
-`ports/`, `domain/`, `application/`, `show_csv.py` and `resample_csv.py` are **not** research stages. They are shared code: reading raw data, and building the clean dataset the pipeline consumes. They are versionless and freely editable — the immutability rule applies only to `eurusd_*_vNN.py`.
+`ports/`, `domain/`, `application/`, `tools/`, `show_csv.py` and `resample_csv.py` are **not** research stages. They are shared code: reading raw data, and building the clean dataset the pipeline consumes. They are versionless and freely editable — the immutability rule applies only to `eurusd_*_vNN.py`.
 
 The split between the packages is the point of the layout:
 
@@ -82,7 +82,8 @@ domain/bar.py                             the `Bar` entity — one OHLC candle (
 domain/frames.py                          resample a frame to a coarser timeframe                        [pandas]
 application/build_clean_dataset_use_case.py  folder of exports → one clean, deduplicated frame (in memory)
 application/resample_use_case.py          folder/file of M1 exports → merged CSV on a coarser grid + report
-show_csv.py                               CLI that prints a raw export as an aligned table
+tools/resample_bars.py                    resample an iterable of `Bar` to a coarser grid, streaming    [stdlib]
+show_csv.py                               CLI that prints an export as an aligned table, raw or resampled
 resample_csv.py                           CLI over application/resample_use_case.py — stage 0 straight to a file
 ```
 
@@ -122,11 +123,14 @@ python3 resample_csv.py --source data/eurusd/1min --destination data/eurusd/15mi
 python3 resample_csv.py --source data/eurusd/1min/EURUSD_2020_01.csv --destination scratch/jan.csv --timeframe M5
 ```
 
+`show_csv.py`'s `source` is a single file or a folder of exports (`ports.file_system_access.find_files` — a folder is read file-by-file in name order, chronological for this repo's monthly exports). `--interval N` resamples via `tools.resample_bars.resample_bars` before display; 0 (the default) shows bars as read:
+
 ```bash
-python3 show_csv.py data/eurusd/1min/EURUSD_2020_01.csv            # first 20 bars (the file arg is required)
+python3 show_csv.py data/eurusd/1min/EURUSD_2020_01.csv            # first 20 bars (the source arg is required)
 python3 show_csv.py data/eurusd/1min/EURUSD_2020_01.csv --tail --rows 5
 python3 show_csv.py data/eurusd/1min/EURUSD_2020_01.csv --all | less
 python3 show_csv.py path/to/export.csv --decimals 3
+python3 show_csv.py data/eurusd/1min --interval 5                  # whole folder, resampled to M5
 ```
 
 `ports/`, `ports/mt5_file_access/`, `ports/file_system_access/`, `domain/` and `application/` are regular packages (each has an `__init__.py`), and the CLIs must stay at the repo root for `ports.*` / `domain.*` / `application.*` to resolve from any working directory.
