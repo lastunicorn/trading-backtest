@@ -24,10 +24,10 @@ Stdlib only (pandas is not used).
 
 import argparse
 import sys
-from collections import deque
 
 from ports.file_system_access.file_system import find_files
 from ports.mt5_file_access import BarParseError, iter_bars
+from tools.bar_scan import BarScan
 from tools.resample_bars import resample_bars
 from tools.sample_interval import SampleInterval
 
@@ -89,51 +89,14 @@ def read_bars(paths, on_skip):
         yield from iter_bars(str(path), strict=False, on_skip=on_skip)
 
 
-def scan(paths, *, interval, want, tail, show_all, on_skip):
-    """One streaming pass: collect the bars to display, count the rest.
-
-    Keeps only what gets printed, so a 2.5M-row file costs no more memory than
-    a 31k-row one (unless --all was asked for). `interval`, a parsed
-    `SampleInterval` or None, resamples the stream before it's counted or
-    selected from.
-    """
-    bars = read_bars(paths, on_skip)
-
-    if interval:
-        bars = resample_bars(bars, interval)
-
-    selected = [] if not tail else deque(maxlen=want)
-    total = 0
-    first = None
-    last = None
-
-    for bar in bars:
-        total += 1
-
-        if first is None:
-            first = bar
-
-        last = bar
-
-        if tail:
-            selected.append(bar)
-        elif show_all or len(selected) < want:
-            selected.append(bar)
-
-    return list(selected), total, first, last
-
-
-def build_rows(bars, decimals):
+def build_rows(bars, decimals, *, has_spread, has_real_volume):
     """Turn Bars into aligned text columns, dropping columns nothing uses."""
-    show_spread = any(bar.spread is not None for bar in bars)
-    show_real_volume = any(bar.real_volume for bar in bars)
-
     header = ["DATE", "TIME", "OPEN", "HIGH", "LOW", "CLOSE", "TICKVOL"]
 
-    if show_real_volume:
+    if has_real_volume:
         header.append("VOL")
 
-    if show_spread:
+    if has_spread:
         header.append("SPREAD")
 
     rows = []
@@ -149,10 +112,10 @@ def build_rows(bars, decimals):
             f"{bar.tick_volume:,}",
         ]
 
-        if show_real_volume:
+        if has_real_volume:
             row.append(f"{bar.real_volume:,}")
 
-        if show_spread:
+        if has_spread:
             row.append("" if bar.spread is None else str(bar.spread))
 
         rows.append(row)
@@ -199,15 +162,16 @@ def main():
     def on_skip(line_no, line, reason):
         skipped.append((line_no, reason))
 
+    bars = read_bars(paths, on_skip)
+
+    if interval:
+        bars = resample_bars(bars, interval)
+
+    count = None if args.all else max(args.rows, 0)
+    scan = BarScan(bars, count=count, tail=args.tail)
+
     try:
-        bars, total, first, last = scan(
-            paths,
-            interval=interval,
-            want=max(args.rows, 0),
-            tail=args.tail,
-            show_all=args.all,
-            on_skip=on_skip,
-        )
+        displayed = list(scan)
     except BarParseError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
@@ -215,7 +179,7 @@ def main():
         print(f"ERROR: could not read {args.source}: {exc}", file=sys.stderr)
         return 1
 
-    if total == 0:
+    if scan.total == 0:
         print(f"ERROR: no bars found at {args.source}", file=sys.stderr)
         return 1
 
@@ -224,7 +188,7 @@ def main():
         print(f"ERROR: {args.source}: line {line_no}: {reason}", file=sys.stderr)
         return 1
 
-    span = last.dt - first.dt
+    span = scan.last.dt - scan.first.dt
 
     print("=" * 64)
     print(f"SOURCE: {args.source}" + (f"  ({len(paths)} files)" if len(paths) > 1 else ""))
@@ -233,9 +197,9 @@ def main():
         print(f"RESAMPLE: {args.interval}")
 
     print("=" * 64)
-    print(f"Bars:   {total:,}")
-    print(f"First:  {first.dt:%Y.%m.%d %H:%M}")
-    print(f"Last:   {last.dt:%Y.%m.%d %H:%M}")
+    print(f"Bars:   {scan.total:,}")
+    print(f"First:  {scan.first.dt:%Y.%m.%d %H:%M}")
+    print(f"Last:   {scan.last.dt:%Y.%m.%d %H:%M}")
     print(f"Span:   {span.days} days")
 
     if skipped:
@@ -245,20 +209,22 @@ def main():
     if args.all:
         label = "all bars"
     elif args.tail:
-        label = f"last {len(bars)} bars"
+        label = f"last {scan.total_visible} bars"
     else:
-        label = f"first {len(bars)} bars"
+        label = f"first {scan.total_visible} bars"
 
     print("")
     print(f"--- {label} ---")
 
-    header, rows = build_rows(bars, args.decimals)
+    header, rows = build_rows(
+        displayed, args.decimals, has_spread=scan.has_spread, has_real_volume=scan.has_real_volume
+    )
 
     for line in format_table(header, rows):
         print(line)
 
-    if len(bars) < total:
-        print(f"... {total - len(bars):,} more bars (use --all, or --rows N)")
+    if scan.total_visible < scan.total:
+        print(f"... {scan.total - scan.total_visible:,} more bars (use --all, or --rows N)")
 
     return 0
 
