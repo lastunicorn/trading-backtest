@@ -29,6 +29,7 @@ from collections import deque
 from ports.file_system_access.file_system import find_files
 from ports.mt5_file_access import BarParseError, iter_bars
 from tools.resample_bars import resample_bars
+from tools.sample_interval import SampleInterval
 
 
 def parse_args():
@@ -92,9 +93,9 @@ def scan(paths, *, interval, want, tail, show_all, on_skip):
     """One streaming pass: collect the bars to display, count the rest.
 
     Keeps only what gets printed, so a 2.5M-row file costs no more memory than
-    a 31k-row one (unless --all was asked for). A truthy `interval` (see
-    tools.resample_bars) resamples the stream before it's counted or selected
-    from.
+    a 31k-row one (unless --all was asked for). `interval`, a parsed
+    `SampleInterval` or None, resamples the stream before it's counted or
+    selected from.
     """
     bars = read_bars(paths, on_skip)
 
@@ -184,6 +185,15 @@ def main():
         print(f"ERROR: no csv files found at {args.source!r}", file=sys.stderr)
         return 1
 
+    interval = None
+
+    if args.interval:
+        try:
+            interval = SampleInterval.Parse(args.interval)
+        except ValueError as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return 1
+
     skipped = []
 
     def on_skip(line_no, line, reason):
@@ -192,16 +202,13 @@ def main():
     try:
         bars, total, first, last = scan(
             paths,
-            interval=args.interval,
+            interval=interval,
             want=max(args.rows, 0),
             tail=args.tail,
             show_all=args.all,
             on_skip=on_skip,
         )
     except BarParseError as exc:
-        print(f"ERROR: {exc}", file=sys.stderr)
-        return 1
-    except ValueError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
     except OSError as exc:

@@ -7,8 +7,9 @@ constant memory without ever going through pandas.
 
     from ports.mt5_file_access import iter_bars
     from tools.resample_bars import resample_bars
+    from tools.sample_interval import SampleInterval
 
-    for bar in resample_bars(iter_bars(path), "5m"):
+    for bar in resample_bars(iter_bars(path), SampleInterval.Parse("5m")):
         ...
 
 Bars must arrive in chronological order -- the same assumption `iter_bars`
@@ -16,8 +17,11 @@ already satisfies -- since a bucket is closed out (and yielded) as soon as a
 bar from a later bucket appears; this does not re-sort or buffer the whole
 stream.
 
-`interval` is an integer amount plus a case-sensitive unit letter, each with
-its own anchor -- deliberately not uniform (see `resample_bars` for why):
+Parsing a raw interval string (e.g. from a CLI flag) is `SampleInterval`'s job,
+not this module's -- callers parse once, up front, rather than this function
+re-parsing on every call. `interval` is an amount plus a case-sensitive unit,
+each with its own anchor -- deliberately not uniform (see `resample_bars` for
+why):
 
     5m, 30m   minutes  -- grid resets at 00:00 of each bar's own day
     1h, 4h    hours    -- same, grid resets at 00:00 of each bar's own day
@@ -102,8 +106,11 @@ def _squash(bucket_dt: datetime, bars: list[Bar]) -> Bar:
     )
 
 
-def resample_bars(bars: Iterable[Bar], interval: str) -> Iterator[Bar]:
+def resample_bars(bars: Iterable[Bar], interval: SampleInterval) -> Iterator[Bar]:
     """Collapse `bars` onto buckets sized and anchored by `interval`.
+
+    `interval` is a parsed `SampleInterval` (see `SampleInterval.Parse` for
+    the string syntax) -- parsing is the caller's job, not this function's.
 
     OHLC follows the usual rule -- open of the bucket's first bar, high/low
     extremes, close of its last -- tick/real volume sum, spread averages
@@ -122,8 +129,7 @@ def resample_bars(bars: Iterable[Bar], interval: str) -> Iterator[Bar]:
     can shift where multi-day/multi-month buckets fall; w anchors to Monday,
     fixed, regardless of input. All deliberate -- see the module docstring.
     """
-    spec = SampleInterval.Parse(interval)
-    amount, unit = spec.amount, spec.unit
+    amount, unit = interval.amount, interval.unit
 
     origin: _date | None = None
     current_start: datetime | None = None
