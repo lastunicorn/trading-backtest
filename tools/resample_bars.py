@@ -28,17 +28,15 @@ its own anchor -- deliberately not uniform (see `resample_bars` for why):
 
 from __future__ import annotations
 
-import re
 from collections.abc import Iterable, Iterator
 from datetime import date as _date, datetime, timedelta
 
 from domain.bar import Bar
+from tools.sample_interval import SampleInterval, SampleUnit
 
 __all__ = ["resample_bars"]
 
-_INTERVAL_RE = re.compile(r"(\d+)([mhdwM])")
-
-_MINUTES_PER_UNIT = {"m": 1, "h": 60}
+_MINUTES_PER_UNIT = {SampleUnit.Minute: 1, SampleUnit.Hour: 60}
 
 _MIDNIGHT = datetime.min.time()
 
@@ -49,24 +47,6 @@ _MIDNIGHT = datetime.min.time()
 # week" and would not need it.
 _EPOCH = _date(1970, 1, 1)
 _WEEK_EPOCH = _EPOCH - timedelta(days=_EPOCH.weekday())
-
-
-def _parse_interval(interval: str) -> tuple[int, str]:
-    match = _INTERVAL_RE.fullmatch(interval)
-
-    if match is None:
-        raise ValueError(
-            f"invalid interval {interval!r}; expected an integer amount plus "
-            "a unit letter (m/h/d/w/M, case-sensitive), e.g. '5m', '4h', "
-            "'7d', '2w', '3M'"
-        )
-
-    amount = int(match.group(1))
-
-    if amount <= 0:
-        raise ValueError(f"interval amount must be positive, got {interval!r}")
-
-    return amount, match.group(2)
 
 
 def _bucket_start_intraday(dt: datetime, interval_minutes: int) -> datetime:
@@ -142,7 +122,8 @@ def resample_bars(bars: Iterable[Bar], interval: str) -> Iterator[Bar]:
     can shift where multi-day/multi-month buckets fall; w anchors to Monday,
     fixed, regardless of input. All deliberate -- see the module docstring.
     """
-    amount, unit = _parse_interval(interval)
+    spec = SampleInterval.Parse(interval)
+    amount, unit = spec.amount, spec.unit
 
     origin: _date | None = None
     current_start: datetime | None = None
@@ -154,9 +135,9 @@ def resample_bars(bars: Iterable[Bar], interval: str) -> Iterator[Bar]:
 
         if unit in _MINUTES_PER_UNIT:
             bucket_start = _bucket_start_intraday(bar.dt, amount * _MINUTES_PER_UNIT[unit])
-        elif unit == "d":
+        elif unit is SampleUnit.Day:
             bucket_start = _bucket_start_days(bar.dt, amount, origin)
-        elif unit == "w":
+        elif unit is SampleUnit.Week:
             bucket_start = _bucket_start_weeks(bar.dt, amount)
         else:
             bucket_start = _bucket_start_months(bar.dt, amount, origin)
