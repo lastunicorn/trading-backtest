@@ -8,13 +8,16 @@ resample interval.
     python3 show_csv.py data/eurusd/1min/EURUSD_2020_01.csv        # first 20 bars
     python3 show_csv.py data/eurusd/1min/EURUSD_2020_01.csv --tail --rows 5
     python3 show_csv.py data/eurusd/1min/EURUSD_2020_01.csv --all | less
-    python3 show_csv.py data/eurusd/1min --interval 5               # whole folder, resampled to M5
+    python3 show_csv.py data/eurusd/1min --interval 5m              # whole folder, resampled to M5
+    python3 show_csv.py data/eurusd/1min --interval 1w              # resampled to weekly bars
     python3 show_csv.py path/to/other.csv --decimals 3
 
 `source` is a single file or a folder of exports (see ports.file_system_access
 .find_files) -- a folder's files are read in name order, which is chronological
 for this repo's monthly exports. `--interval` resamples via
-tools.resample_bars before display; 0 (the default) shows bars as read.
+tools.resample_bars before display; omit it to show bars as read. See that
+module's docstring for the interval syntax (5m, 4h, 7d, 2w, 3M, ...) and what
+each unit anchors to.
 
 Stdlib only (pandas is not used).
 """
@@ -40,9 +43,9 @@ def parse_args():
 
     parser.add_argument(
         "--interval",
-        type=int,
-        default=0,
-        help="Resample to N-minute bars before display (default: 0, meaning raw bars).",
+        default=None,
+        help="Resample before display, e.g. '5m', '4h', '7d', '2w', '3M' "
+             "(m/h/d/w/M, case-sensitive; omit to show raw bars).",
     )
 
     parser.add_argument(
@@ -85,17 +88,18 @@ def read_bars(paths, on_skip):
         yield from iter_bars(str(path), strict=False, on_skip=on_skip)
 
 
-def scan(paths, *, interval_minutes, want, tail, show_all, on_skip):
+def scan(paths, *, interval, want, tail, show_all, on_skip):
     """One streaming pass: collect the bars to display, count the rest.
 
     Keeps only what gets printed, so a 2.5M-row file costs no more memory than
-    a 31k-row one (unless --all was asked for). `interval_minutes` > 0 resamples
-    the stream before it's counted or selected from.
+    a 31k-row one (unless --all was asked for). A truthy `interval` (see
+    tools.resample_bars) resamples the stream before it's counted or selected
+    from.
     """
     bars = read_bars(paths, on_skip)
 
-    if interval_minutes:
-        bars = resample_bars(bars, interval_minutes)
+    if interval:
+        bars = resample_bars(bars, interval)
 
     selected = [] if not tail else deque(maxlen=want)
     total = 0
@@ -180,10 +184,6 @@ def main():
         print(f"ERROR: no csv files found at {args.source!r}", file=sys.stderr)
         return 1
 
-    if args.interval < 0:
-        print(f"ERROR: --interval must not be negative, got {args.interval}", file=sys.stderr)
-        return 1
-
     skipped = []
 
     def on_skip(line_no, line, reason):
@@ -192,13 +192,16 @@ def main():
     try:
         bars, total, first, last = scan(
             paths,
-            interval_minutes=args.interval,
+            interval=args.interval,
             want=max(args.rows, 0),
             tail=args.tail,
             show_all=args.all,
             on_skip=on_skip,
         )
     except BarParseError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+    except ValueError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
     except OSError as exc:
@@ -220,7 +223,7 @@ def main():
     print(f"SOURCE: {args.source}" + (f"  ({len(paths)} files)" if len(paths) > 1 else ""))
 
     if args.interval:
-        print(f"RESAMPLE: {args.interval}-minute bars")
+        print(f"RESAMPLE: {args.interval}")
 
     print("=" * 64)
     print(f"Bars:   {total:,}")
