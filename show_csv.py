@@ -28,7 +28,7 @@ import sys
 from domain.resample_bars import resample_bars
 from domain.sample_interval import SampleInterval
 from ports.file_system_access.file_system import find_files
-from ports.mt5_file_access import BarParseError, iter_bars
+from ports.mt5_file_access import BarParseError, iterate_bars
 from ui.bar_window import BarWindow
 from ui.bar_window_view import display_bar_window
 
@@ -87,7 +87,7 @@ def parse_args():
 
 def read_bars(paths, on_skip):
     for path in paths:
-        yield from iter_bars(str(path), strict=False, on_skip=on_skip)
+        yield from iterate_bars(str(path), strict=False, on_skip=on_skip)
 
 
 def main():

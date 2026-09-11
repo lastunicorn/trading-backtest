@@ -36,7 +36,7 @@ __all__ = [
     "BarParseError",
     "SourceLayout",
     "detect_layout",
-    "iter_bars",
+    "iterate_bars",
     "read_bars",
     "sniff_layout",
 ]
@@ -261,7 +261,7 @@ def _build_bar(fields: list[str], layout: dict[str, int]) -> Bar:
     )
 
 
-def iter_bars(
+def iterate_bars(
     path: str,
     *,
     strict: bool = True,
@@ -319,4 +319,4 @@ def read_bars(
     Convenient for a single monthly export (~31k bars). Prefer iter_bars() when
     the file could be large.
     """
-    return list(iter_bars(path, strict=strict, on_skip=on_skip))
+    return list(iterate_bars(path, strict=strict, on_skip=on_skip))

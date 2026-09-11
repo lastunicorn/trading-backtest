@@ -18,7 +18,7 @@ from ports.mt5_file_access.mt5_bar_reader import (
     BarParseError,
     SourceLayout,
     detect_layout,
-    iter_bars,
+    iterate_bars,
     read_bars,
     sniff_layout,
 )
@@ -28,7 +28,7 @@ __all__ = [
     "BarParseError",
     "SourceLayout",
     "detect_layout",
-    "iter_bars",
+    "iterate_bars",
     "read_bars",
     "read_frame",
     "sniff_layout",
