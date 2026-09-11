@@ -89,19 +89,19 @@ def read_bars(paths, on_skip):
         yield from iter_bars(str(path), strict=False, on_skip=on_skip)
 
 
-def build_rows(bars, decimals, *, has_spread, has_real_volume):
+def build_rows(bar_window, decimals):
     """Turn Bars into aligned text columns, dropping columns nothing uses."""
     header = ["DATE", "TIME", "OPEN", "HIGH", "LOW", "CLOSE", "TICKVOL"]
 
-    if has_real_volume:
+    if bar_window.has_real_volume:
         header.append("VOL")
 
-    if has_spread:
+    if bar_window.has_spread:
         header.append("SPREAD")
 
     rows = []
 
-    for bar in bars:
+    for bar in bar_window:
         row = [
             bar.dt.strftime("%Y.%m.%d"),
             bar.dt.strftime("%H:%M"),
@@ -112,10 +112,10 @@ def build_rows(bars, decimals, *, has_spread, has_real_volume):
             f"{bar.tick_volume:,}",
         ]
 
-        if has_real_volume:
+        if bar_window.has_real_volume:
             row.append(f"{bar.real_volume:,}")
 
-        if has_spread:
+        if bar_window.has_spread:
             row.append("" if bar.spread is None else str(bar.spread))
 
         rows.append(row)
@@ -171,7 +171,7 @@ def main():
     window = BarWindow(bars, count=count, tail=args.tail)
 
     try:
-        displayed = window.read_all()
+        window.read_all()
     except BarParseError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
@@ -217,7 +217,7 @@ def main():
     print(f"--- {label} ---")
 
     header, rows = build_rows(
-        displayed, args.decimals, has_spread=window.has_spread, has_real_volume=window.has_real_volume
+        window, args.decimals
     )
 
     for line in format_table(header, rows):
