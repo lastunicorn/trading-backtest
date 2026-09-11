@@ -27,7 +27,7 @@ import sys
 
 from ports.file_system_access.file_system import find_files
 from ports.mt5_file_access import BarParseError, iter_bars
-from tools.bar_scan import BarScan
+from tools.bar_window import BarWindow
 from tools.resample_bars import resample_bars
 from tools.sample_interval import SampleInterval
 
@@ -168,10 +168,10 @@ def main():
         bars = resample_bars(bars, interval)
 
     count = None if args.all else max(args.rows, 0)
-    scan = BarScan(bars, count=count, tail=args.tail)
+    window = BarWindow(bars, count=count, tail=args.tail)
 
     try:
-        displayed = list(scan)
+        displayed = window.read_all()
     except BarParseError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
@@ -179,7 +179,7 @@ def main():
         print(f"ERROR: could not read {args.source}: {exc}", file=sys.stderr)
         return 1
 
-    if scan.total == 0:
+    if window.total_count == 0:
         print(f"ERROR: no bars found at {args.source}", file=sys.stderr)
         return 1
 
@@ -188,7 +188,7 @@ def main():
         print(f"ERROR: {args.source}: line {line_no}: {reason}", file=sys.stderr)
         return 1
 
-    span = scan.last.dt - scan.first.dt
+    span = window.last_bar.dt - window.first_bar.dt
 
     print("=" * 64)
     print(f"SOURCE: {args.source}" + (f"  ({len(paths)} files)" if len(paths) > 1 else ""))
@@ -197,9 +197,9 @@ def main():
         print(f"RESAMPLE: {args.interval}")
 
     print("=" * 64)
-    print(f"Bars:   {scan.total:,}")
-    print(f"First:  {scan.first.dt:%Y.%m.%d %H:%M}")
-    print(f"Last:   {scan.last.dt:%Y.%m.%d %H:%M}")
+    print(f"Bars:   {window.total_count:,}")
+    print(f"First:  {window.first_bar.dt:%Y.%m.%d %H:%M}")
+    print(f"Last:   {window.last_bar.dt:%Y.%m.%d %H:%M}")
     print(f"Span:   {span.days} days")
 
     if skipped:
@@ -209,22 +209,22 @@ def main():
     if args.all:
         label = "all bars"
     elif args.tail:
-        label = f"last {scan.total_visible} bars"
+        label = f"last {window.total_visible_count} bars"
     else:
-        label = f"first {scan.total_visible} bars"
+        label = f"first {window.total_visible_count} bars"
 
     print("")
     print(f"--- {label} ---")
 
     header, rows = build_rows(
-        displayed, args.decimals, has_spread=scan.has_spread, has_real_volume=scan.has_real_volume
+        displayed, args.decimals, has_spread=window.has_spread, has_real_volume=window.has_real_volume
     )
 
     for line in format_table(header, rows):
         print(line)
 
-    if scan.total_visible < scan.total:
-        print(f"... {scan.total - scan.total_visible:,} more bars (use --all, or --rows N)")
+    if window.total_visible_count < window.total_count:
+        print(f"... {window.total_count - window.total_visible_count:,} more bars (use --all, or --rows N)")
 
     return 0
 
