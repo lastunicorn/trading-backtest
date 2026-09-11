@@ -9,6 +9,7 @@
         ...
     window.read_all()       # also reads whatever the source has left, just for the counts
     window.total_count, window.total_visible_count, window.first_bar, ...
+    window.tail, window.is_all_visible   # read-only, mirror the constructor args
 
 Stdlib only.
 """
@@ -54,6 +55,14 @@ class BarWindow:
         self.last_bar = None
         self.has_spread = False
         self.has_real_volume = False
+
+    @property
+    def tail(self):
+        return self._tail
+
+    @property
+    def is_all_visible(self):
+        return self._requested_count is None
 
     def __iter__(self):
         self._ensure_built()

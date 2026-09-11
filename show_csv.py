@@ -30,6 +30,7 @@ from ports.mt5_file_access import BarParseError, iter_bars
 from tools.bar_window import BarWindow
 from tools.resample_bars import resample_bars
 from tools.sample_interval import SampleInterval
+from ui.bar_window_view import display_bar_window
 
 
 def parse_args():
@@ -89,56 +90,6 @@ def read_bars(paths, on_skip):
         yield from iter_bars(str(path), strict=False, on_skip=on_skip)
 
 
-def build_rows(bar_window, decimals):
-    """Turn Bars into aligned text columns, dropping columns nothing uses."""
-    header = ["DATE", "TIME", "OPEN", "HIGH", "LOW", "CLOSE", "TICKVOL"]
-
-    if bar_window.has_real_volume:
-        header.append("VOL")
-
-    if bar_window.has_spread:
-        header.append("SPREAD")
-
-    rows = []
-
-    for bar in bar_window:
-        row = [
-            bar.dt.strftime("%Y.%m.%d"),
-            bar.dt.strftime("%H:%M"),
-            f"{bar.open:.{decimals}f}",
-            f"{bar.high:.{decimals}f}",
-            f"{bar.low:.{decimals}f}",
-            f"{bar.close:.{decimals}f}",
-            f"{bar.tick_volume:,}",
-        ]
-
-        if bar_window.has_real_volume:
-            row.append(f"{bar.real_volume:,}")
-
-        if bar_window.has_spread:
-            row.append("" if bar.spread is None else str(bar.spread))
-
-        rows.append(row)
-
-    return header, rows
-
-
-def format_table(header, rows):
-    widths = [len(name) for name in header]
-
-    for row in rows:
-        for i, cell in enumerate(row):
-            widths[i] = max(widths[i], len(cell))
-
-    lines = ["  ".join(name.rjust(widths[i]) for i, name in enumerate(header))]
-    lines.append("  ".join("-" * width for width in widths))
-
-    for row in rows:
-        lines.append("  ".join(cell.rjust(widths[i]) for i, cell in enumerate(row)))
-
-    return lines
-
-
 def main():
     args = parse_args()
 
@@ -188,8 +139,6 @@ def main():
         print(f"ERROR: {args.source}: line {line_no}: {reason}", file=sys.stderr)
         return 1
 
-    span = window.last_bar.dt - window.first_bar.dt
-
     print("=" * 64)
     print(f"SOURCE: {args.source}" + (f"  ({len(paths)} files)" if len(paths) > 1 else ""))
 
@@ -200,31 +149,13 @@ def main():
     print(f"Bars:   {window.total_count:,}")
     print(f"First:  {window.first_bar.dt:%Y.%m.%d %H:%M}")
     print(f"Last:   {window.last_bar.dt:%Y.%m.%d %H:%M}")
-    print(f"Span:   {span.days} days")
+    print(f"Span:   {(window.last_bar.dt - window.first_bar.dt).days} days")
 
     if skipped:
         print(f"Skipped: {len(skipped):,} malformed line(s) -- first at line "
               f"{skipped[0][0]}: {skipped[0][1]}")
 
-    if args.all:
-        label = "all bars"
-    elif args.tail:
-        label = f"last {window.total_visible_count} bars"
-    else:
-        label = f"first {window.total_visible_count} bars"
-
-    print("")
-    print(f"--- {label} ---")
-
-    header, rows = build_rows(
-        window, args.decimals
-    )
-
-    for line in format_table(header, rows):
-        print(line)
-
-    if window.total_visible_count < window.total_count:
-        print(f"... {window.total_count - window.total_visible_count:,} more bars (use --all, or --rows N)")
+    display_bar_window(window, decimals=args.decimals)
 
     return 0
 
