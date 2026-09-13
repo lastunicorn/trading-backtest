@@ -43,10 +43,12 @@ __all__ = [
 
 DELIMITERS = (",", "\t", ";")
 
-# Every export under data/eurusd/ uses this one shape: `2020.01.02,00:00`.
+# Exports under data/eurusd/ mostly use `2020.01.02,00:00`, but MT5 can also
+# export with seconds (`2026.07.01\t00:00:00`) -- both are tried in order.
 # A file in any other layout fails the parse -- skipped when strict=False,
 # raised otherwise -- rather than being silently reinterpreted.
 DATETIME_FORMAT = "%Y.%m.%d %H:%M"
+DATETIME_FORMAT_WITH_SECONDS = "%Y.%m.%d %H:%M:%S"
 
 # Canonical field name -> the header spellings that map onto it.
 HEADER_ALIASES = {
@@ -217,10 +219,13 @@ def detect_layout(path: str) -> dict[str, int]:
 def _parse_datetime(date_text: str, time_text: str) -> datetime:
     stamp = f"{date_text.strip()} {time_text.strip()}"
 
-    try:
-        return datetime.strptime(stamp, DATETIME_FORMAT)
-    except ValueError:
-        raise ValueError(f"unrecognized timestamp {stamp!r}") from None
+    for fmt in (DATETIME_FORMAT, DATETIME_FORMAT_WITH_SECONDS):
+        try:
+            return datetime.strptime(stamp, fmt)
+        except ValueError:
+            continue
+
+    raise ValueError(f"unrecognized timestamp {stamp!r}")
 
 
 def _to_int(text: str) -> int:

@@ -8,6 +8,7 @@ import pandas as pd
 
 from ports.mt5_file_access.mt5_bar_reader import (
     DATETIME_FORMAT,
+    DATETIME_FORMAT_WITH_SECONDS,
     BarParseError,
     sniff_layout,
 )
@@ -127,11 +128,17 @@ def read_frame(
     # be reported to `on_skip`.
     line_base = 2 if layout.has_header else 1
 
-    stamp = pd.to_datetime(
-        raw["date"] + " " + raw["time"],
-        format=DATETIME_FORMAT,
-        errors="coerce",
-    )
+    datetime_text = raw["date"] + " " + raw["time"]
+    stamp = pd.to_datetime(datetime_text, format=DATETIME_FORMAT, errors="coerce")
+
+    # MT5 sometimes exports with seconds (`00:00:00`); retry just the rows the
+    # no-seconds format couldn't read before giving up on them.
+    retry = stamp.isna()
+    if retry.any():
+        stamp = stamp.where(
+            ~retry,
+            pd.to_datetime(datetime_text, format=DATETIME_FORMAT_WITH_SECONDS, errors="coerce"),
+        )
 
     values: dict[str, pd.Series] = {}
     bad = stamp.isna()
