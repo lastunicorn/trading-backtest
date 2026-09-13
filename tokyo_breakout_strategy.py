@@ -127,7 +127,7 @@ def _stream_bars(paths: Iterable[Path]) -> Iterator[Bar]:
         for path in paths:
             yield from iterate_bars(str(path), strict=False)
 
-    return shift_bars(_raw(), timedelta(hours=5))
+    return shift_bars(_raw(), timedelta(hours=4))
 
 
 def compute_tokyo_sessions(paths: list[Path]) -> dict[_date, BarBlock]:
@@ -281,6 +281,14 @@ def _fmt_position(label: str, position: Position) -> str:
     return header + "\n" + detail
 
 
+def print_bar_block(bar_block: BarBlock) -> None:
+    print(f"  Open: {_fmt_price(bar_block.open_value)} ({bar_block.open_dt})")
+    print(f"  High: {_fmt_price(bar_block.high_value)} ({bar_block.high_dt})")
+    print(f"  Low: {_fmt_price(bar_block.low_value)} ({bar_block.low_dt})")
+    print(f"  Close: {_fmt_price(bar_block.close_value)} ({bar_block.close_dt})")
+    print(f"  Range: {_fmt_pips(_range_pips(bar_block))}")
+
+
 def print_report(results: list[DayResult]) -> None:
     counts = {"cancelled": 0, "no_session": 0, "days": 0}
     outcome_counts: dict[Outcome, int] = {o: 0 for o in Outcome}
@@ -290,21 +298,15 @@ def print_report(results: list[DayResult]) -> None:
         session = result.session
         counts["days"] += 1
         print(f"=== {session.day.isoformat()} (Tokyo 00:00-09:00) ===")
-        
-        print(f"  Open: {_fmt_price(session.open_value)} ({session.open_dt})")
-        print(f"  High: {_fmt_price(session.high_value)} ({session.high_dt})")
-        print(f"  Low: {_fmt_price(session.low_value)} ({session.low_dt})")
-        print(f"  Close: {_fmt_price(session.close_value)} ({session.close_dt})")
-
-        print(f"  Range: {_fmt_pips(_range_pips(session))}", end="")
+        print_bar_block(session)
 
         if _cancelled(session):
             counts["cancelled"] += 1
-            print(f"  -> CANCELLED (> {MAX_RANGE_PIPS:.0f}p threshold)\n")
+            print(f"  CANCELLED (> {MAX_RANGE_PIPS:.0f}p threshold)\n")
             continue
 
         risk_pips = _range_pips(session) / 2
-        print(f"   SL: {_fmt_pips(risk_pips)}   TP: {_fmt_pips(risk_pips * RISK_REWARD)}")
+        print(f"  SL: {_fmt_pips(risk_pips)}   TP: {_fmt_pips(risk_pips * RISK_REWARD)}")
         print(_fmt_position("LONG ", result.long))
         print(_fmt_position("SHORT", result.short))
         print()
@@ -321,6 +323,8 @@ def print_report(results: list[DayResult]) -> None:
     print(f"  Eligible days: {traded_days}   sides triggered: {triggered_sides}")
     for outcome in (Outcome.TP_HIT, Outcome.SL_HIT, Outcome.AMBIGUOUS, Outcome.FORCE_CLOSED):
         print(f"    {outcome.name}: {outcome_counts[outcome]}")
+    PL = outcome_counts[Outcome.TP_HIT] * 2 - outcome_counts[Outcome.SL_HIT]
+    print(f"  P/L: {PL} %")
 
 
 def main() -> None:
