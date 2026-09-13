@@ -21,10 +21,10 @@ TP price for an open position, which one would have hit first is undecided
 from OHLC alone; the outcome is reported as AMBIGUOUS rather than guessed, the
 same convention the rest of this repo uses for ambiguous bars.
 
-Timezone note: bar timestamps are used exactly as the exports carry them (see
-trading_sessions.py). The task specifies the Tokyo window as 00:00-09:00 UTC;
-nothing here converts timezones, so if the source export is not already in
-UTC the window edges shift accordingly.
+Timezone note: bar timestamps are shifted 5 hours earlier as they're read (see
+`_stream_bars`, `domain.shift_bars`) to convert the exports' broker-server time
+to UTC. The task specifies the Tokyo window as 00:00-09:00 UTC, so the window
+edges are only correct once that shift has been applied.
 
 Usage:
     python3 tokyo_breakout_strategy.py data/eurusd/1min/EURUSD_2020_01.csv
@@ -40,6 +40,8 @@ from datetime import date as _date, datetime, time as _time, timedelta
 from enum import Enum
 from pathlib import Path
 
+from domain.bar_block import BarBlock
+from domain.shift_bars import shift_bars
 from ports.file_system_access.file_system import find_files
 from ports.mt5_file_access import Bar, iterate_bars
 
@@ -64,58 +66,12 @@ class Outcome(Enum):
     FORCE_CLOSED = "OPEN AT FORCE-CLOSE (09:00 next day, no SL/TP hit)"
 
 
-@dataclass
-class TokyoSession:
-    """One day's Tokyo-window OHLC."""
+def _range_pips(session: BarBlock) -> float:
+    return to_pips(session.range)
 
-    day: _date
-    open_value: float
-    open_dt: datetime
-    close_value: float
-    close_dt: datetime
-    high_value: float = float("-inf")
-    high_dt: datetime | None = None
-    low_value: float = float("inf")
-    low_dt: datetime | None = None
-    bar_count: int = 0
 
-    def add(self, bar: Bar) -> None:
-        if bar.dt < self.open_dt:
-            self.open_value = bar.open
-            self.open_dt = bar.dt
-
-        if bar.dt > self.close_dt:
-            self.close_value = bar.close
-            self.close_dt = bar.dt
-
-        #self.high_value = max(self.high_value, bar.high)
-        #self.low_value = min(self.low_value, bar.low)
-        
-        if bar.high > self.high_value:
-            self.high_value = bar.high
-            self.high_dt = bar.dt
-
-        if bar.low < self.low_value:
-            self.low_value = bar.low
-            self.low_dt = bar.dt
-
-        self.bar_count += 1
-
-    @property
-    def range_pips(self) -> float:
-        return to_pips(self.high_value - self.low_value)
-
-    @property
-    def cancelled(self) -> bool:
-        return self.range_pips > MAX_RANGE_PIPS
-
-    @property
-    def mid(self) -> float:
-        return (self.high_value + self.low_value) / 2
-
-    @classmethod
-    def from_bar(cls, bar: Bar) -> "TokyoSession":
-        return cls(bar.dt.date(), bar.open, bar.dt, bar.close, bar.dt)
+def _cancelled(session: BarBlock) -> bool:
+    return _range_pips(session) > MAX_RANGE_PIPS
 
 
 @dataclass
@@ -149,7 +105,7 @@ class Position:
 
 @dataclass
 class DayResult:
-    session: TokyoSession
+    session: BarBlock
     long: Position = field(default_factory=Position)
     short: Position = field(default_factory=Position)
 
@@ -167,26 +123,29 @@ class DayResult:
 
 
 def _stream_bars(paths: Iterable[Path]) -> Iterator[Bar]:
-    for path in paths:
-        yield from iterate_bars(str(path), strict=False)
+    def _raw() -> Iterator[Bar]:
+        for path in paths:
+            yield from iterate_bars(str(path), strict=False)
+
+    return shift_bars(_raw(), timedelta(hours=5))
 
 
-def compute_tokyo_sessions(paths: list[Path]) -> dict[_date, TokyoSession]:
+def compute_tokyo_sessions(paths: list[Path]) -> dict[_date, BarBlock]:
     """One pass: every day's Tokyo (00:00-09:00) high/low/open/close."""
-    sessions: dict[_date, TokyoSession] = {}
+    sessionsByDate: dict[_date, BarBlock] = {}
 
     for bar in _stream_bars(paths):
         t = bar.dt.time()
         if not (TOKYO_START <= t < TOKYO_END):
             continue
-        day = bar.dt.date()
-        existing = sessions.get(day)
-        if existing is None:
-            sessions[day] = TokyoSession.from_bar(bar)
-        else:
-            existing.add(bar)
+        date = bar.dt.date()
+        block = sessionsByDate.get(date)
+        if block is None:
+            block = BarBlock()
+            sessionsByDate[date] = block
+        block.add(bar)
 
-    return sessions
+    return sessionsByDate
 
 
 def _open_position(position: Position, entry_dt: datetime, entry_price: float, mid: float) -> None:
@@ -245,11 +204,11 @@ def _force_close(result: DayResult) -> None:
             position.resolved_dt = result.window_end
 
 
-def simulate_trades(paths: list[Path], sessions: dict[_date, TokyoSession]) -> list[DayResult]:
+def simulate_trades(paths: list[Path], sessions: dict[_date, BarBlock]) -> list[DayResult]:
     """Second pass: walk the bars again, this time simulating each day's trade
     window [09:00, 09:00 next day) in order, using the H/L already known from
     the first pass."""
-    trade_days = sorted(d for d, s in sessions.items() if not s.cancelled)
+    trade_days = sorted(d for d, s in sessions.items() if not _cancelled(s))
     results: list[DayResult] = []
 
     idx = 0
@@ -284,10 +243,10 @@ def simulate_trades(paths: list[Path], sessions: dict[_date, TokyoSession]) -> l
     return results
 
 
-def _all_results(sessions: dict[_date, TokyoSession], traded: list[DayResult]) -> list[DayResult]:
+def _all_results(sessions: dict[_date, BarBlock], traded: list[DayResult]) -> list[DayResult]:
     by_day = {r.session.day: r for r in traded}
     for day, session in sessions.items():
-        if session.cancelled and day not in by_day:
+        if _cancelled(session) and day not in by_day:
             by_day[day] = DayResult(session)
     return [by_day[d] for d in sorted(by_day)]
 
@@ -337,14 +296,14 @@ def print_report(results: list[DayResult]) -> None:
         print(f"  Low: {_fmt_price(session.low_value)} ({session.low_dt})")
         print(f"  Close: {_fmt_price(session.close_value)} ({session.close_dt})")
 
-        print(f"  Range: {_fmt_pips(session.range_pips)}", end="")
+        print(f"  Range: {_fmt_pips(_range_pips(session))}", end="")
 
-        if session.cancelled:
+        if _cancelled(session):
             counts["cancelled"] += 1
             print(f"  -> CANCELLED (> {MAX_RANGE_PIPS:.0f}p threshold)\n")
             continue
 
-        risk_pips = session.range_pips / 2
+        risk_pips = _range_pips(session) / 2
         print(f"   SL: {_fmt_pips(risk_pips)}   TP: {_fmt_pips(risk_pips * RISK_REWARD)}")
         print(_fmt_position("LONG ", result.long))
         print(_fmt_position("SHORT", result.short))
@@ -380,10 +339,6 @@ def main() -> None:
     sessions = compute_tokyo_sessions(paths)
     if not sessions:
         parser.error("no Tokyo-session bars found in source")
-
-    import datetime as dt
-
-    first_session = list(sessions.values())[0]
 
     traded = simulate_trades(paths, sessions)
     results = _all_results(sessions, traded)

@@ -23,12 +23,15 @@ class Bar:
     """One OHLC candle. Immutable, and cheap enough to hold a month of them."""
 
     dt: datetime
+
     open: float
     high: float
     low: float
     close: float
+
     tick_volume: int = 0
     real_volume: int = 0
+
     spread: int | None = None
 
     @property

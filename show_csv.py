@@ -24,9 +24,11 @@ Stdlib only (pandas is not used).
 
 import argparse
 import sys
+from datetime import timedelta
 
 from domain.resample_bars import resample_bars
 from domain.sample_interval import SampleInterval
+from domain.shift_bars import shift_bars
 from ports.file_system_access.file_system import find_files
 from ports.mt5_file_access import BarParseError, iterate_bars
 from ui.bar_window import BarWindow
@@ -114,6 +116,7 @@ def main():
         skipped.append((line_no, reason))
 
     bars = read_bars(paths, on_skip)
+    bars = shift_bars(bars, timedelta(hours=-5))
 
     if interval:
         bars = resample_bars(bars, interval)
