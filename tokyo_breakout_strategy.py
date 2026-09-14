@@ -37,10 +37,10 @@ import argparse
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
 from datetime import date as _date, datetime, time as _time, timedelta
-from enum import Enum
 from pathlib import Path
 
 from domain.bar_block import BarBlock
+from domain.position import Outcome, PendingPosition, Position
 from domain.shift_bars import shift_bars
 from ports.file_system_access.file_system import find_files
 from ports.mt5_file_access import Bar, iterate_bars
@@ -58,12 +58,17 @@ def to_pips(price_diff: float) -> float:
     return price_diff / PIP
 
 
-class Outcome(Enum):
-    NOT_TRIGGERED = "not triggered (H/L not broken by 00:00 next day)"
-    TP_HIT = "TP HIT"
-    SL_HIT = "SL HIT"
-    AMBIGUOUS = "AMBIGUOUS (SL and TP both inside one bar)"
-    FORCE_CLOSED = "OPEN AT FORCE-CLOSE (09:00 next day, no SL/TP hit)"
+_OUTCOME_TEXT: dict[Outcome, str] = {
+    Outcome.NONE: "not triggered (H/L not broken by 00:00 next day)",
+    Outcome.TP_HIT: "TP HIT",
+    Outcome.SL_HIT: "SL HIT",
+    Outcome.AMBIGUOUS: "AMBIGUOUS (SL and TP both inside one bar)",
+    Outcome.FORCE_CLOSED: "OPEN AT FORCE-CLOSE (09:00 next day, no SL/TP hit)",
+}
+
+
+def outcome_text(outcome: Outcome) -> str:
+    return _OUTCOME_TEXT[outcome]
 
 
 def _range_pips(session: BarBlock) -> float:
@@ -72,50 +77,6 @@ def _range_pips(session: BarBlock) -> float:
 
 def _cancelled(session: BarBlock) -> bool:
     return _range_pips(session) > MAX_RANGE_PIPS
-
-
-@dataclass
-class Position:
-    """One side (long or short) of a day's trade, once triggered."""
-
-    entry_dt: datetime
-    entry_price: float
-    sl: float
-    tp: float
-    outcome: Outcome = Outcome.NOT_TRIGGERED
-    resolved_dt: datetime | None = None
-    resolved_price: float | None = None
-
-    @property
-    def risk_pips(self) -> float:
-        return to_pips(abs(self.entry_price - self.sl))
-
-    @property
-    def is_resolved(self) -> bool:
-        return self.resolved_dt is not None
-
-    @property
-    def reward_pips(self) -> float:
-        return to_pips(abs(self.tp - self.entry_price))
-
-
-@dataclass(frozen=True, slots=True)
-class PendingPosition:
-    """The price, SL and TP one side would enter at if it triggers -- fixed
-    the moment the Tokyo session closes, before any breakout has happened."""
-
-    price: float
-    sl: float
-    tp: float
-
-    @classmethod
-    def for_level(cls, price: float, sl: float) -> "PendingPosition":
-        risk = abs(price - sl)
-        tp = price + RISK_REWARD * risk * (1 if price > sl else -1)
-        return cls(price=price, sl=sl, tp=tp)
-
-    def materialize(self, entry_dt: datetime) -> Position:
-        return Position(entry_dt=entry_dt, entry_price=self.price, sl=self.sl, tp=self.tp)
 
 
 @dataclass
@@ -128,8 +89,8 @@ class DayResult:
 
     def __post_init__(self) -> None:
         mid = self.session.mid
-        self.pending_long = PendingPosition.for_level(self.session.high_value, mid)
-        self.pending_short = PendingPosition.for_level(self.session.low_value, mid)
+        self.pending_long = PendingPosition.for_level(self.session.high_value, mid, RISK_REWARD)
+        self.pending_short = PendingPosition.for_level(self.session.low_value, mid, RISK_REWARD)
 
     @property
     def window_start(self) -> datetime:
@@ -199,7 +160,7 @@ def _process_side(
 ) -> Position | None:
     if position is None:
         if bar.dt < result.breakout_cutoff and breaks_level:
-            position = pending.materialize(bar.dt)
+            position = pending.open_position(bar.dt)
             _check_resolution(position, bar, is_long)
         return position
     if position.resolved_dt is None:
@@ -277,23 +238,23 @@ def _fmt_pips(value: float) -> str:
 
 def _fmt_position(label: str, position: Position | None) -> str:
     if position is None:
-        return f"  {label}: {Outcome.NOT_TRIGGERED.value}"
+        return f"  {label}: {outcome_text(Outcome.NONE)}"
 
     header = (
         f"  {label}: triggered {position.entry_dt:%Y-%m-%d %H:%M} @ "
         f"{_fmt_price(position.entry_price)}  "
-        f"(SL {_fmt_pips(position.risk_pips)} @ {_fmt_price(position.sl)}, "
-        f"TP {_fmt_pips(position.reward_pips)} @ {_fmt_price(position.tp)})"
+        f"(SL {_fmt_pips(to_pips(position.risk_value))} @ {_fmt_price(position.sl)}, "
+        f"TP {_fmt_pips(to_pips(position.reward_value))} @ {_fmt_price(position.tp)})"
     )
     if not position.is_resolved:
         detail = "    -> still open (not yet resolved)"
     elif position.outcome == Outcome.FORCE_CLOSED:
-        detail = f"    -> {Outcome.FORCE_CLOSED.value} at {position.resolved_dt:%Y-%m-%d %H:%M}"
+        detail = f"    -> {outcome_text(Outcome.FORCE_CLOSED)} at {position.resolved_dt:%Y-%m-%d %H:%M}"
     elif position.outcome == Outcome.AMBIGUOUS:
-        detail = f"    -> {Outcome.AMBIGUOUS.value} at {position.resolved_dt:%Y-%m-%d %H:%M}"
+        detail = f"    -> {outcome_text(Outcome.AMBIGUOUS)} at {position.resolved_dt:%Y-%m-%d %H:%M}"
     else:
         detail = (
-            f"    -> {position.outcome.value} at {position.resolved_dt:%Y-%m-%d %H:%M} "
+            f"    -> {outcome_text(position.outcome)} at {position.resolved_dt:%Y-%m-%d %H:%M} "
             f"@ {_fmt_price(position.resolved_price)}"
         )
     return header + "\n" + detail
