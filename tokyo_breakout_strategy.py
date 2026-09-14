@@ -81,141 +81,140 @@ def _cancelled(session: BarBlock) -> bool:
 
 @dataclass
 class DayResult:
-    session: BarBlock
+    reference_session: BarBlock
     pending_long: PendingPosition = field(init=False)
     pending_short: PendingPosition = field(init=False)
     long: Position | None = None
     short: Position | None = None
 
     def __post_init__(self) -> None:
-        mid = self.session.mid
-        self.pending_long = PendingPosition.for_level(self.session.high_value, mid, RISK_REWARD)
-        self.pending_short = PendingPosition.for_level(self.session.low_value, mid, RISK_REWARD)
+        mid = self.reference_session.mid
+        self.pending_long = PendingPosition.for_level(self.reference_session.high_value, mid, RISK_REWARD)
+        self.pending_short = PendingPosition.for_level(self.reference_session.low_value, mid, RISK_REWARD)
 
     @property
     def window_start(self) -> datetime:
-        return datetime.combine(self.session.day, TOKYO_END)
+        return datetime.combine(self.reference_session.day, TOKYO_END)
 
     @property
     def breakout_cutoff(self) -> datetime:
-        return datetime.combine(self.session.day + timedelta(days=1), _time(0, 0))
+        return datetime.combine(self.reference_session.day + timedelta(days=1), _time(0, 0))
 
     @property
     def window_end(self) -> datetime:
-        return datetime.combine(self.session.day + timedelta(days=1), TOKYO_END)
+        return datetime.combine(self.reference_session.day + timedelta(days=1), TOKYO_END)
 
 
-def _stream_bars(paths: Iterable[Path]) -> Iterator[Bar]:
-    def _raw() -> Iterator[Bar]:
-        for path in paths:
-            yield from iterate_bars(str(path), strict=False)
+class TokyoBreakoutStrategy:
+    """Encapsulates the Tokyo Session Breakout rules (see
+    tokyo-session-breakout.md): given one chronological stream of Bars,
+    decides each day's Tokyo range, whether it's tradeable, and simulates
+    the breakout/SL/TP/force-close outcome for both sides.
 
-    return shift_bars(_raw(), timedelta(hours=4))
+    `calculate()` consumes its `bars` argument exactly once."""
 
+    def calculate(self, bars: Iterable[Bar]) -> list[DayResult]:
+        """One pass over `bars` (must be chronological). Folds Tokyo-session
+        bars into each day's BarBlock; as soon as a day's Tokyo session
+        closes (09:00), decides whether it trades and, if so, opens it as
+        the active trade window -- which runs until the next day's Tokyo
+        session closes, so the two are contiguous and one pass covers both."""
+        sessions: dict[_date, BarBlock] = {}
+        results: list[DayResult] = []
+        current: DayResult | None = None
+        next_day_to_resolve: _date | None = None
 
-def _check_resolution(position: Position, bar: Bar, is_long: bool) -> None:
-    """Update `position` if this bar's range touches its SL and/or TP."""
-    if position.tp is None or position.sl is None:
-        return
-    if is_long:
-        hit_tp = bar.high >= position.tp
-        hit_sl = bar.low <= position.sl
-    else:
-        hit_tp = bar.low <= position.tp
-        hit_sl = bar.high >= position.sl
+        def resolve_up_to(dt: datetime) -> None:
+            nonlocal current, next_day_to_resolve
+            while next_day_to_resolve is not None and dt >= datetime.combine(next_day_to_resolve, TOKYO_END):
+                boundary = datetime.combine(next_day_to_resolve, TOKYO_END)
+                if current is not None and boundary >= current.window_end:
+                    self._force_close(current)
+                    results.append(current)
+                    current = None
+                session = sessions.get(next_day_to_resolve)
+                if session is not None:
+                    if _cancelled(session):
+                        results.append(DayResult(session))
+                    elif current is None:
+                        current = DayResult(session)
+                next_day_to_resolve += timedelta(days=1)
 
-    if hit_tp and hit_sl:
-        position.outcome = Outcome.AMBIGUOUS
-        position.resolved_dt = bar.dt
-    elif hit_tp:
-        position.outcome = Outcome.TP_HIT
-        position.resolved_dt = bar.dt
-        position.resolved_price = position.tp
-    elif hit_sl:
-        position.outcome = Outcome.SL_HIT
-        position.resolved_dt = bar.dt
-        position.resolved_price = position.sl
+        for bar in bars:
+            if next_day_to_resolve is None:
+                next_day_to_resolve = bar.dt.date()
 
+            t = bar.dt.time()
+            if TOKYO_START <= t < TOKYO_END:
+                sessions.setdefault(bar.dt.date(), BarBlock()).add(bar)
 
-def _process_side(
-    result: DayResult, bar: Bar, position: Position | None, pending: PendingPosition, is_long: bool, breaks_level: bool
-) -> Position | None:
-    if position is None:
-        if bar.dt < result.breakout_cutoff and breaks_level:
-            position = pending.open_position(bar.dt)
-            _check_resolution(position, bar, is_long)
+            resolve_up_to(bar.dt)
+
+            if current is not None and bar.dt >= current.window_start:
+                self._process_bar(current, bar)
+
+        if current is not None:
+            self._force_close(current)
+            results.append(current)
+
+        return self._all_results(sessions, results)
+
+    def _all_results(self, sessions: dict[_date, BarBlock], results: list[DayResult]) -> list[DayResult]:
+        by_day = {r.reference_session.day: r for r in results}
+        for day, session in sessions.items():
+            if day not in by_day:
+                by_day[day] = DayResult(session)
+        return [by_day[d] for d in sorted(by_day)]
+
+    def _process_bar(self, result: DayResult, bar: Bar) -> None:
+        session = result.reference_session
+        result.long = self._process_side(
+            result, bar, result.long, result.pending_long, True, bar.high > session.high_value
+        )
+        result.short = self._process_side(
+            result, bar, result.short, result.pending_short, False, bar.low < session.low_value
+        )
+
+    def _process_side(
+        self, result: DayResult, bar: Bar, position: Position | None, pending: PendingPosition, is_long: bool, breaks_level: bool
+    ) -> Position | None:
+        if position is None:
+            if bar.dt < result.breakout_cutoff and breaks_level:
+                position = pending.open_position(bar.dt)
+                self._check_resolution(position, bar, is_long)
+            return position
+        if position.resolved_dt is None:
+            self._check_resolution(position, bar, is_long)
         return position
-    if position.resolved_dt is None:
-        _check_resolution(position, bar, is_long)
-    return position
 
+    def _check_resolution(self, position: Position, bar: Bar, is_long: bool) -> None:
+        """Update `position` if this bar's range touches its SL and/or TP."""
+        if position.tp is None or position.sl is None:
+            return
+        if is_long:
+            hit_tp = bar.high >= position.tp
+            hit_sl = bar.low <= position.sl
+        else:
+            hit_tp = bar.low <= position.tp
+            hit_sl = bar.high >= position.sl
 
-def _process_bar(result: DayResult, bar: Bar) -> None:
-    session = result.session
-    result.long = _process_side(result, bar, result.long, result.pending_long, True, bar.high > session.high_value)
-    result.short = _process_side(result, bar, result.short, result.pending_short, False, bar.low < session.low_value)
+        if hit_tp and hit_sl:
+            position.outcome = Outcome.AMBIGUOUS
+            position.resolved_dt = bar.dt
+        elif hit_tp:
+            position.outcome = Outcome.TP_HIT
+            position.resolved_dt = bar.dt
+            position.resolved_price = position.tp
+        elif hit_sl:
+            position.outcome = Outcome.SL_HIT
+            position.resolved_dt = bar.dt
+            position.resolved_price = position.sl
 
-
-def _force_close(result: DayResult) -> None:
-    for position in (result.long, result.short):
-        if position is not None and position.is_resolved is False:
-            position.outcome = Outcome.FORCE_CLOSED
-            position.resolved_dt = result.window_end
-
-
-def run_strategy(bars: Iterable[Bar]) -> list[DayResult]:
-    """One pass over `bars` (must be chronological). Folds Tokyo-session bars
-    into each day's BarBlock; as soon as a day's Tokyo session closes (09:00),
-    decides whether it trades and, if so, opens it as the active trade window
-    -- which runs until the next day's Tokyo session closes, so the two are
-    contiguous and one pass covers both."""
-    sessions: dict[_date, BarBlock] = {}
-    results: list[DayResult] = []
-    current: DayResult | None = None
-    next_day_to_resolve: _date | None = None
-
-    def resolve_up_to(dt: datetime) -> None:
-        nonlocal current, next_day_to_resolve
-        while next_day_to_resolve is not None and dt >= datetime.combine(next_day_to_resolve, TOKYO_END):
-            boundary = datetime.combine(next_day_to_resolve, TOKYO_END)
-            if current is not None and boundary >= current.window_end:
-                _force_close(current)
-                results.append(current)
-                current = None
-            session = sessions.get(next_day_to_resolve)
-            if session is not None:
-                if _cancelled(session):
-                    results.append(DayResult(session))
-                elif current is None:
-                    current = DayResult(session)
-            next_day_to_resolve += timedelta(days=1)
-
-    for bar in bars:
-        if next_day_to_resolve is None:
-            next_day_to_resolve = bar.dt.date()
-
-        t = bar.dt.time()
-        if TOKYO_START <= t < TOKYO_END:
-            sessions.setdefault(bar.dt.date(), BarBlock()).add(bar)
-
-        resolve_up_to(bar.dt)
-
-        if current is not None and bar.dt >= current.window_start:
-            _process_bar(current, bar)
-
-    if current is not None:
-        _force_close(current)
-        results.append(current)
-
-    return _all_results(sessions, results)
-
-
-def _all_results(sessions: dict[_date, BarBlock], results: list[DayResult]) -> list[DayResult]:
-    by_day = {r.session.day: r for r in results}
-    for day, session in sessions.items():
-        if day not in by_day:
-            by_day[day] = DayResult(session)
-    return [by_day[d] for d in sorted(by_day)]
+    def _force_close(self, result: DayResult) -> None:
+        for position in (result.long, result.short):
+            if position is not None and position.is_resolved is False:
+                position.outcome = Outcome.FORCE_CLOSED
+                position.resolved_dt = result.window_end
 
 
 def _fmt_price(value: float) -> str:
@@ -264,7 +263,7 @@ def print_report(results: list[DayResult]) -> None:
     triggered_sides = 0
 
     for result in results:
-        session = result.session
+        session = result.reference_session
         counts["days"] += 1
         print(f"=== {session.day.isoformat()} (Tokyo 00:00-09:00) ===")
         print_bar_block(session, "  ")
@@ -296,22 +295,43 @@ def print_report(results: list[DayResult]) -> None:
     print(f"  P/L: {PL} %")
 
 
-def main() -> None:
+def retrieve_bars(source_path):
+    paths = find_files(source_path, recursive=True)
+    if not paths:
+        raise SystemExit(f"error: no csv files found at {source_path!r}")
+
+    print(f"Reading {len(paths)} file(s) from {source_path}\n")
+
+    return _stream_bars(paths)
+
+
+def _stream_bars(paths: Iterable[Path]) -> Iterator[Bar]:
+    def _raw() -> Iterator[Bar]:
+        for path in paths:
+            yield from iterate_bars(str(path), strict=False)
+
+    return shift_bars(_raw(), timedelta(hours=4))
+
+
+def parse_arguments():
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument("source", help="a single M1 csv export, or a folder of them")
-    args = parser.parse_args()
+    return parser.parse_args()
 
-    paths = find_files(args.source, recursive=True)
-    if not paths:
-        parser.error(f"no csv files found at {args.source!r}")
 
-    print(f"Reading {len(paths)} file(s) from {args.source}\n")
+def main() -> None:
+    args = parse_arguments()
 
-    results = run_strategy(_stream_bars(paths))
+    source_path = args.source
+    bars = retrieve_bars(source_path)
+
+    strategy = TokyoBreakoutStrategy()
+    results = strategy.calculate(bars)
+
     if not results:
-        parser.error("no Tokyo-session bars found in source")
+        raise SystemExit("error: no Tokyo-session bars found in source")
 
     print_report(results)
 
