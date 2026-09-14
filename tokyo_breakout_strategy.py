@@ -47,7 +47,7 @@ from pathlib import Path
 from typing import TextIO
 from zoneinfo import ZoneInfo
 
-from domain.bar_chunks import BarChunks, Granularity, boundary_key
+from domain.bar_chunks import BarChunks
 from domain.bar_block import BarBlock
 from domain.position import Outcome, PendingPosition, Position
 from domain.shift_bars import shift_bars
@@ -254,31 +254,30 @@ class TokyoBreakoutStrategy:
     add_bar(), decides each day's Tokyo range, whether it's tradeable, and
     simulates the breakout/SL/TP/force-close outcome for both sides.
 
-    Each instance is scoped to exactly one `granularity` chunk (see
-    `domain.bar_chunks`), inferred from the first bar it ever sees:
-    add_bar() only creates a new TbsDailySession for a bar whose
-    `boundary_key()` matches that first one. A bar from a different chunk is
-    still fed to whatever sessions are already live -- so a session whose
-    window runs past midnight into the next chunk can still resolve -- but
-    never spawns a session of its own. This lets a caller hand the same
-    trailing bars to both the current chunk's instance and the previous
-    chunk's (now-retired) instance during the handover: the previous
-    instance just drains its lingering live session(s) and, once
+    Each instance is scoped to one chunk of a caller-defined stream split
+    (see `domain.bar_chunks`); it doesn't know or care what the chunk
+    boundaries are -- that's entirely the caller's business. What it does
+    know is its own retirement: while live, add_bar() creates a new
+    TbsDailySession the moment a bar for a new calendar day appears. Once
+    retire() has been called, add_bar() stops spawning sessions but keeps
+    feeding bars to whatever's already live -- so a session whose window
+    runs past midnight into the next chunk can still resolve. This lets a
+    caller hand the same trailing bars to both the current chunk's instance
+    and the previous chunk's (now-retired) instance during the handover: the
+    retired instance just drains its lingering live session(s) and, once
     has_live_sessions is False, stops needing bars at all -- it never grows
-    a shadow copy of the new chunk's sessions. With granularity "none" there
-    is only ever one chunk, so this restriction never kicks in.
+    a shadow copy of the new chunk's sessions.
 
     close_live_sessions() force-closes whatever's still live, for use once
     the bar stream truly ends (no next chunk arrives to hand off to)."""
 
     max_range_pips: float = 30.0
     risk_reward: float = 1.5
-    granularity: Granularity = "monthly"
 
     _sessions: dict[_date, TbsDailySession] = field(default_factory=dict, init=False, repr=False)
     _session_order: list[_date] = field(default_factory=list, init=False, repr=False)
     _live_sessions: list[TbsDailySession] = field(default_factory=list, init=False, repr=False)
-    _chunk_key: object = field(default=None, init=False, repr=False)
+    _is_retiring: bool = field(default=False, init=False, repr=False)
 
     @property
     def sessions(self) -> list[TbsDailySession]:
@@ -301,12 +300,8 @@ class TokyoBreakoutStrategy:
         window_end; add_bar() only has to notice that and drop it from the
         live list."""
         bar_date = bar.dt.date()
-        bar_key = boundary_key(bar_date, self.granularity)
 
-        if self._chunk_key is None:
-            self._chunk_key = bar_key
-
-        if bar_date not in self._sessions and bar_key == self._chunk_key:
+        if bar_date not in self._sessions and not self._is_retiring:
             session = TbsDailySession(bar_date, self.max_range_pips, self.risk_reward)
             self._sessions[bar_date] = session
             self._session_order.append(bar_date)
@@ -317,6 +312,10 @@ class TokyoBreakoutStrategy:
 
             if session.is_closed:
                 self._live_sessions.remove(session)
+
+    def retire(self) -> None:
+        """Force-close all live sessions and mark this chunk as retired."""
+        self._is_retiring = True
 
     def close_live_sessions(self) -> None:
         """Force-close every still-live session at its own window_end."""
@@ -512,7 +511,7 @@ def process_bars(report_path, all_bars, max_range_pips, risk_reward_ration, gran
             print(file=out)
 
         while bar_chunks.has_more:
-            current = TokyoBreakoutStrategy(max_range_pips=max_range_pips, risk_reward=risk_reward_ration, granularity=granularity)  # corrected typo
+            current = TokyoBreakoutStrategy(max_range_pips=max_range_pips, risk_reward=risk_reward_ration)
 
             for bar in bar_chunks.iterate():
                 current.add_bar(bar)
@@ -530,6 +529,7 @@ def process_bars(report_path, all_bars, max_range_pips, risk_reward_ration, gran
                 # -- but don't silently drop it if it ever does.
                 flush(previous)
 
+            current.retire()
             previous = current
 
         if previous is None:
