@@ -24,7 +24,7 @@ Stdlib only (pandas is not used).
 
 import argparse
 import sys
-from datetime import timedelta
+from zoneinfo import ZoneInfo
 
 from domain.resample_bars import resample_bars
 from domain.sample_interval import SampleInterval
@@ -116,7 +116,9 @@ def main():
         skipped.append((line_no, reason))
 
     bars = read_bars(paths, on_skip)
-    bars = shift_bars(bars, timedelta(hours=-5))
+    # Broker server time is US Eastern; ZoneInfo applies the correct
+    # EST/EDT offset per bar instead of a fixed hour count.
+    bars = shift_bars(bars, ZoneInfo("America/New_York"))
 
     if interval:
         bars = resample_bars(bars, interval)

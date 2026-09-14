@@ -21,10 +21,11 @@ TP price for an open position, which one would have hit first is undecided
 from OHLC alone; the outcome is reported as AMBIGUOUS rather than guessed, the
 same convention the rest of this repo uses for ambiguous bars.
 
-Timezone note: bar timestamps are shifted 5 hours earlier as they're read (see
-`_stream_bars`, `domain.shift_bars`) to convert the exports' broker-server time
-to UTC. The task specifies the Tokyo window as 00:00-09:00 UTC, so the window
-edges are only correct once that shift has been applied.
+Timezone note: bar timestamps are converted from US Eastern (the broker's
+server time) to UTC as they're read (see `_stream_bars`, `domain.shift_bars`),
+via `ZoneInfo("America/New_York")` so the EST/EDT offset applied is correct
+for each bar's date. The task specifies the Tokyo window as 00:00-09:00 UTC,
+so the window edges are only correct once that conversion has been applied.
 
 The full day-by-day report is written to <--out>/tokyo_breakout_report.txt;
 only the summary (one block per month) is echoed to the console.
@@ -44,6 +45,7 @@ from dataclasses import dataclass, field
 from datetime import date as _date, datetime, time as _time, timedelta
 from pathlib import Path
 from typing import TextIO
+from zoneinfo import ZoneInfo
 
 from domain.monthly_bar_chunks import MonthlyBarChunks
 from domain.bar_block import BarBlock
@@ -466,7 +468,9 @@ def _stream_bars(paths: Iterable[Path]) -> Iterator[Bar]:
         for path in paths:
             yield from iterate_bars(str(path), strict=False)
 
-    return shift_bars(_raw(), timedelta(hours=4))
+    # Broker server time is US Eastern; ZoneInfo applies the correct
+    # EST/EDT offset per bar instead of a fixed hour count.
+    return shift_bars(_raw(), ZoneInfo("America/New_York"))
 
 
 def parse_arguments():
