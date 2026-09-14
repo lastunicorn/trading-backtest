@@ -40,6 +40,7 @@ from dataclasses import dataclass, field
 from datetime import date as _date, datetime, time as _time, timedelta
 from pathlib import Path
 
+from domain.monthly_bar_chunks import MonthlyBarChunks
 from domain.bar_block import BarBlock
 from domain.position import Outcome, PendingPosition, Position
 from domain.shift_bars import shift_bars
@@ -397,15 +398,22 @@ def main() -> None:
     args = parse_arguments()
 
     source_path = args.source
-    bars = retrieve_bars(source_path)
 
-    strategy = TokyoBreakoutStrategy(max_range_pips=args.max_range_pips, risk_reward=args.risk_reward)
-    results = strategy.calculate(bars)
+    all_bars = retrieve_bars(source_path)
+    monthly_bar_chunks = MonthlyBarChunks(all_bars)
 
-    if not results:
-        raise SystemExit("error: no Tokyo-session bars found in source")
-
-    print_report(results)
+    while True:
+        month_bars = list(monthly_bar_chunks.iterate())
+        if not month_bars:
+            break
+        strategy = TokyoBreakoutStrategy(max_range_pips=args.max_range_pips, risk_reward=args.risk_reward)
+        results = strategy.calculate(month_bars)
+        
+        if not results:
+            raise SystemExit("error: no Tokyo-session bars found in source")
+        
+        print_report(results)
+        print()
 
     elapsed = time.perf_counter() - start_time
     print(f"\nExecution time: {elapsed:.2f}s")
