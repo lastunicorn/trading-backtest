@@ -34,6 +34,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import time
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
 from datetime import date as _date, datetime, time as _time, timedelta
@@ -391,6 +392,8 @@ def parse_arguments():
 
 
 def main() -> None:
+    start_time = time.perf_counter()
+
     args = parse_arguments()
 
     source_path = args.source
@@ -403,6 +406,9 @@ def main() -> None:
         raise SystemExit("error: no Tokyo-session bars found in source")
 
     print_report(results)
+
+    elapsed = time.perf_counter() - start_time
+    print(f"\nExecution time: {elapsed:.2f}s")
 
 
 if __name__ == "__main__":
