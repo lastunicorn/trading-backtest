@@ -39,7 +39,7 @@ from __future__ import annotations
 
 import argparse
 import time
-from collections.abc import Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, field
 from datetime import date as _date, datetime, time as _time, timedelta
 from pathlib import Path
@@ -360,6 +360,42 @@ def print_bar_block(bar_block: BarBlock, indent: str, out: TextIO) -> None:
     print(f"{indent}Range: {_fmt_pips(_range_pips(bar_block))}", file=out)
 
 
+@dataclass
+class TbsSummary:
+    """Aggregated totals for a `print_report` run, ready for `write_summary`."""
+
+    first_dt: datetime
+    last_dt: datetime
+    risk_reward_ratio: float
+    max_range_pips: float
+    total_days: int
+    cancelled_days: int
+    position_count: int
+    outcome_counts: dict[Outcome, int]
+
+    @property
+    def traded_days(self) -> int:
+        return self.total_days - self.cancelled_days
+
+    @property
+    def pl_percent(self) -> float:
+        return (
+            self.outcome_counts[Outcome.TP_HIT] * self.risk_reward_ratio
+            - self.outcome_counts[Outcome.SL_HIT]
+        )
+
+
+def write_summary(summary: TbsSummary, say: Callable[[str], None]) -> None:
+    say(f"=== summary ({summary.first_dt:%Y-%m-%d %H:%M} -> {summary.last_dt:%Y-%m-%d %H:%M}) ===")
+    say(f"  Risk/Reward ratio: {summary.risk_reward_ratio}")
+    say(f"  Tokyo sessions: {summary.total_days}   cancelled (range > {summary.max_range_pips:.0f}p): {summary.cancelled_days}")
+    say(f"  Eligible days: {summary.traded_days}   positions opened: {summary.position_count}")
+    say("  Outcome:")
+    for outcome in (Outcome.TP_HIT, Outcome.SL_HIT, Outcome.AMBIGUOUS, Outcome.FORCE_CLOSED):
+        say(f"    {outcome.name}: {summary.outcome_counts[outcome]}")
+    say(f"  P/L: {summary.pl_percent:.2f} %")
+
+
 def print_report(results: list[TbsDailySession], out: TextIO) -> None:
     """Write the full day-by-day report to `out` only. The summary section
     at the end is written to `out` and echoed to the console, since it's the
@@ -398,25 +434,21 @@ def print_report(results: list[TbsDailySession], out: TextIO) -> None:
                 position_count += 1
                 outcome_counts[position.outcome] += 1
 
-    total = counts["days"]
-    traded_days = total - counts["cancelled"]
-
     def say(text: str = "") -> None:
         print(text)
         print(text, file=out)
 
-    first_dt = results[0].first_candle_dt
-    last_dt = results[-1].last_candle_dt
-    say(f"=== summary ({first_dt:%Y-%m-%d %H:%M} -> {last_dt:%Y-%m-%d %H:%M}) ===")
-    risk_reward_ratio = results[0].risk_reward_ratio
-    say(f"  Risk/Reward ratio: {risk_reward_ratio}")
-    say(f"  Tokyo sessions: {total}   cancelled (range > {results[0].max_range_pips:.0f}p): {counts['cancelled']}")
-    say(f"  Eligible days: {traded_days}   positions opened: {position_count}")
-    say("  Outcome:")
-    for outcome in (Outcome.TP_HIT, Outcome.SL_HIT, Outcome.AMBIGUOUS, Outcome.FORCE_CLOSED):
-        say(f"    {outcome.name}: {outcome_counts[outcome]}")
-    PL = outcome_counts[Outcome.TP_HIT] * risk_reward_ratio - outcome_counts[Outcome.SL_HIT]
-    say(f"  P/L: {PL:.2f} %")
+    summary = TbsSummary(
+        first_dt=results[0].first_candle_dt,
+        last_dt=results[-1].last_candle_dt,
+        risk_reward_ratio=results[0].risk_reward_ratio,
+        max_range_pips=results[0].max_range_pips,
+        total_days=counts["days"],
+        cancelled_days=counts["cancelled"],
+        position_count=position_count,
+        outcome_counts=outcome_counts,
+    )
+    write_summary(summary, say)
 
 
 def retrieve_bars(source_path):
