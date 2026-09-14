@@ -113,24 +113,6 @@ def _stream_bars(paths: Iterable[Path]) -> Iterator[Bar]:
     return shift_bars(_raw(), timedelta(hours=4))
 
 
-def compute_tokyo_sessions(paths: list[Path]) -> dict[_date, BarBlock]:
-    """One pass: every day's Tokyo (00:00-09:00) high/low/open/close."""
-    sessionsByDate: dict[_date, BarBlock] = {}
-
-    for bar in _stream_bars(paths):
-        t = bar.dt.time()
-        if not (TOKYO_START <= t < TOKYO_END):
-            continue
-        date = bar.dt.date()
-        block = sessionsByDate.get(date)
-        if block is None:
-            block = BarBlock()
-            sessionsByDate[date] = block
-        block.add(bar)
-
-    return sessionsByDate
-
-
 def _check_resolution(position: Position, bar: Bar, is_long: bool) -> None:
     """Update `position` if this bar's range touches its SL and/or TP."""
     if position.tp is None or position.sl is None:
@@ -181,49 +163,57 @@ def _force_close(result: DayResult) -> None:
             position.resolved_dt = result.window_end
 
 
-def simulate_trades(paths: list[Path], sessions: dict[_date, BarBlock]) -> list[DayResult]:
-    """Second pass: walk the bars again, this time simulating each day's trade
-    window [09:00, 09:00 next day) in order, using the H/L already known from
-    the first pass."""
-    trade_days = sorted(d for d, s in sessions.items() if not _cancelled(s))
+def run_strategy(bars: Iterable[Bar]) -> list[DayResult]:
+    """One pass over `bars` (must be chronological). Folds Tokyo-session bars
+    into each day's BarBlock; as soon as a day's Tokyo session closes (09:00),
+    decides whether it trades and, if so, opens it as the active trade window
+    -- which runs until the next day's Tokyo session closes, so the two are
+    contiguous and one pass covers both."""
+    sessions: dict[_date, BarBlock] = {}
     results: list[DayResult] = []
-
-    idx = 0
     current: DayResult | None = None
-    if trade_days:
-        current = DayResult(sessions[trade_days[0]])
+    next_day_to_resolve: _date | None = None
 
-    def advance_past(dt: datetime) -> None:
-        nonlocal idx, current
-        while current is not None and dt >= current.window_end:
-            _force_close(current)
-            results.append(current)
-            idx += 1
-            current = DayResult(sessions[trade_days[idx]]) if idx < len(trade_days) else None
+    def resolve_up_to(dt: datetime) -> None:
+        nonlocal current, next_day_to_resolve
+        while next_day_to_resolve is not None and dt >= datetime.combine(next_day_to_resolve, TOKYO_END):
+            boundary = datetime.combine(next_day_to_resolve, TOKYO_END)
+            if current is not None and boundary >= current.window_end:
+                _force_close(current)
+                results.append(current)
+                current = None
+            session = sessions.get(next_day_to_resolve)
+            if session is not None:
+                if _cancelled(session):
+                    results.append(DayResult(session))
+                elif current is None:
+                    current = DayResult(session)
+            next_day_to_resolve += timedelta(days=1)
 
-    for bar in _stream_bars(paths):
-        advance_past(bar.dt)
+    for bar in bars:
+        if next_day_to_resolve is None:
+            next_day_to_resolve = bar.dt.date()
+
+        t = bar.dt.time()
+        if TOKYO_START <= t < TOKYO_END:
+            sessions.setdefault(bar.dt.date(), BarBlock()).add(bar)
+
+        resolve_up_to(bar.dt)
+
         if current is not None and bar.dt >= current.window_start:
             _process_bar(current, bar)
 
     if current is not None:
         _force_close(current)
         results.append(current)
-        idx += 1
 
-    # Trade days for which no bar at or after window_start ever arrived
-    # (dataset ends right at/after the Tokyo session, before any afternoon
-    # bar) -- record them untriggered rather than dropping them silently.
-    for d in trade_days[idx:]:
-        results.append(DayResult(sessions[d]))
-
-    return results
+    return _all_results(sessions, results)
 
 
-def _all_results(sessions: dict[_date, BarBlock], traded: list[DayResult]) -> list[DayResult]:
-    by_day = {r.session.day: r for r in traded}
+def _all_results(sessions: dict[_date, BarBlock], results: list[DayResult]) -> list[DayResult]:
+    by_day = {r.session.day: r for r in results}
     for day, session in sessions.items():
-        if _cancelled(session) and day not in by_day:
+        if day not in by_day:
             by_day[day] = DayResult(session)
     return [by_day[d] for d in sorted(by_day)]
 
@@ -319,12 +309,10 @@ def main() -> None:
 
     print(f"Reading {len(paths)} file(s) from {args.source}\n")
 
-    sessions = compute_tokyo_sessions(paths)
-    if not sessions:
+    results = run_strategy(_stream_bars(paths))
+    if not results:
         parser.error("no Tokyo-session bars found in source")
 
-    traded = simulate_trades(paths, sessions)
-    results = _all_results(sessions, traded)
     print_report(results)
 
 

@@ -82,9 +82,5 @@ class PendingPosition:
         tp = price + reward * (1 if price > sl else -1)
         return cls(price=price, sl=sl, tp=tp)
 
-    @classmethod
-    def for_level(cls, price: float, sl: float, tp: float) -> "PendingPosition":
-        return cls(price=price, sl=sl, tp=tp)
-
     def open_position(self, entry_dt: datetime) -> Position:
         return Position(entry_dt=entry_dt, entry_price=self.price, sl=self.sl, tp=self.tp)
