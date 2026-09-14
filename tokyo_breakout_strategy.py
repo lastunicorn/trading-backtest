@@ -225,7 +225,7 @@ class TbsDailySession:
             position.close_dt = bar.dt
             position.close_price = position.sl
 
-    def close(self) -> bool:
+    def close_at_end(self) -> bool:
         return self.close(self.window_end)
 
     def close(self, at: datetime) -> bool:
@@ -248,48 +248,76 @@ class TbsDailySession:
 @dataclass
 class TokyoBreakoutStrategy:
     """Encapsulates the Tokyo Session Breakout rules (see
-    tokyo-session-breakout.md): given one chronological stream of Bars,
-    decides each day's Tokyo range, whether it's tradeable, and simulates
-    the breakout/SL/TP/force-close outcome for both sides.
+    tokyo-session-breakout.md): fed one chronological bar at a time via
+    add_bar(), decides each day's Tokyo range, whether it's tradeable, and
+    simulates the breakout/SL/TP/force-close outcome for both sides.
 
-    `calculate()` consumes its `bars` argument exactly once."""
+    Each instance is scoped to exactly one calendar month, inferred from the
+    first bar it ever sees: add_bar() only creates a new TbsDailySession for
+    a bar whose (year, month) matches that first one. A bar from a different
+    month is still fed to whatever sessions are already live -- so a session
+    whose window runs past midnight into the next month can still resolve --
+    but never spawns a session of its own. This lets a caller hand the same
+    trailing bars to both the current month's instance and the previous
+    month's (now-retired) instance during the handover: the previous
+    instance just drains its lingering live session(s) and, once
+    has_live_sessions is False, stops needing bars at all -- it never grows
+    a shadow copy of the new month's sessions.
+
+    close_live_sessions() force-closes whatever's still live, for use once
+    the bar stream truly ends (no next month arrives to hand off to)."""
 
     max_range_pips: float = 30.0
     risk_reward: float = 1.5
 
-    def calculate(self, bars: Iterable[Bar]) -> list[TbsDailySession]:
-        """One pass over `bars` (must be chronological). A new DailySession
-        is created the moment a bar for a new calendar day appears. Every
-        currently-live session -- one that hasn't closed itself yet --
-        receives the bar via add_bar(), so a day's own session (accumulating
-        its Tokyo range) and the previous day's session (still resolving its
-        breakout window, which runs until 09:00 the day after) are both fed
-        the same bar. add_bar() force-closes the session itself, and freezes
-        it, once a bar reaches its window_end; calculate() only has to notice
-        that and drop it from the live list."""
-        sessions: dict[_date, TbsDailySession] = {}
-        session_order: list[_date] = []
-        live_sessions: list[TbsDailySession] = []
+    _sessions: dict[_date, TbsDailySession] = field(default_factory=dict, init=False, repr=False)
+    _session_order: list[_date] = field(default_factory=list, init=False, repr=False)
+    _live_sessions: list[TbsDailySession] = field(default_factory=list, init=False, repr=False)
+    _month: tuple[int, int] | None = field(default=None, init=False, repr=False)
 
-        for bar in bars:
-            bar_date = bar.dt.date()
+    @property
+    def sessions(self) -> list[TbsDailySession]:
+        """Every session this instance has created, oldest first."""
+        return [self._sessions[d] for d in self._session_order]
 
-            if bar_date not in sessions:
-                session = TbsDailySession(bar_date, self.max_range_pips, self.risk_reward)
-                sessions[bar_date] = session
-                session_order.append(bar_date)
-                live_sessions.append(session)
+    @property
+    def has_live_sessions(self) -> bool:
+        return bool(self._live_sessions)
 
-            for session in list(live_sessions):
-                session.add_bar(bar)
+    def add_bar(self, bar: Bar) -> None:
+        """Feed one bar (bars must arrive chronologically). Creates a new
+        DailySession the moment a bar for a new calendar day appears, but
+        only if that day is in this instance's own month -- see class
+        docstring. Every currently-live session then receives the bar, so a
+        day's own session (accumulating its Tokyo range) and the previous
+        day's session (still resolving its breakout window, which runs
+        until 09:00 the day after) are both fed the same bar. A session
+        force-closes itself, and freezes, once a bar reaches its
+        window_end; add_bar() only has to notice that and drop it from the
+        live list."""
+        bar_date = bar.dt.date()
+        bar_month = (bar_date.year, bar_date.month)
 
-                if session.is_closed:
-                    live_sessions.remove(session)
+        if self._month is None:
+            self._month = bar_month
 
-        for session in live_sessions:
+        if bar_date not in self._sessions and bar_month == self._month:
+            session = TbsDailySession(bar_date, self.max_range_pips, self.risk_reward)
+            self._sessions[bar_date] = session
+            self._session_order.append(bar_date)
+            self._live_sessions.append(session)
+
+        for session in list(self._live_sessions):
+            session.add_bar(bar)
+
+            if session.is_closed:
+                self._live_sessions.remove(session)
+
+    def close_live_sessions(self) -> None:
+        """Force-close every still-live session at its own window_end."""
+        for session in self._live_sessions:
             session.close(session.window_end)
-
-        return [sessions[d] for d in session_order]
+        self._live_sessions.clear()
 
 
 def _fmt_price(value: float) -> str:
@@ -429,6 +457,44 @@ def parse_arguments():
     return parser.parse_args()
 
 
+def process_bars(report_path, all_bars, max_range_pips, risk_reward_ration):
+    monthly_bar_chunks = MonthlyBarChunks(all_bars)
+
+    previous: TokyoBreakoutStrategy | None = None
+
+    with report_path.open("w", encoding="utf-8") as out:
+        def flush(strategy: TokyoBreakoutStrategy) -> None:
+            strategy.close_live_sessions()
+            print_report(strategy.sessions, out)
+            print(file=out)
+
+        while monthly_bar_chunks.has_more:
+            current = TokyoBreakoutStrategy(max_range_pips=max_range_pips, risk_reward=risk_reward_ration)  # corrected typo
+
+            for bar in monthly_bar_chunks.iterate():
+                current.add_bar(bar)
+
+                if previous is not None:
+                    previous.add_bar(bar)
+                    if not previous.has_live_sessions:
+                        flush(previous)
+                        previous = None
+
+            if previous is not None:
+                # Defensive: the previous month's sessions outlived this
+                # rollover. Shouldn't happen with real M1 data -- a
+                # session's window runs at most ~1 day past month-end --
+                # but don't silently drop it if it ever does.
+                flush(previous)
+
+            previous = current
+
+        if previous is None:
+            raise SystemExit("error: no Tokyo-session bars found in source")
+        
+        flush(previous)
+
+
 def main() -> None:
     start_time = time.perf_counter()
 
@@ -439,27 +505,12 @@ def main() -> None:
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
     report_path = out_dir / "tokyo_breakout_report.txt"
+
     if report_path.exists():
         print(f"INFO: {report_path} already exists and will be overwritten.")
 
     all_bars = retrieve_bars(source_path)
-    monthly_bar_chunks = MonthlyBarChunks(all_bars)
-
-    with report_path.open("w", encoding="utf-8") as out:
-        while monthly_bar_chunks.has_more:
-            month_bars = list(monthly_bar_chunks.iterate())
-
-            if not month_bars:
-                break
-
-            strategy = TokyoBreakoutStrategy(max_range_pips=args.max_range_pips, risk_reward=args.risk_reward)
-            results = strategy.calculate(month_bars)
-
-            if not results:
-                raise SystemExit("error: no Tokyo-session bars found in source")
-
-            print_report(results, out)
-            print(file=out)
+    process_bars(report_path, all_bars, args.max_range_pips, args.risk_reward)
 
     print(f"\nReport written to: {report_path}")
 
