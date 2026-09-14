@@ -48,14 +48,16 @@ from ports.mt5_file_access import Bar, iterate_bars
 PIP = 0.0001
 PRICE_DECIMALS = 5
 
-TOKYO_START = _time(0, 0)
-TOKYO_END = _time(9, 0)  # exclusive
 MAX_RANGE_PIPS = 30.0
 RISK_REWARD = 1.5
 
 
 def to_pips(price_diff: float) -> float:
     return price_diff / PIP
+
+
+def _range_pips(bar_block: BarBlock) -> float:
+    return to_pips(bar_block.range)
 
 
 _OUTCOME_TEXT: dict[Outcome, str] = {
@@ -71,119 +73,111 @@ def outcome_text(outcome: Outcome) -> str:
     return _OUTCOME_TEXT[outcome]
 
 
-def _range_pips(session: BarBlock) -> float:
-    return to_pips(session.range)
-
-
-def _cancelled(session: BarBlock) -> bool:
-    return _range_pips(session) > MAX_RANGE_PIPS
-
-
 @dataclass
-class DayResult:
-    reference_session: BarBlock
-    pending_long: PendingPosition = field(init=False)
-    pending_short: PendingPosition = field(init=False)
-    long: Position | None = None
-    short: Position | None = None
+class TbsDailySession:
+    """One calendar day's Tokyo range plus the breakout window it opens.
+    Accumulates Tokyo bars via `add_bar()` until 09:00, decides whether the
+    day trades, then simulates the breakout/SL/TP outcome for both sides as
+    further bars arrive -- through its own window_end (09:00 the day after).
+    `close()` force-closes anything still open and freezes the session;
+    calling `add_bar()` or `close()` again afterwards raises."""
 
-    def __post_init__(self) -> None:
-        mid = self.reference_session.mid
-        self.pending_long = PendingPosition.for_level(self.reference_session.high_value, mid, RISK_REWARD)
-        self.pending_short = PendingPosition.for_level(self.reference_session.low_value, mid, RISK_REWARD)
+    TOKYO_START = _time(0, 0)
+    TOKYO_END = _time(9, 0)  # exclusive
+
+    day: _date
+    tokyo_session: BarBlock = field(default_factory=BarBlock)
+
+    pending_long: PendingPosition | None = None
+    pending_short: PendingPosition | None = None
+
+    position_long: Position | None = None
+    position_short: Position | None = None
+
+    _is_tokyo_resolved: bool = field(default=False, init=False, repr=False)
+    _is_closed: bool = field(default=False, init=False, repr=False)
+    _closed_dt: datetime | None = field(default=None, init=False, repr=False)
 
     @property
     def window_start(self) -> datetime:
-        return datetime.combine(self.reference_session.day, TOKYO_END)
+        return datetime.combine(self.day, self.TOKYO_END)
 
     @property
     def breakout_cutoff(self) -> datetime:
-        return datetime.combine(self.reference_session.day + timedelta(days=1), _time(0, 0))
+        return datetime.combine(self.day + timedelta(days=1), _time(0, 0))
 
     @property
     def window_end(self) -> datetime:
-        return datetime.combine(self.reference_session.day + timedelta(days=1), TOKYO_END)
+        return datetime.combine(self.day + timedelta(days=1), self.TOKYO_END)
 
+    @property
+    def range_pips(self) -> float:
+        return _range_pips(self.tokyo_session)
 
-class TokyoBreakoutStrategy:
-    """Encapsulates the Tokyo Session Breakout rules (see
-    tokyo-session-breakout.md): given one chronological stream of Bars,
-    decides each day's Tokyo range, whether it's tradeable, and simulates
-    the breakout/SL/TP/force-close outcome for both sides.
+    @property
+    def is_cancelled(self) -> bool:
+        return self.tokyo_session.bar_count == 0 or self.range_pips > MAX_RANGE_PIPS
 
-    `calculate()` consumes its `bars` argument exactly once."""
+    @property
+    def is_closed(self) -> bool:
+        return self._is_closed
 
-    def calculate(self, bars: Iterable[Bar]) -> list[DayResult]:
-        """One pass over `bars` (must be chronological). Folds Tokyo-session
-        bars into each day's BarBlock; as soon as a day's Tokyo session
-        closes (09:00), decides whether it trades and, if so, opens it as
-        the active trade window -- which runs until the next day's Tokyo
-        session closes, so the two are contiguous and one pass covers both."""
-        sessions: dict[_date, BarBlock] = {}
-        results: list[DayResult] = []
-        current: DayResult | None = None
-        next_day_to_resolve: _date | None = None
+    @property
+    def closed_dt(self) -> datetime | None:
+        return self._closed_dt
 
-        def resolve_up_to(dt: datetime) -> None:
-            nonlocal current, next_day_to_resolve
-            while next_day_to_resolve is not None and dt >= datetime.combine(next_day_to_resolve, TOKYO_END):
-                boundary = datetime.combine(next_day_to_resolve, TOKYO_END)
-                if current is not None and boundary >= current.window_end:
-                    self._force_close(current)
-                    results.append(current)
-                    current = None
-                session = sessions.get(next_day_to_resolve)
-                if session is not None:
-                    if _cancelled(session):
-                        results.append(DayResult(session))
-                    elif current is None:
-                        current = DayResult(session)
-                next_day_to_resolve += timedelta(days=1)
+    def add_bar(self, bar: Bar) -> bool:
+        if self._is_closed:
+            raise RuntimeError(f"DailySession for {self.day} is closed; cannot add more bars")
 
-        for bar in bars:
-            if next_day_to_resolve is None:
-                next_day_to_resolve = bar.dt.date()
+        if bar.dt >= self.window_end:
+            self.close(self.window_end)
+            return False
 
-            t = bar.dt.time()
-            if TOKYO_START <= t < TOKYO_END:
-                sessions.setdefault(bar.dt.date(), BarBlock()).add(bar)
+        if not self._is_tokyo_resolved:
+            if self._process_bar_tokyo(bar):
+                return True
 
-            resolve_up_to(bar.dt)
+        if bar.dt >= self.window_start:
+            self._process_bar_normal(bar)
+            return True
 
-            if current is not None and bar.dt >= current.window_start:
-                self._process_bar(current, bar)
+        return False
 
-        if current is not None:
-            self._force_close(current)
-            results.append(current)
+    def _process_bar_tokyo(self, bar: Bar) -> bool:
+        t = bar.dt.time()
 
-        return self._all_results(sessions, results)
+        if bar.dt.date() == self.day and self.TOKYO_START <= t < self.TOKYO_END:
+            self.tokyo_session.add(bar)
+            return True
 
-    def _all_results(self, sessions: dict[_date, BarBlock], results: list[DayResult]) -> list[DayResult]:
-        by_day = {r.reference_session.day: r for r in results}
-        for day, session in sessions.items():
-            if day not in by_day:
-                by_day[day] = DayResult(session)
-        return [by_day[d] for d in sorted(by_day)]
+        self._resolve_tokyo()
+        return False
 
-    def _process_bar(self, result: DayResult, bar: Bar) -> None:
-        session = result.reference_session
-        result.long = self._process_side(
-            result, bar, result.long, result.pending_long, True, bar.high > session.high_value
-        )
-        result.short = self._process_side(
-            result, bar, result.short, result.pending_short, False, bar.low < session.low_value
-        )
+    def _resolve_tokyo(self) -> None:
+        self._is_tokyo_resolved = True
+        if self.is_cancelled:
+            return
+        mid = self.tokyo_session.mid
+        self.pending_long = PendingPosition.for_level(self.tokyo_session.high_value, mid, RISK_REWARD)
+        self.pending_short = PendingPosition.for_level(self.tokyo_session.low_value, mid, RISK_REWARD)
+
+    def _process_bar_normal(self, bar: Bar) -> None:
+        session = self.tokyo_session
+        self.position_long = self._process_side(bar, self.position_long, self.pending_long, True, bar.high > session.high_value)
+        self.position_short = self._process_side(bar, self.position_short, self.pending_short, False, bar.low < session.low_value)
 
     def _process_side(
-        self, result: DayResult, bar: Bar, position: Position | None, pending: PendingPosition, is_long: bool, breaks_level: bool
+        self, bar: Bar, position: Position | None, pending: PendingPosition | None, is_long: bool, breaks_level: bool
     ) -> Position | None:
+        if pending is None:
+            return None
         if position is None:
-            if bar.dt < result.breakout_cutoff and breaks_level:
+            if bar.dt < self.breakout_cutoff and breaks_level:
                 position = pending.open_position(bar.dt)
                 self._check_resolution(position, bar, is_long)
             return position
-        if position.resolved_dt is None:
+        if position.closed_dt is None:
             self._check_resolution(position, bar, is_long)
         return position
 
@@ -200,21 +194,77 @@ class TokyoBreakoutStrategy:
 
         if hit_tp and hit_sl:
             position.outcome = Outcome.AMBIGUOUS
-            position.resolved_dt = bar.dt
+            position.closed_dt = bar.dt
         elif hit_tp:
             position.outcome = Outcome.TP_HIT
-            position.resolved_dt = bar.dt
-            position.resolved_price = position.tp
+            position.closed_dt = bar.dt
+            position.closed_price = position.tp
         elif hit_sl:
             position.outcome = Outcome.SL_HIT
-            position.resolved_dt = bar.dt
-            position.resolved_price = position.sl
+            position.closed_dt = bar.dt
+            position.closed_price = position.sl
 
-    def _force_close(self, result: DayResult) -> None:
-        for position in (result.long, result.short):
-            if position is not None and position.is_resolved is False:
-                position.outcome = Outcome.FORCE_CLOSED
-                position.resolved_dt = result.window_end
+    def close(self) -> bool:
+        return self.close(self.window_end)
+
+    def close(self, at: datetime) -> bool:
+        if self._is_closed:
+            if at !=self.closed_dt:
+                raise RuntimeError(f"DailySession for {self.day} is already closed at {self.closed_dt}")
+            else:
+                return False
+
+        for position in (self.position_long, self.position_short):
+            if position is not None and position.is_closed is False:
+                position.close(at)
+
+        self._is_closed = True
+        self._closed_dt = at
+
+        return True
+
+
+class TokyoBreakoutStrategy:
+    """Encapsulates the Tokyo Session Breakout rules (see
+    tokyo-session-breakout.md): given one chronological stream of Bars,
+    decides each day's Tokyo range, whether it's tradeable, and simulates
+    the breakout/SL/TP/force-close outcome for both sides.
+
+    `calculate()` consumes its `bars` argument exactly once."""
+
+    def calculate(self, bars: Iterable[Bar]) -> list[TbsDailySession]:
+        """One pass over `bars` (must be chronological). A new DailySession
+        is created the moment a bar for a new calendar day appears. Every
+        currently-live session -- one that hasn't closed itself yet --
+        receives the bar via add_bar(), so a day's own session (accumulating
+        its Tokyo range) and the previous day's session (still resolving its
+        breakout window, which runs until 09:00 the day after) are both fed
+        the same bar. add_bar() force-closes the session itself, and freezes
+        it, once a bar reaches its window_end; calculate() only has to notice
+        that and drop it from the live list."""
+        sessions: dict[_date, TbsDailySession] = {}
+        session_order: list[_date] = []
+        live_sessions: list[TbsDailySession] = []
+
+        for bar in bars:
+            bar_date = bar.dt.date()
+
+            if bar_date not in sessions:
+                session = TbsDailySession(bar_date)
+                sessions[bar_date] = session
+                session_order.append(bar_date)
+                live_sessions.append(session)
+
+            for session in list(live_sessions):
+                session.add_bar(bar)
+
+                if session.is_closed:
+                    live_sessions.remove(session)
+
+        for session in live_sessions:
+            session.close(session.window_end)
+
+        return [sessions[d] for d in session_order]
 
 
 def _fmt_price(value: float) -> str:
@@ -230,21 +280,21 @@ def _fmt_position(label: str, position: Position | None) -> str:
         return f"  {label}: {outcome_text(Outcome.NONE)}"
 
     header = (
-        f"  {label}: triggered {position.entry_dt:%Y-%m-%d %H:%M} @ "
-        f"{_fmt_price(position.entry_price)}  "
+        f"  {label}: triggered {position.open_dt:%Y-%m-%d %H:%M} @ "
+        f"{_fmt_price(position.open_price)}  "
         f"(SL {_fmt_pips(to_pips(position.risk_value))} @ {_fmt_price(position.sl)}, "
         f"TP {_fmt_pips(to_pips(position.reward_value))} @ {_fmt_price(position.tp)})"
     )
-    if not position.is_resolved:
+    if not position.is_closed:
         detail = "    -> still open (not yet resolved)"
     elif position.outcome == Outcome.FORCE_CLOSED:
-        detail = f"    -> {outcome_text(Outcome.FORCE_CLOSED)} at {position.resolved_dt:%Y-%m-%d %H:%M}"
+        detail = f"    -> {outcome_text(Outcome.FORCE_CLOSED)} at {position.closed_dt:%Y-%m-%d %H:%M}"
     elif position.outcome == Outcome.AMBIGUOUS:
-        detail = f"    -> {outcome_text(Outcome.AMBIGUOUS)} at {position.resolved_dt:%Y-%m-%d %H:%M}"
+        detail = f"    -> {outcome_text(Outcome.AMBIGUOUS)} at {position.closed_dt:%Y-%m-%d %H:%M}"
     else:
         detail = (
-            f"    -> {outcome_text(position.outcome)} at {position.resolved_dt:%Y-%m-%d %H:%M} "
-            f"@ {_fmt_price(position.resolved_price)}"
+            f"    -> {outcome_text(position.outcome)} at {position.closed_dt:%Y-%m-%d %H:%M} "
+            f"@ {_fmt_price(position.closed_price)}"
         )
     return header + "\n" + detail
 
@@ -257,29 +307,35 @@ def print_bar_block(bar_block: BarBlock, indent: str) -> None:
     print(f"{indent}Range: {_fmt_pips(_range_pips(bar_block))}")
 
 
-def print_report(results: list[DayResult]) -> None:
+def print_report(results: list[TbsDailySession]) -> None:
     counts = {"cancelled": 0, "no_session": 0, "days": 0}
     outcome_counts: dict[Outcome, int] = {o: 0 for o in Outcome}
     triggered_sides = 0
 
     for result in results:
-        session = result.reference_session
+        session = result.tokyo_session
         counts["days"] += 1
-        print(f"=== {session.day.isoformat()} (Tokyo 00:00-09:00) ===")
+        print(f"=== {result.day.isoformat()} (Tokyo 00:00-09:00) ===")
+
+        if session.bar_count == 0:
+            counts["cancelled"] += 1
+            print("  CANCELLED (no Tokyo-session bars for this day)\n")
+            continue
+
         print_bar_block(session, "  ")
 
-        if _cancelled(session):
+        if result.is_cancelled:
             counts["cancelled"] += 1
             print(f"  CANCELLED (> {MAX_RANGE_PIPS:.0f}p threshold)\n")
             continue
 
-        risk_pips = _range_pips(session) / 2
+        risk_pips = result.range_pips / 2
         print(f"  SL: {_fmt_pips(risk_pips)}   TP: {_fmt_pips(risk_pips * RISK_REWARD)}")
-        print(_fmt_position("LONG ", result.long))
-        print(_fmt_position("SHORT", result.short))
+        print(_fmt_position("LONG ", result.position_long))
+        print(_fmt_position("SHORT", result.position_short))
         print()
 
-        for position in (result.long, result.short):
+        for position in (result.position_long, result.position_short):
             if position is not None:
                 triggered_sides += 1
                 outcome_counts[position.outcome] += 1
