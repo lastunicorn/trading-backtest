@@ -402,10 +402,12 @@ def main() -> None:
     all_bars = retrieve_bars(source_path)
     monthly_bar_chunks = MonthlyBarChunks(all_bars)
 
-    while True:
+    while monthly_bar_chunks.has_more:
         month_bars = list(monthly_bar_chunks.iterate())
+
         if not month_bars:
             break
+
         strategy = TokyoBreakoutStrategy(max_range_pips=args.max_range_pips, risk_reward=args.risk_reward)
         results = strategy.calculate(month_bars)
         
