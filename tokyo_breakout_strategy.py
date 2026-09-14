@@ -26,9 +26,13 @@ Timezone note: bar timestamps are shifted 5 hours earlier as they're read (see
 to UTC. The task specifies the Tokyo window as 00:00-09:00 UTC, so the window
 edges are only correct once that shift has been applied.
 
+The full day-by-day report is written to <--out>/tokyo_breakout_report.txt;
+only the summary (one block per month) is echoed to the console.
+
 Usage:
     python3 tokyo_breakout_strategy.py data/eurusd/1min/EURUSD_2020_01.csv
     python3 tokyo_breakout_strategy.py data/eurusd/1min
+    python3 tokyo_breakout_strategy.py data/eurusd/1min --out output/tokyo_breakout_output
 """
 
 from __future__ import annotations
@@ -39,6 +43,7 @@ from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
 from datetime import date as _date, datetime, time as _time, timedelta
 from pathlib import Path
+from typing import TextIO
 
 from domain.monthly_bar_chunks import MonthlyBarChunks
 from domain.bar_block import BarBlock
@@ -99,6 +104,9 @@ class TbsDailySession:
     _is_closed: bool = field(default=False, init=False, repr=False)
     _closed_dt: datetime | None = field(default=None, init=False, repr=False)
 
+    _first_candle_dt: datetime | None = field(default=None, init=False, repr=False)
+    _last_candle_dt: datetime | None = field(default=None, init=False, repr=False)
+
     @property
     def window_start(self) -> datetime:
         return datetime.combine(self.day, self.TOKYO_END)
@@ -127,9 +135,21 @@ class TbsDailySession:
     def closed_dt(self) -> datetime | None:
         return self._closed_dt
 
+    @property
+    def first_candle_dt(self) -> datetime | None:
+        return self._first_candle_dt
+
+    @property
+    def last_candle_dt(self) -> datetime | None:
+        return self._last_candle_dt
+
     def add_bar(self, bar: Bar) -> bool:
         if self._is_closed:
-            raise RuntimeError(f"DailySession for {self.day} is closed; cannot add more bars")
+            raise RuntimeError(f"DailySession for {self.day} is already closed at {self.closed_dt}. Cannot add more bars.")
+
+        if self._first_candle_dt is None:
+            self._first_candle_dt = bar.dt
+        self._last_candle_dt = bar.dt
 
         if bar.dt >= self.window_end:
             self.close(self.window_end)
@@ -304,58 +324,71 @@ def _fmt_position(label: str, position: Position | None) -> str:
     return header + "\n" + detail
 
 
-def print_bar_block(bar_block: BarBlock, indent: str) -> None:
-    print(f"{indent}Open: {_fmt_price(bar_block.open_value)} ({bar_block.open_dt})")
-    print(f"{indent}High: {_fmt_price(bar_block.high_value)} ({bar_block.high_dt})")
-    print(f"{indent}Low: {_fmt_price(bar_block.low_value)} ({bar_block.low_dt})")
-    print(f"{indent}Close: {_fmt_price(bar_block.close_value)} ({bar_block.close_dt})")
-    print(f"{indent}Range: {_fmt_pips(_range_pips(bar_block))}")
+def print_bar_block(bar_block: BarBlock, indent: str, out: TextIO) -> None:
+    print(f"{indent}Open: {_fmt_price(bar_block.open_value)} ({bar_block.open_dt})", file=out)
+    print(f"{indent}High: {_fmt_price(bar_block.high_value)} ({bar_block.high_dt})", file=out)
+    print(f"{indent}Low: {_fmt_price(bar_block.low_value)} ({bar_block.low_dt})", file=out)
+    print(f"{indent}Close: {_fmt_price(bar_block.close_value)} ({bar_block.close_dt})", file=out)
+    print(f"{indent}Range: {_fmt_pips(_range_pips(bar_block))}", file=out)
 
 
-def print_report(results: list[TbsDailySession]) -> None:
+def print_report(results: list[TbsDailySession], out: TextIO) -> None:
+    """Write the full day-by-day report to `out` only. The summary section
+    at the end is written to `out` and echoed to the console, since it's the
+    only part of the report meant to be read there. The summary title's
+    timestamps come from the first candle of the first session and the last
+    candle of the last session in `results`."""
     counts = {"cancelled": 0, "no_session": 0, "days": 0}
     outcome_counts: dict[Outcome, int] = {o: 0 for o in Outcome}
-    triggered_sides = 0
+    position_count = 0
 
     for result in results:
         session = result.tokyo_session
         counts["days"] += 1
-        print(f"=== {result.day.isoformat()} (Tokyo 00:00-09:00) ===")
+        print(f"=== {result.day.isoformat()} (Tokyo 00:00-09:00) ===", file=out)
 
         if session.bar_count == 0:
             counts["cancelled"] += 1
-            print("  CANCELLED (no Tokyo-session bars for this day)\n")
+            print("  CANCELLED (no Tokyo-session bars for this day)\n", file=out)
             continue
 
-        print_bar_block(session, "  ")
+        print_bar_block(session, "  ", out)
 
         if result.is_cancelled:
             counts["cancelled"] += 1
-            print(f"  CANCELLED (> {result.max_range_pips:.0f}p threshold)\n")
+            print(f"  CANCELLED (> {result.max_range_pips:.0f}p threshold)\n", file=out)
             continue
 
         risk_pips = result.range_pips / 2
-        print(f"  SL: {_fmt_pips(risk_pips)}   TP: {_fmt_pips(risk_pips * result.risk_reward_ratio)}")
-        print(_fmt_position("LONG ", result.position_long))
-        print(_fmt_position("SHORT", result.position_short))
-        print()
+        print(f"  SL: {_fmt_pips(risk_pips)}   TP: {_fmt_pips(risk_pips * result.risk_reward_ratio)}", file=out)
+        print(_fmt_position("LONG ", result.position_long), file=out)
+        print(_fmt_position("SHORT", result.position_short), file=out)
+        print(file=out)
 
         for position in (result.position_long, result.position_short):
             if position is not None:
-                triggered_sides += 1
+                position_count += 1
                 outcome_counts[position.outcome] += 1
 
     total = counts["days"]
     traded_days = total - counts["cancelled"]
-    print("=== summary ===")
-    print(f"  Tokyo sessions: {total}   cancelled (range > {results[0].max_range_pips:.0f}p): {counts['cancelled']}")
-    print(f"  Eligible days: {traded_days}   sides triggered: {triggered_sides}")
+
+    def say(text: str = "") -> None:
+        print(text)
+        print(text, file=out)
+
+    first_dt = results[0].first_candle_dt
+    last_dt = results[-1].last_candle_dt
+    say(f"=== summary ({first_dt:%Y-%m-%d %H:%M} -> {last_dt:%Y-%m-%d %H:%M}) ===")
     risk_reward_ratio = results[0].risk_reward_ratio
-    print(f"  Risk/Reward ratio: {risk_reward_ratio}")
+    say(f"  Risk/Reward ratio: {risk_reward_ratio}")
+    say(f"  Tokyo sessions: {total}   cancelled (range > {results[0].max_range_pips:.0f}p): {counts['cancelled']}")
+    say(f"  Eligible days: {traded_days}   positions opened: {position_count}")
+    say("  Outcome:")
     for outcome in (Outcome.TP_HIT, Outcome.SL_HIT, Outcome.AMBIGUOUS, Outcome.FORCE_CLOSED):
-        print(f"    {outcome.name}: {outcome_counts[outcome]}")
+        say(f"    {outcome.name}: {outcome_counts[outcome]}")
     PL = outcome_counts[Outcome.TP_HIT] * risk_reward_ratio - outcome_counts[Outcome.SL_HIT]
-    print(f"  P/L: {PL:.2f} %")
+    say(f"  P/L: {PL:.2f} %")
 
 
 def retrieve_bars(source_path):
@@ -389,6 +422,10 @@ def parse_arguments():
         "--risk-reward", type=float, default=1.5,
         help="TP distance as a multiple of the SL distance (default: 1.5)",
     )
+    parser.add_argument(
+        "--out", default="output/tokyo_breakout_output",
+        help="directory to write tokyo_breakout_report.txt into (default: output/tokyo_breakout_output)",
+    )
     return parser.parse_args()
 
 
@@ -399,26 +436,36 @@ def main() -> None:
 
     source_path = args.source
 
+    out_dir = Path(args.out)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    report_path = out_dir / "tokyo_breakout_report.txt"
+    if report_path.exists():
+        print(f"INFO: {report_path} already exists and will be overwritten.")
+
     all_bars = retrieve_bars(source_path)
     monthly_bar_chunks = MonthlyBarChunks(all_bars)
 
-    while monthly_bar_chunks.has_more:
-        month_bars = list(monthly_bar_chunks.iterate())
+    with report_path.open("w", encoding="utf-8") as out:
+        while monthly_bar_chunks.has_more:
+            month_bars = list(monthly_bar_chunks.iterate())
 
-        if not month_bars:
-            break
+            if not month_bars:
+                break
 
-        strategy = TokyoBreakoutStrategy(max_range_pips=args.max_range_pips, risk_reward=args.risk_reward)
-        results = strategy.calculate(month_bars)
-        
-        if not results:
-            raise SystemExit("error: no Tokyo-session bars found in source")
-        
-        print_report(results)
-        print()
+            strategy = TokyoBreakoutStrategy(max_range_pips=args.max_range_pips, risk_reward=args.risk_reward)
+            results = strategy.calculate(month_bars)
+
+            if not results:
+                raise SystemExit("error: no Tokyo-session bars found in source")
+
+            print_report(results, out)
+            print(file=out)
+
+    print(f"\nReport written to: {report_path}")
 
     elapsed = time.perf_counter() - start_time
-    print(f"\nExecution time: {elapsed:.2f}s")
+    print()
+    print(f"Execution time: {elapsed:.2f}s")
 
 
 if __name__ == "__main__":
