@@ -47,7 +47,7 @@ from pathlib import Path
 from typing import TextIO
 from zoneinfo import ZoneInfo
 
-from domain.monthly_bar_chunks import MonthlyBarChunks
+from domain.bar_chunks import BarChunks, Granularity, boundary_key
 from domain.bar_block import BarBlock
 from domain.position import Outcome, PendingPosition, Position
 from domain.shift_bars import shift_bars
@@ -254,28 +254,31 @@ class TokyoBreakoutStrategy:
     add_bar(), decides each day's Tokyo range, whether it's tradeable, and
     simulates the breakout/SL/TP/force-close outcome for both sides.
 
-    Each instance is scoped to exactly one calendar month, inferred from the
-    first bar it ever sees: add_bar() only creates a new TbsDailySession for
-    a bar whose (year, month) matches that first one. A bar from a different
-    month is still fed to whatever sessions are already live -- so a session
-    whose window runs past midnight into the next month can still resolve --
-    but never spawns a session of its own. This lets a caller hand the same
-    trailing bars to both the current month's instance and the previous
-    month's (now-retired) instance during the handover: the previous
+    Each instance is scoped to exactly one `granularity` chunk (see
+    `domain.bar_chunks`), inferred from the first bar it ever sees:
+    add_bar() only creates a new TbsDailySession for a bar whose
+    `boundary_key()` matches that first one. A bar from a different chunk is
+    still fed to whatever sessions are already live -- so a session whose
+    window runs past midnight into the next chunk can still resolve -- but
+    never spawns a session of its own. This lets a caller hand the same
+    trailing bars to both the current chunk's instance and the previous
+    chunk's (now-retired) instance during the handover: the previous
     instance just drains its lingering live session(s) and, once
     has_live_sessions is False, stops needing bars at all -- it never grows
-    a shadow copy of the new month's sessions.
+    a shadow copy of the new chunk's sessions. With granularity "none" there
+    is only ever one chunk, so this restriction never kicks in.
 
     close_live_sessions() force-closes whatever's still live, for use once
-    the bar stream truly ends (no next month arrives to hand off to)."""
+    the bar stream truly ends (no next chunk arrives to hand off to)."""
 
     max_range_pips: float = 30.0
     risk_reward: float = 1.5
+    granularity: Granularity = "monthly"
 
     _sessions: dict[_date, TbsDailySession] = field(default_factory=dict, init=False, repr=False)
     _session_order: list[_date] = field(default_factory=list, init=False, repr=False)
     _live_sessions: list[TbsDailySession] = field(default_factory=list, init=False, repr=False)
-    _month: tuple[int, int] | None = field(default=None, init=False, repr=False)
+    _chunk_key: object = field(default=None, init=False, repr=False)
 
     @property
     def sessions(self) -> list[TbsDailySession]:
@@ -289,7 +292,7 @@ class TokyoBreakoutStrategy:
     def add_bar(self, bar: Bar) -> None:
         """Feed one bar (bars must arrive chronologically). Creates a new
         DailySession the moment a bar for a new calendar day appears, but
-        only if that day is in this instance's own month -- see class
+        only if that day is in this instance's own chunk -- see class
         docstring. Every currently-live session then receives the bar, so a
         day's own session (accumulating its Tokyo range) and the previous
         day's session (still resolving its breakout window, which runs
@@ -298,12 +301,12 @@ class TokyoBreakoutStrategy:
         window_end; add_bar() only has to notice that and drop it from the
         live list."""
         bar_date = bar.dt.date()
-        bar_month = (bar_date.year, bar_date.month)
+        bar_key = boundary_key(bar_date, self.granularity)
 
-        if self._month is None:
-            self._month = bar_month
+        if self._chunk_key is None:
+            self._chunk_key = bar_key
 
-        if bar_date not in self._sessions and bar_month == self._month:
+        if bar_date not in self._sessions and bar_key == self._chunk_key:
             session = TbsDailySession(bar_date, self.max_range_pips, self.risk_reward)
             self._sessions[bar_date] = session
             self._session_order.append(bar_date)
@@ -490,11 +493,15 @@ def parse_arguments():
         "--out", default="output/tokyo_breakout_output",
         help="directory to write tokyo_breakout_report.txt into (default: output/tokyo_breakout_output)",
     )
+    parser.add_argument(
+        "--granularity", choices=["monthly", "yearly", "none"], default="none",
+        help="how often to force-close still-live sessions while streaming bars (default: none)",
+    )
     return parser.parse_args()
 
 
-def process_bars(report_path, all_bars, max_range_pips, risk_reward_ration):
-    monthly_bar_chunks = MonthlyBarChunks(all_bars)
+def process_bars(report_path, all_bars, max_range_pips, risk_reward_ration, granularity):
+    bar_chunks = BarChunks(all_bars, granularity=granularity)
 
     previous: TokyoBreakoutStrategy | None = None
 
@@ -504,10 +511,10 @@ def process_bars(report_path, all_bars, max_range_pips, risk_reward_ration):
             print_report(strategy.sessions, out)
             print(file=out)
 
-        while monthly_bar_chunks.has_more:
-            current = TokyoBreakoutStrategy(max_range_pips=max_range_pips, risk_reward=risk_reward_ration)  # corrected typo
+        while bar_chunks.has_more:
+            current = TokyoBreakoutStrategy(max_range_pips=max_range_pips, risk_reward=risk_reward_ration, granularity=granularity)  # corrected typo
 
-            for bar in monthly_bar_chunks.iterate():
+            for bar in bar_chunks.iterate():
                 current.add_bar(bar)
 
                 if previous is not None:
@@ -517,10 +524,10 @@ def process_bars(report_path, all_bars, max_range_pips, risk_reward_ration):
                         previous = None
 
             if previous is not None:
-                # Defensive: the previous month's sessions outlived this
+                # Defensive: the previous chunk's sessions outlived this
                 # rollover. Shouldn't happen with real M1 data -- a
-                # session's window runs at most ~1 day past month-end --
-                # but don't silently drop it if it ever does.
+                # session's window runs at most ~1 day past a chunk boundary
+                # -- but don't silently drop it if it ever does.
                 flush(previous)
 
             previous = current
@@ -546,7 +553,7 @@ def main() -> None:
         print(f"INFO: {report_path} already exists and will be overwritten.")
 
     all_bars = retrieve_bars(source_path)
-    process_bars(report_path, all_bars, args.max_range_pips, args.risk_reward)
+    process_bars(report_path, all_bars, args.max_range_pips, args.risk_reward, args.granularity)
 
     print(f"\nReport written to: {report_path}")
 
