@@ -76,38 +76,60 @@ def _cancelled(session: BarBlock) -> bool:
 
 @dataclass
 class Position:
-    """One side (long or short) of a day's trade, if it ever triggers."""
+    """One side (long or short) of a day's trade, once triggered."""
 
-    entry_dt: datetime | None = None
-    entry_price: float | None = None
-    sl: float | None = None
-    tp: float | None = None
+    entry_dt: datetime
+    entry_price: float
+    sl: float
+    tp: float
     outcome: Outcome = Outcome.NOT_TRIGGERED
     resolved_dt: datetime | None = None
     resolved_price: float | None = None
 
     @property
-    def triggered(self) -> bool:
-        return self.entry_dt is not None
-
-    @property
-    def risk_pips(self) -> float | None:
-        if self.entry_price is None or self.sl is None:
-            return None
+    def risk_pips(self) -> float:
         return to_pips(abs(self.entry_price - self.sl))
 
     @property
-    def reward_pips(self) -> float | None:
-        if self.entry_price is None or self.tp is None:
-            return None
+    def is_resolved(self) -> bool:
+        return self.resolved_dt is not None
+
+    @property
+    def reward_pips(self) -> float:
         return to_pips(abs(self.tp - self.entry_price))
+
+
+@dataclass(frozen=True, slots=True)
+class PendingPosition:
+    """The price, SL and TP one side would enter at if it triggers -- fixed
+    the moment the Tokyo session closes, before any breakout has happened."""
+
+    price: float
+    sl: float
+    tp: float
+
+    @classmethod
+    def for_level(cls, price: float, sl: float) -> "PendingPosition":
+        risk = abs(price - sl)
+        tp = price + RISK_REWARD * risk * (1 if price > sl else -1)
+        return cls(price=price, sl=sl, tp=tp)
+
+    def materialize(self, entry_dt: datetime) -> Position:
+        return Position(entry_dt=entry_dt, entry_price=self.price, sl=self.sl, tp=self.tp)
 
 
 @dataclass
 class DayResult:
     session: BarBlock
-    long: Position = field(default_factory=Position)
-    short: Position = field(default_factory=Position)
+    pending_long: PendingPosition = field(init=False)
+    pending_short: PendingPosition = field(init=False)
+    long: Position | None = None
+    short: Position | None = None
+
+    def __post_init__(self) -> None:
+        mid = self.session.mid
+        self.pending_long = PendingPosition.for_level(self.session.high_value, mid)
+        self.pending_short = PendingPosition.for_level(self.session.low_value, mid)
 
     @property
     def window_start(self) -> datetime:
@@ -148,14 +170,6 @@ def compute_tokyo_sessions(paths: list[Path]) -> dict[_date, BarBlock]:
     return sessionsByDate
 
 
-def _open_position(position: Position, entry_dt: datetime, entry_price: float, mid: float) -> None:
-    risk = abs(entry_price - mid)
-    position.entry_dt = entry_dt
-    position.entry_price = entry_price
-    position.sl = mid
-    position.tp = entry_price + RISK_REWARD * risk * (1 if entry_price > mid else -1)
-
-
 def _check_resolution(position: Position, bar: Bar, is_long: bool) -> None:
     """Update `position` if this bar's range touches its SL and/or TP."""
     if position.tp is None or position.sl is None:
@@ -180,26 +194,28 @@ def _check_resolution(position: Position, bar: Bar, is_long: bool) -> None:
         position.resolved_price = position.sl
 
 
+def _process_side(
+    result: DayResult, bar: Bar, position: Position | None, pending: PendingPosition, is_long: bool, breaks_level: bool
+) -> Position | None:
+    if position is None:
+        if bar.dt < result.breakout_cutoff and breaks_level:
+            position = pending.materialize(bar.dt)
+            _check_resolution(position, bar, is_long)
+        return position
+    if position.resolved_dt is None:
+        _check_resolution(position, bar, is_long)
+    return position
+
+
 def _process_bar(result: DayResult, bar: Bar) -> None:
     session = result.session
-    mid = session.mid
-
-    for position, is_long, breaks_level in (
-        (result.long, True, bar.high > session.high_value),
-        (result.short, False, bar.low < session.low_value),
-    ):
-        if not position.triggered:
-            if bar.dt < result.breakout_cutoff and breaks_level:
-                entry_price = session.high_value if is_long else session.low_value
-                _open_position(position, bar.dt, entry_price, mid)
-                _check_resolution(position, bar, is_long)
-        elif position.resolved_dt is None:
-            _check_resolution(position, bar, is_long)
+    result.long = _process_side(result, bar, result.long, result.pending_long, True, bar.high > session.high_value)
+    result.short = _process_side(result, bar, result.short, result.pending_short, False, bar.low < session.low_value)
 
 
 def _force_close(result: DayResult) -> None:
     for position in (result.long, result.short):
-        if position.triggered and position.resolved_dt is None:
+        if position is not None and position.is_resolved is False:
             position.outcome = Outcome.FORCE_CLOSED
             position.resolved_dt = result.window_end
 
@@ -259,8 +275,8 @@ def _fmt_pips(value: float) -> str:
     return f"{value:.1f}p"
 
 
-def _fmt_position(label: str, position: Position) -> str:
-    if not position.triggered:
+def _fmt_position(label: str, position: Position | None) -> str:
+    if position is None:
         return f"  {label}: {Outcome.NOT_TRIGGERED.value}"
 
     header = (
@@ -269,7 +285,9 @@ def _fmt_position(label: str, position: Position) -> str:
         f"(SL {_fmt_pips(position.risk_pips)} @ {_fmt_price(position.sl)}, "
         f"TP {_fmt_pips(position.reward_pips)} @ {_fmt_price(position.tp)})"
     )
-    if position.outcome == Outcome.FORCE_CLOSED:
+    if not position.is_resolved:
+        detail = "    -> still open (not yet resolved)"
+    elif position.outcome == Outcome.FORCE_CLOSED:
         detail = f"    -> {Outcome.FORCE_CLOSED.value} at {position.resolved_dt:%Y-%m-%d %H:%M}"
     elif position.outcome == Outcome.AMBIGUOUS:
         detail = f"    -> {Outcome.AMBIGUOUS.value} at {position.resolved_dt:%Y-%m-%d %H:%M}"
@@ -312,7 +330,7 @@ def print_report(results: list[DayResult]) -> None:
         print()
 
         for position in (result.long, result.short):
-            if position.triggered:
+            if position is not None:
                 triggered_sides += 1
                 outcome_counts[position.outcome] += 1
 
