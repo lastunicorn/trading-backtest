@@ -48,9 +48,6 @@ from ports.mt5_file_access import Bar, iterate_bars
 PIP = 0.0001
 PRICE_DECIMALS = 5
 
-MAX_RANGE_PIPS = 30.0
-RISK_REWARD = 1.5
-
 
 def to_pips(price_diff: float) -> float:
     return price_diff / PIP
@@ -86,6 +83,8 @@ class TbsDailySession:
     TOKYO_END = _time(9, 0)  # exclusive
 
     day: _date
+    max_range_pips: float = 10.0
+    risk_reward_ratio: float = 1.0
     tokyo_session: BarBlock = field(default_factory=BarBlock)
 
     pending_long: PendingPosition | None = None
@@ -116,7 +115,7 @@ class TbsDailySession:
 
     @property
     def is_cancelled(self) -> bool:
-        return self.tokyo_session.bar_count == 0 or self.range_pips > MAX_RANGE_PIPS
+        return self.tokyo_session.bar_count == 0 or self.range_pips > self.max_range_pips
 
     @property
     def is_closed(self) -> bool:
@@ -159,8 +158,8 @@ class TbsDailySession:
         if self.is_cancelled:
             return
         mid = self.tokyo_session.mid
-        self.pending_long = PendingPosition.for_level(self.tokyo_session.high_value, mid, RISK_REWARD)
-        self.pending_short = PendingPosition.for_level(self.tokyo_session.low_value, mid, RISK_REWARD)
+        self.pending_long = PendingPosition.for_level(self.tokyo_session.high_value, mid, self.risk_reward_ratio)
+        self.pending_short = PendingPosition.for_level(self.tokyo_session.low_value, mid, self.risk_reward_ratio)
 
     def _process_bar_normal(self, bar: Bar) -> None:
         session = self.tokyo_session
@@ -177,7 +176,7 @@ class TbsDailySession:
                 position = pending.open_position(bar.dt)
                 self._check_resolution(position, bar, is_long)
             return position
-        if position.closed_dt is None:
+        if position.close_dt is None:
             self._check_resolution(position, bar, is_long)
         return position
 
@@ -194,15 +193,15 @@ class TbsDailySession:
 
         if hit_tp and hit_sl:
             position.outcome = Outcome.AMBIGUOUS
-            position.closed_dt = bar.dt
+            position.close_dt = bar.dt
         elif hit_tp:
             position.outcome = Outcome.TP_HIT
-            position.closed_dt = bar.dt
-            position.closed_price = position.tp
+            position.close_dt = bar.dt
+            position.close_price = position.tp
         elif hit_sl:
             position.outcome = Outcome.SL_HIT
-            position.closed_dt = bar.dt
-            position.closed_price = position.sl
+            position.close_dt = bar.dt
+            position.close_price = position.sl
 
     def close(self) -> bool:
         return self.close(self.window_end)
@@ -224,6 +223,7 @@ class TbsDailySession:
         return True
 
 
+@dataclass
 class TokyoBreakoutStrategy:
     """Encapsulates the Tokyo Session Breakout rules (see
     tokyo-session-breakout.md): given one chronological stream of Bars,
@@ -231,6 +231,9 @@ class TokyoBreakoutStrategy:
     the breakout/SL/TP/force-close outcome for both sides.
 
     `calculate()` consumes its `bars` argument exactly once."""
+
+    max_range_pips: float = 30.0
+    risk_reward: float = 1.5
 
     def calculate(self, bars: Iterable[Bar]) -> list[TbsDailySession]:
         """One pass over `bars` (must be chronological). A new DailySession
@@ -250,7 +253,7 @@ class TokyoBreakoutStrategy:
             bar_date = bar.dt.date()
 
             if bar_date not in sessions:
-                session = TbsDailySession(bar_date)
+                session = TbsDailySession(bar_date, self.max_range_pips, self.risk_reward)
                 sessions[bar_date] = session
                 session_order.append(bar_date)
                 live_sessions.append(session)
@@ -282,19 +285,19 @@ def _fmt_position(label: str, position: Position | None) -> str:
     header = (
         f"  {label}: triggered {position.open_dt:%Y-%m-%d %H:%M} @ "
         f"{_fmt_price(position.open_price)}  "
-        f"(SL {_fmt_pips(to_pips(position.risk_value))} @ {_fmt_price(position.sl)}, "
-        f"TP {_fmt_pips(to_pips(position.reward_value))} @ {_fmt_price(position.tp)})"
+        f"(SL {_fmt_pips(to_pips(position.risk_amount))} @ {_fmt_price(position.sl)}, "
+        f"TP {_fmt_pips(to_pips(position.reward_amount))} @ {_fmt_price(position.tp)})"
     )
     if not position.is_closed:
         detail = "    -> still open (not yet resolved)"
     elif position.outcome == Outcome.FORCE_CLOSED:
-        detail = f"    -> {outcome_text(Outcome.FORCE_CLOSED)} at {position.closed_dt:%Y-%m-%d %H:%M}"
+        detail = f"    -> {outcome_text(Outcome.FORCE_CLOSED)} at {position.close_dt:%Y-%m-%d %H:%M}"
     elif position.outcome == Outcome.AMBIGUOUS:
-        detail = f"    -> {outcome_text(Outcome.AMBIGUOUS)} at {position.closed_dt:%Y-%m-%d %H:%M}"
+        detail = f"    -> {outcome_text(Outcome.AMBIGUOUS)} at {position.close_dt:%Y-%m-%d %H:%M}"
     else:
         detail = (
-            f"    -> {outcome_text(position.outcome)} at {position.closed_dt:%Y-%m-%d %H:%M} "
-            f"@ {_fmt_price(position.closed_price)}"
+            f"    -> {outcome_text(position.outcome)} at {position.close_dt:%Y-%m-%d %H:%M} "
+            f"@ {_fmt_price(position.close_price)}"
         )
     return header + "\n" + detail
 
@@ -326,11 +329,11 @@ def print_report(results: list[TbsDailySession]) -> None:
 
         if result.is_cancelled:
             counts["cancelled"] += 1
-            print(f"  CANCELLED (> {MAX_RANGE_PIPS:.0f}p threshold)\n")
+            print(f"  CANCELLED (> {result.max_range_pips:.0f}p threshold)\n")
             continue
 
         risk_pips = result.range_pips / 2
-        print(f"  SL: {_fmt_pips(risk_pips)}   TP: {_fmt_pips(risk_pips * RISK_REWARD)}")
+        print(f"  SL: {_fmt_pips(risk_pips)}   TP: {_fmt_pips(risk_pips * result.risk_reward_ratio)}")
         print(_fmt_position("LONG ", result.position_long))
         print(_fmt_position("SHORT", result.position_short))
         print()
@@ -343,12 +346,14 @@ def print_report(results: list[TbsDailySession]) -> None:
     total = counts["days"]
     traded_days = total - counts["cancelled"]
     print("=== summary ===")
-    print(f"  Tokyo sessions: {total}   cancelled (range > {MAX_RANGE_PIPS:.0f}p): {counts['cancelled']}")
+    print(f"  Tokyo sessions: {total}   cancelled (range > {results[0].max_range_pips:.0f}p): {counts['cancelled']}")
     print(f"  Eligible days: {traded_days}   sides triggered: {triggered_sides}")
+    risk_reward_ratio = results[0].risk_reward_ratio
+    print(f"  Risk/Reward ratio: {risk_reward_ratio}")
     for outcome in (Outcome.TP_HIT, Outcome.SL_HIT, Outcome.AMBIGUOUS, Outcome.FORCE_CLOSED):
         print(f"    {outcome.name}: {outcome_counts[outcome]}")
-    PL = outcome_counts[Outcome.TP_HIT] * RISK_REWARD - outcome_counts[Outcome.SL_HIT]
-    print(f"  P/L: {PL} %")
+    PL = outcome_counts[Outcome.TP_HIT] * risk_reward_ratio - outcome_counts[Outcome.SL_HIT]
+    print(f"  P/L: {PL:.2f} %")
 
 
 def retrieve_bars(source_path):
@@ -374,6 +379,14 @@ def parse_arguments():
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument("source", help="a single M1 csv export, or a folder of them")
+    parser.add_argument(
+        "--max-range-pips", type=float, default=30.0,
+        help="cancel a day if its Tokyo range exceeds this many pips (default: 30.0)",
+    )
+    parser.add_argument(
+        "--risk-reward", type=float, default=1.5,
+        help="TP distance as a multiple of the SL distance (default: 1.5)",
+    )
     return parser.parse_args()
 
 
@@ -383,7 +396,7 @@ def main() -> None:
     source_path = args.source
     bars = retrieve_bars(source_path)
 
-    strategy = TokyoBreakoutStrategy()
+    strategy = TokyoBreakoutStrategy(max_range_pips=args.max_range_pips, risk_reward=args.risk_reward)
     results = strategy.calculate(bars)
 
     if not results:

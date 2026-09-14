@@ -38,7 +38,7 @@ class Outcome(Enum):
     FORCE_CLOSED = auto()
 
 
-@dataclass
+@dataclass(slots=True)
 class Position:
     """One side of a trade, once triggered."""
 
@@ -50,24 +50,24 @@ class Position:
 
     outcome: Outcome = Outcome.NONE
 
-    closed_dt: datetime | None = None
-    closed_price: float | None = None
+    close_dt: datetime | None = None
+    close_price: float | None = None
 
     @property
     def is_closed(self) -> bool:
-        return self.closed_dt is not None
+        return self.close_dt is not None
 
     def close(self, at: datetime) -> None:
         """Force-close the position -- no SL/TP hit, just cut off at `at`."""
         self.outcome = Outcome.FORCE_CLOSED
-        self.closed_dt = at
+        self.close_dt = at
 
     @property
-    def risk_value(self) -> float:
+    def risk_amount(self) -> float:
         return abs(self.open_price - self.sl)
 
     @property
-    def reward_value(self) -> float:
+    def reward_amount(self) -> float:
         return abs(self.tp - self.open_price)
 
 
@@ -85,7 +85,8 @@ class PendingPosition:
         risk = abs(price - sl)
         reward = risk_reward * risk
         tp = price + reward * (1 if price > sl else -1)
+
         return cls(price=price, sl=sl, tp=tp)
 
-    def open_position(self, entry_dt: datetime) -> Position:
-        return Position(open_dt=entry_dt, open_price=self.price, sl=self.sl, tp=self.tp)
+    def open_position(self, open_dt: datetime) -> Position:
+        return Position(open_dt=open_dt, open_price=self.price, sl=self.sl, tp=self.tp)
