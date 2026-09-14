@@ -51,7 +51,7 @@ PRICE_DECIMALS = 5
 TOKYO_START = _time(0, 0)
 TOKYO_END = _time(9, 0)  # exclusive
 MAX_RANGE_PIPS = 30.0
-RISK_REWARD = 2.0
+RISK_REWARD = 1.5
 
 
 def to_pips(price_diff: float) -> float:
@@ -281,12 +281,12 @@ def _fmt_position(label: str, position: Position) -> str:
     return header + "\n" + detail
 
 
-def print_bar_block(bar_block: BarBlock) -> None:
-    print(f"  Open: {_fmt_price(bar_block.open_value)} ({bar_block.open_dt})")
-    print(f"  High: {_fmt_price(bar_block.high_value)} ({bar_block.high_dt})")
-    print(f"  Low: {_fmt_price(bar_block.low_value)} ({bar_block.low_dt})")
-    print(f"  Close: {_fmt_price(bar_block.close_value)} ({bar_block.close_dt})")
-    print(f"  Range: {_fmt_pips(_range_pips(bar_block))}")
+def print_bar_block(bar_block: BarBlock, indent: str) -> None:
+    print(f"{indent}Open: {_fmt_price(bar_block.open_value)} ({bar_block.open_dt})")
+    print(f"{indent}High: {_fmt_price(bar_block.high_value)} ({bar_block.high_dt})")
+    print(f"{indent}Low: {_fmt_price(bar_block.low_value)} ({bar_block.low_dt})")
+    print(f"{indent}Close: {_fmt_price(bar_block.close_value)} ({bar_block.close_dt})")
+    print(f"{indent}Range: {_fmt_pips(_range_pips(bar_block))}")
 
 
 def print_report(results: list[DayResult]) -> None:
@@ -298,7 +298,7 @@ def print_report(results: list[DayResult]) -> None:
         session = result.session
         counts["days"] += 1
         print(f"=== {session.day.isoformat()} (Tokyo 00:00-09:00) ===")
-        print_bar_block(session)
+        print_bar_block(session, "  ")
 
         if _cancelled(session):
             counts["cancelled"] += 1
@@ -323,7 +323,7 @@ def print_report(results: list[DayResult]) -> None:
     print(f"  Eligible days: {traded_days}   sides triggered: {triggered_sides}")
     for outcome in (Outcome.TP_HIT, Outcome.SL_HIT, Outcome.AMBIGUOUS, Outcome.FORCE_CLOSED):
         print(f"    {outcome.name}: {outcome_counts[outcome]}")
-    PL = outcome_counts[Outcome.TP_HIT] * 2 - outcome_counts[Outcome.SL_HIT]
+    PL = outcome_counts[Outcome.TP_HIT] * RISK_REWARD - outcome_counts[Outcome.SL_HIT]
     print(f"  P/L: {PL} %")
 
 
@@ -334,7 +334,7 @@ def main() -> None:
     parser.add_argument("source", help="a single M1 csv export, or a folder of them")
     args = parser.parse_args()
 
-    paths = find_files(args.source)
+    paths = find_files(args.source, recursive=True)
     if not paths:
         parser.error(f"no csv files found at {args.source!r}")
 
