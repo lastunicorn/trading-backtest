@@ -51,6 +51,7 @@ from domain.bar_chunks import BarChunks
 from domain.bar_block import BarBlock
 from domain.position import Outcome, PendingPosition, Position
 from domain.shift_bars import shift_bars
+from domain.tokyo_session import TokyoSession
 from ports.file_system_access.file_system import find_files
 from ports.mt5_file_access import Bar, iterate_bars
 
@@ -161,13 +162,10 @@ class TbsDailySession:
     `close()` force-closes anything still open and freezes the session;
     calling `add_bar()` or `close()` again afterwards raises."""
 
-    TOKYO_START = _time(0, 0)
-    TOKYO_END = _time(9, 0)  # exclusive
-
     day: _date
     max_range_pips: float = 10.0
     risk_reward_ratio: float = 1.0
-    tokyo_session: BarBlock = field(default_factory=BarBlock)
+    tokyo_session: TokyoSession = field(default_factory=TokyoSession)
 
     pending_long: PendingPosition | None = None
     pending_short: PendingPosition | None = None
@@ -184,7 +182,7 @@ class TbsDailySession:
 
     @property
     def window_start(self) -> datetime:
-        return datetime.combine(self.day, self.TOKYO_END)
+        return datetime.combine(self.day, TokyoSession.TOKYO_END)
 
     @property
     def breakout_cutoff(self) -> datetime:
@@ -192,7 +190,7 @@ class TbsDailySession:
 
     @property
     def window_end(self) -> datetime:
-        return datetime.combine(self.day + timedelta(days=1), self.TOKYO_END)
+        return datetime.combine(self.day + timedelta(days=1), TokyoSession.TOKYO_END)
 
     @property
     def range_pips(self) -> float:
@@ -241,9 +239,7 @@ class TbsDailySession:
         return False
 
     def _process_bar_tokyo(self, bar: Bar) -> bool:
-        t = bar.dt.time()
-
-        if bar.dt.date() == self.day and self.TOKYO_START <= t < self.TOKYO_END:
+        if bar.dt.date() == self.day and self.tokyo_session.contains(bar.dt):
             self.tokyo_session.add(bar)
             return True
 
