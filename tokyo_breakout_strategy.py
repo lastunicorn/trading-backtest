@@ -191,6 +191,11 @@ class TbsDailySession:
     risk_reward_ratio: float = 1.0
     session: TradingSession = field(init=False, repr=False)
 
+    session_start: datetime = field(init=False, repr=False)
+    window_start: datetime = field(init=False, repr=False)
+    window_end: datetime = field(init=False, repr=False)
+    breakout_cutoff: datetime = field(init=False, repr=False)
+
     pending_long: PendingPosition | None = None
     pending_short: PendingPosition | None = None
 
@@ -205,33 +210,26 @@ class TbsDailySession:
     _last_candle_dt: datetime | None = field(default=None, init=False, repr=False)
 
     def __post_init__(self) -> None:
+        """`session_start`/`window_start`/`window_end`/`breakout_cutoff` are
+        all fixed once `day` (and the module-level `_SESSION_TEMPLATE`) are
+        known, so they're computed once here rather than recomputed on every
+        `add_bar()` call -- they used to be `@property`s that redid a
+        `ZoneInfo` conversion on every single bar of the stream."""
         self.session = _SESSION_TEMPLATE.create_session(self.day)
 
-    @property
-    def session_start(self) -> datetime:
-        """Naive, UTC wall-clock start of the range-accumulation window -- matches
-        every other datetime in this class (see module docstring's timezone note);
-        `session.start_dt_utc()` is aware."""
-        return self.session.start_dt_utc().replace(tzinfo=None)
+        # Naive, UTC wall-clock -- matches every other datetime in this class
+        # (see module docstring's timezone note); `session.start/end_dt_utc()`
+        # are aware.
+        self.session_start = self.session.start_dt_utc().replace(tzinfo=None)
+        self.window_start = self.session.end_dt_utc().replace(tzinfo=None)
 
-    @property
-    def window_start(self) -> datetime:
-        """Naive, UTC wall-clock -- matches every other datetime in this class (see
-        module docstring's timezone note); `session.end_dt_utc()` is aware."""
-        return self.session.end_dt_utc().replace(tzinfo=None)
+        # Entries are only taken up to midnight `_TRADE_WINDOW` after the
+        # session's day -- a break past this point opens no trade.
+        self.breakout_cutoff = datetime.combine(self.day + _TRADE_WINDOW, _time(0, 0))
 
-    @property
-    def breakout_cutoff(self) -> datetime:
-        """Entries are only taken up to midnight `_TRADE_WINDOW` after the
-        session's day -- a break past this point opens no trade."""
-        return datetime.combine(self.day + _TRADE_WINDOW, _time(0, 0))
-
-    @property
-    def window_end(self) -> datetime:
-        """Force-close point for any position still open: the session's own
-        end time, `_TRADE_WINDOW` after the session's day."""
-        dt = _SESSION_TEMPLATE.end_time_utc_on(self.day + _TRADE_WINDOW)
-        return dt.replace(tzinfo=None)
+        # Force-close point for any position still open: the session's own
+        # end time, `_TRADE_WINDOW` after the session's day.
+        self.window_end = _SESSION_TEMPLATE.end_time_utc_on(self.day + _TRADE_WINDOW).replace(tzinfo=None)
 
     @property
     def range_pips(self) -> float:
@@ -283,9 +281,10 @@ class TbsDailySession:
         if bar.dt < self.session_start:
             return False
 
-        if bar.dt.date() == self.day and self.session.contains(bar.dt):
-            self.session.add(bar)
-            return True
+        if bar.dt.date() == self.day:
+            success = self.session.add(bar)
+            if success:
+                return True
 
         self._resolve_session()
         return False
