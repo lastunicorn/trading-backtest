@@ -66,12 +66,17 @@ from ports.mt5_file_access import Bar, iterate_bars
 PIP = 0.0001
 PRICE_DECIMALS = 5
 
-_SESSION_TEMPLATE: TradingSessionTemplate = TokyoSessionTemplate()  # 09:00-15:30 JST -> 00:00-06:30 UTC, no DST
+#_SESSION_TEMPLATE: TradingSessionTemplate = TokyoSessionTemplate()
 # _SESSION_TEMPLATE: TradingSessionTemplate = TradingSessionTemplate(
 #     start_time=_time(8, 0),
 #     end_time=_time(9, 0),
 #     timezone=ZoneInfo("America/New_York"),
 # )
+_SESSION_TEMPLATE: TradingSessionTemplate = TradingSessionTemplate(
+    start_time=_time(0, 0, tzinfo=UTC),
+    end_time=_time(9, 0, tzinfo=UTC),
+    timezone=UTC,
+)
 
 # The breakout/force-close window always runs exactly one calendar day past
 # the range-session's own day: entries are only taken up to midnight the day

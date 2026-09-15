@@ -15,7 +15,7 @@ Stdlib only.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, date as _date, datetime, time as _time, timedelta, timezone, tzinfo
+from datetime import UTC, date as _date, datetime, time as _time, timedelta, tzinfo
 from zoneinfo import ZoneInfo
 
 from domain.trading_session import TradingSession
@@ -26,8 +26,6 @@ __all__ = [
     "LondonSessionTemplate",
     "NewYorkSessionTemplate",
 ]
-
-_JST = timezone(timedelta(hours=9))  # fixed offset: Japan has not observed DST since 1951
 
 
 @dataclass(frozen=True)
@@ -78,17 +76,15 @@ class TokyoSessionTemplate(TradingSessionTemplate):
     models one window per day -- this is that window's outer bounds, not the
     rounder 09:00-18:00 sometimes used for the informal FX "Tokyo session".
 
-    JST is a fixed UTC+9 year-round, so -- unlike the base class -- `start_time`
-    and `end_time` here carry that offset directly and stay meaningful without
-    a date. (A `zoneinfo.ZoneInfo` would *not* work for this: attached to a
-    bare `time` with no date, `ZoneInfo.utcoffset()` always resolves to `None`,
-    even for a zone that never observes DST. `timezone` itself still uses the
-    real `ZoneInfo`, since `start_time_utc`/`end_time_utc` always combine it
-    with a date.)
+    JST is a fixed UTC+9 year-round, but `start_time`/`end_time` stay naive
+    here too, like every other template -- every conversion method passes
+    `tzinfo=self.timezone` explicitly to `datetime.combine()`, which always
+    overrides whatever tzinfo the `time` argument itself carries, so a tzinfo
+    on `start_time`/`end_time` would never actually be read.
     """
 
-    start_time: _time = _time(9, 0, tzinfo=_JST)
-    end_time: _time = _time(15, 30, tzinfo=_JST)
+    start_time: _time = _time(9, 0)
+    end_time: _time = _time(15, 30)
     timezone: tzinfo = ZoneInfo("Asia/Tokyo")
 
 
