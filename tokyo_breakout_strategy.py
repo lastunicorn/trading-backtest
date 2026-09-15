@@ -54,7 +54,7 @@ from domain.bar_block import BarBlock
 from domain.position import Outcome, PendingPosition, Position
 from domain.shift_bars import shift_bars
 from domain.trading_session import TradingSession
-from domain.trading_session_template import NewYorkSessionTemplate, TokyoSessionTemplate
+from domain.trading_session_template import TokyoSessionTemplate
 from ports.file_system_access.file_system import find_files
 from ports.mt5_file_access import Bar, iterate_bars
 
@@ -200,8 +200,8 @@ class TbsDailySession:
 
     @property
     def window_end(self) -> datetime:
-        next_day_session = _TOKYO_SESSION_TEMPLATE.create_session(self.day + timedelta(days=1))
-        return next_day_session.end_dt_utc().replace(tzinfo=None)
+        dt = _TOKYO_SESSION_TEMPLATE.end_time_utc_on(self.day + timedelta(days=1))
+        return dt.replace(tzinfo=None)
 
     @property
     def range_pips(self) -> float:
@@ -308,22 +308,6 @@ class TbsDailySession:
 
 
 def main() -> None:
-    # trading_session = NewYorkSessionTemplate()
-    # print(trading_session.start_time)
-    # print(trading_session.end_time)
-    # print(trading_session.end_time.tzinfo)
-    # print(trading_session.timezone)
-    # print("today")
-    # print(trading_session.start_time_utc(_date.today()))
-    # print(trading_session.end_time_utc(_date.today()))
-    # print("2026-03-07")
-    # print(trading_session.start_time_utc(_date(2026, 3, 7)))
-    # print(trading_session.end_time_utc(_date(2026, 3, 7)))
-    # print("2026-03-08")
-    # print(trading_session.start_time_utc(_date(2026, 3, 8)))
-    # print(trading_session.end_time_utc(_date(2026, 3, 8)))
-    # return
-
     start_time = time.perf_counter()
 
     args = parse_arguments()
