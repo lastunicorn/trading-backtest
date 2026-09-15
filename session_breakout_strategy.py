@@ -404,6 +404,35 @@ def parse_arguments():
     return parser.parse_args()
 
 
+@dataclass
+class _Chunk:
+    """Pairs one SessionBreakoutStrategy instance with the TbsSummary it
+    accumulates into as its sessions close, so a `previous` chunk
+    straddling a rollover carries its own summary with it into the next
+    iteration rather than sharing the loop's (rebound-every-iteration)
+    local variable -- see `_make_on_session_closed`."""
+
+    strategy: SessionBreakoutStrategy
+    summary: ReportSummary
+
+
+def _make_on_session_closed(
+    summary: ReportSummary, report_file: TextIO
+) -> Callable[[StrategyDailySession], None]:
+    """Binds `summary` as a parameter of this call, not a closure over a
+    loop variable -- the `summary` local in execute()'s while loop is
+    rebound every iteration, and a `previous` chunk keeps receiving bars
+    (and closing sessions) into the *next* iteration, so a plain closure
+    over that variable would silently miscount those late closes into the
+    new chunk's summary instead of its own."""
+
+    def on_session_closed(session: StrategyDailySession) -> None:
+        write_session_report(session, report_file)
+        summary.add(session)
+
+    return on_session_closed
+
+
 def execute(
         report_dir_path : Path,
         source_path: Path,
@@ -411,34 +440,39 @@ def execute(
         risk_reward_ratio: float,
         granularity: str
     ):
-    
+
     with open_report_file(report_dir_path) as report_file:
-        def flush(strategy: SessionBreakoutStrategy) -> None:
-            strategy.close_live_sessions()
-            #print_report(strategy.sessions, report_file)
-            #print(file=report_file)
+        def say(text: str = "") -> None:
+            print(text)
+            print(text, file=report_file)
+
+        def flush(chunk: _Chunk) -> None:
+            chunk.strategy.close_live_sessions()
+            write_report_summary(chunk.summary, say)
+            print(file=report_file)
 
         all_bars = _retrieve_bars(source_path)
         bar_chunks = BarChunks(all_bars, granularity=granularity)
 
-        def announce_session_closed(session: StrategyDailySession) -> None:
-            print(f"Session closed: {session.day.isoformat()}")
-
-        previous: SessionBreakoutStrategy | None = None
+        previous: _Chunk | None = None
 
         while bar_chunks.has_more:
-            current = SessionBreakoutStrategy(
-                max_range_pips=max_range_pips,
-                risk_reward_ratio=risk_reward_ratio,
-                on_session_closed=announce_session_closed,
+            summary = ReportSummary(risk_reward_ratio=risk_reward_ratio, max_range_pips=max_range_pips)
+            current = _Chunk(
+                strategy=SessionBreakoutStrategy(
+                    max_range_pips=max_range_pips,
+                    risk_reward_ratio=risk_reward_ratio,
+                    on_session_closed=_make_on_session_closed(summary, report_file),
+                ),
+                summary=summary,
             )
 
             for bar in bar_chunks.iterate():
-                current.add_bar(bar)
+                current.strategy.add_bar(bar)
 
                 if previous is not None:
-                    previous.add_bar(bar)
-                    if not previous.has_live_sessions:
+                    previous.strategy.add_bar(bar)
+                    if not previous.strategy.has_live_sessions:
                         flush(previous)
                         previous = None
 
@@ -449,12 +483,12 @@ def execute(
                 # -- but don't silently drop it if it ever does.
                 flush(previous)
 
-            current.retire()
+            current.strategy.retire()
             previous = current
 
         if previous is None:
             raise SystemExit("error: no session bars found in source")
-        
+
         flush(previous)
 
     print(f"\nReport written to: {report_dir_path}")
@@ -530,17 +564,36 @@ def print_bar_block(bar_block: BarBlock, indent: str, out: TextIO) -> None:
 
 
 @dataclass
-class TbsSummary:
-    """Aggregated totals for a `print_report` run, ready for `write_summary`."""
+class ReportSummary:
+    """Aggregated totals for one chunk's sessions, ready for `write_summary`.
+    Starts out holding only the run's fixed parameters; add() folds in one
+    StrategyDailySession at a time as each closes, so by the time a chunk's
+    sessions have all closed this same instance already is the finished
+    summary -- no separate accumulator/finalize step."""
 
-    first_dt: datetime
-    last_dt: datetime
     risk_reward_ratio: float
     max_range_pips: float
-    total_days: int
-    cancelled_days: int
-    position_count: int
-    outcome_counts: dict[Outcome, int]
+    total_days: int = 0
+    cancelled_days: int = 0
+    position_count: int = 0
+    outcome_counts: dict[Outcome, int] = field(default_factory=lambda: {o: 0 for o in Outcome})
+    first_dt: datetime | None = None
+    last_dt: datetime | None = None
+
+    def add(self, result: StrategyDailySession) -> None:
+        if self.total_days == 0:
+            self.first_dt = result.first_candle_dt
+        self.last_dt = result.last_candle_dt
+        self.total_days += 1
+
+        if result.session.bar_count == 0 or result.is_cancelled:
+            self.cancelled_days += 1
+            return
+
+        for position in (result.position_long, result.position_short):
+            if position is not None:
+                self.position_count += 1
+                self.outcome_counts[position.outcome] += 1
 
     @property
     def traded_days(self) -> int:
@@ -554,7 +607,33 @@ class TbsSummary:
         )
 
 
-def write_summary(summary: TbsSummary, say: Callable[[str], None]) -> None:
+def write_session_report(result: StrategyDailySession, out: TextIO) -> None:
+    """Write one session's day-by-day block to `out` only -- no accounting.
+    Called once per session, directly from the on_session_closed callback,
+    as each session closes; see TbsSummary.add for the totals this used to
+    accumulate inline."""
+    session = result.session
+    window_label = f"{session.start_dt_utc():%H:%M}-{session.end_dt_utc():%H:%M} UTC"
+    print(f"=== {result.day.isoformat()} (session {window_label}) ===", file=out)
+
+    if session.bar_count == 0:
+        print("  CANCELLED (no session bars for this day)\n", file=out)
+        return
+
+    print_bar_block(session.bars, "  ", out)
+
+    if result.is_cancelled:
+        print(f"  CANCELLED (> {result.max_range_pips:.0f}p threshold)\n", file=out)
+        return
+
+    risk_pips = result.range_pips / 2
+    print(f"  SL: {_fmt_pips(risk_pips)}   TP: {_fmt_pips(risk_pips * result.risk_reward_ratio)}", file=out)
+    print(_fmt_position("LONG ", result.position_long), file=out)
+    print(_fmt_position("SHORT", result.position_short), file=out)
+    print(file=out)
+
+
+def write_report_summary(summary: ReportSummary, say: Callable[[str], None]) -> None:
     say(f"=== summary ({summary.first_dt:%Y-%m-%d %H:%M} -> {summary.last_dt:%Y-%m-%d %H:%M}) ===")
     say(f"  Risk/Reward ratio: {summary.risk_reward_ratio}")
     say(f"  Range sessions: {summary.total_days}   cancelled (range > {summary.max_range_pips:.0f}p): {summary.cancelled_days}")
@@ -563,62 +642,6 @@ def write_summary(summary: TbsSummary, say: Callable[[str], None]) -> None:
     for outcome in (Outcome.TP_HIT, Outcome.SL_HIT, Outcome.AMBIGUOUS, Outcome.FORCE_CLOSED):
         say(f"    {outcome.name}: {summary.outcome_counts[outcome]}")
     say(f"  P/L: {summary.pl_percent:.2f} %")
-
-
-def print_report(results: list[StrategyDailySession], out: TextIO) -> None:
-    """Write the full day-by-day report to `out` only. The summary section
-    at the end is written to `out` and echoed to the console, since it's the
-    only part of the report meant to be read there. The summary title's
-    timestamps come from the first candle of the first session and the last
-    candle of the last session in `results`."""
-    counts = {"cancelled": 0, "no_session": 0, "days": 0}
-    outcome_counts: dict[Outcome, int] = {o: 0 for o in Outcome}
-    position_count = 0
-
-    for result in results:
-        session = result.session
-        counts["days"] += 1
-        window_label = f"{session.start_dt_utc():%H:%M}-{session.end_dt_utc():%H:%M} UTC"
-        print(f"=== {result.day.isoformat()} (session {window_label}) ===", file=out)
-
-        if session.bar_count == 0:
-            counts["cancelled"] += 1
-            print("  CANCELLED (no session bars for this day)\n", file=out)
-            continue
-
-        print_bar_block(session.bars, "  ", out)
-
-        if result.is_cancelled:
-            counts["cancelled"] += 1
-            print(f"  CANCELLED (> {result.max_range_pips:.0f}p threshold)\n", file=out)
-            continue
-
-        risk_pips = result.range_pips / 2
-        print(f"  SL: {_fmt_pips(risk_pips)}   TP: {_fmt_pips(risk_pips * result.risk_reward_ratio)}", file=out)
-        print(_fmt_position("LONG ", result.position_long), file=out)
-        print(_fmt_position("SHORT", result.position_short), file=out)
-        print(file=out)
-
-        for position in (result.position_long, result.position_short):
-            if position is not None:
-                position_count += 1
-                outcome_counts[position.outcome] += 1
-
-    def say(text: str = "") -> None:
-        print(text)
-        print(text, file=out)
-
-    summary = TbsSummary(
-        first_dt=results[0].first_candle_dt,
-        last_dt=results[-1].last_candle_dt,
-        risk_reward_ratio=results[0].risk_reward_ratio,
-        max_range_pips=results[0].max_range_pips,
-        total_days=counts["days"],
-        cancelled_days=counts["cancelled"],
-        position_count=position_count,
-        outcome_counts=outcome_counts,
-    )
-    write_summary(summary, say)
 
 
 if __name__ == "__main__":
