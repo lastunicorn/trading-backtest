@@ -68,14 +68,12 @@ PRICE_DECIMALS = 5
 
 #_SESSION_TEMPLATE: TradingSessionTemplate = TokyoSessionTemplate()
 # _SESSION_TEMPLATE: TradingSessionTemplate = TradingSessionTemplate(
-#     start_time=_time(8, 0),
-#     end_time=_time(9, 0),
-#     timezone=ZoneInfo("America/New_York"),
+#     start_time=_time(8, 0, tzinfo=ZoneInfo("America/New_York")),
+#     end_time=_time(9, 0, tzinfo=ZoneInfo("America/New_York")),
 # )
 _SESSION_TEMPLATE: TradingSessionTemplate = TradingSessionTemplate(
     start_time=_time(0, 0, tzinfo=UTC),
     end_time=_time(9, 0, tzinfo=UTC),
-    timezone=UTC,
 )
 
 # The breakout/force-close window always runs exactly one calendar day past
