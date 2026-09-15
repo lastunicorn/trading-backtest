@@ -58,12 +58,8 @@ PIP = 0.0001
 PRICE_DECIMALS = 5
 
 
-def to_pips(price_diff: float) -> float:
+def _to_pips(price_diff: float) -> float:
     return price_diff / PIP
-
-
-def _range_pips(bar_block: BarBlock) -> float:
-    return to_pips(bar_block.range)
 
 
 _OUTCOME_TEXT: dict[Outcome, str] = {
@@ -77,6 +73,83 @@ _OUTCOME_TEXT: dict[Outcome, str] = {
 
 def outcome_text(outcome: Outcome) -> str:
     return _OUTCOME_TEXT[outcome]
+
+
+@dataclass
+class TokyoBreakoutStrategy:
+    """Encapsulates the Tokyo Session Breakout rules (see
+    tokyo-session-breakout.md): fed one chronological bar at a time via
+    add_bar(), decides each day's Tokyo range, whether it's tradeable, and
+    simulates the breakout/SL/TP/force-close outcome for both sides.
+
+    Each instance is scoped to one chunk of a caller-defined stream split
+    (see `domain.bar_chunks`); it doesn't know or care what the chunk
+    boundaries are -- that's entirely the caller's business. What it does
+    know is its own retirement: while live, add_bar() creates a new
+    TbsDailySession the moment a bar for a new calendar day appears. Once
+    retire() has been called, add_bar() stops spawning sessions but keeps
+    feeding bars to whatever's already live -- so a session whose window
+    runs past midnight into the next chunk can still resolve. This lets a
+    caller hand the same trailing bars to both the current chunk's instance
+    and the previous chunk's (now-retired) instance during the handover: the
+    retired instance just drains its lingering live session(s) and, once
+    has_live_sessions is False, stops needing bars at all -- it never grows
+    a shadow copy of the new chunk's sessions.
+
+    close_live_sessions() force-closes whatever's still live, for use once
+    the bar stream truly ends (no next chunk arrives to hand off to)."""
+
+    max_range_pips: float = 30.0
+    risk_reward_ratio: float = 1.5
+
+    _sessions: dict[_date, TbsDailySession] = field(default_factory=dict, init=False, repr=False)
+    _session_order: list[_date] = field(default_factory=list, init=False, repr=False)
+    _live_sessions: list[TbsDailySession] = field(default_factory=list, init=False, repr=False)
+    _is_retiring: bool = field(default=False, init=False, repr=False)
+
+    @property
+    def sessions(self) -> list[TbsDailySession]:
+        """Every session this instance has created, oldest first."""
+        return [self._sessions[d] for d in self._session_order]
+
+    @property
+    def has_live_sessions(self) -> bool:
+        return bool(self._live_sessions)
+
+    def add_bar(self, bar: Bar) -> None:
+        """Feed one bar (bars must arrive chronologically). Creates a new
+        DailySession the moment a bar for a new calendar day appears, but
+        only if that day is in this instance's own chunk -- see class
+        docstring. Every currently-live session then receives the bar, so a
+        day's own session (accumulating its Tokyo range) and the previous
+        day's session (still resolving its breakout window, which runs
+        until 09:00 the day after) are both fed the same bar. A session
+        force-closes itself, and freezes, once a bar reaches its
+        window_end; add_bar() only has to notice that and drop it from the
+        live list."""
+        bar_date = bar.dt.date()
+
+        if bar_date not in self._sessions and not self._is_retiring:
+            session = TbsDailySession(bar_date, self.max_range_pips, self.risk_reward_ratio)
+            self._sessions[bar_date] = session
+            self._session_order.append(bar_date)
+            self._live_sessions.append(session)
+
+        for session in list(self._live_sessions):
+            session.add_bar(bar)
+
+            if session.is_closed:
+                self._live_sessions.remove(session)
+
+    def retire(self) -> None:
+        """Force-close all live sessions and mark this chunk as retired."""
+        self._is_retiring = True
+
+    def close_live_sessions(self) -> None:
+        """Force-close every still-live session at its own window_end."""
+        for session in self._live_sessions:
+            session.close(session.window_end)
+        self._live_sessions.clear()
 
 
 @dataclass
@@ -123,7 +196,7 @@ class TbsDailySession:
 
     @property
     def range_pips(self) -> float:
-        return _range_pips(self.tokyo_session)
+        return _to_pips(self.tokyo_session.range)
 
     @property
     def is_cancelled(self) -> bool:
@@ -186,46 +259,26 @@ class TbsDailySession:
         self.pending_short = PendingPosition.for_level(self.tokyo_session.low_value, mid, self.risk_reward_ratio)
 
     def _process_bar_normal(self, bar: Bar) -> None:
-        session = self.tokyo_session
-        self.position_long = self._process_side(bar, self.position_long, self.pending_long, True, bar.high > session.high_value)
-        self.position_short = self._process_side(bar, self.position_short, self.pending_short, False, bar.low < session.low_value)
+        self.position_long = self._process_side(bar, self.position_long, self.pending_long)
+        self.position_short = self._process_side(bar, self.position_short, self.pending_short)
 
     def _process_side(
-        self, bar: Bar, position: Position | None, pending: PendingPosition | None, is_long: bool, breaks_level: bool
+        self, bar: Bar, position: Position | None, pending: PendingPosition | None
     ) -> Position | None:
         if pending is None:
             return None
+
         if position is None:
-            if bar.dt < self.breakout_cutoff and breaks_level:
-                position = pending.open_position(bar.dt)
-                self._check_resolution(position, bar, is_long)
+            if bar.dt < self.breakout_cutoff:
+                position = pending.hit(bar)
+                if position is not None:
+                    position.hit(bar)
             return position
-        if position.close_dt is None:
-            self._check_resolution(position, bar, is_long)
+
+        if not position.is_closed:
+            position.hit(bar)
+
         return position
-
-    def _check_resolution(self, position: Position, bar: Bar, is_long: bool) -> None:
-        """Update `position` if this bar's range touches its SL and/or TP."""
-        if position.tp is None or position.sl is None:
-            return
-        if is_long:
-            hit_tp = bar.high >= position.tp
-            hit_sl = bar.low <= position.sl
-        else:
-            hit_tp = bar.low <= position.tp
-            hit_sl = bar.high >= position.sl
-
-        if hit_tp and hit_sl:
-            position.outcome = Outcome.AMBIGUOUS
-            position.close_dt = bar.dt
-        elif hit_tp:
-            position.outcome = Outcome.TP_HIT
-            position.close_dt = bar.dt
-            position.close_price = position.tp
-        elif hit_sl:
-            position.outcome = Outcome.SL_HIT
-            position.close_dt = bar.dt
-            position.close_price = position.sl
 
     def close_at_end(self) -> bool:
         return self.close(self.window_end)
@@ -247,81 +300,132 @@ class TbsDailySession:
         return True
 
 
-@dataclass
-class TokyoBreakoutStrategy:
-    """Encapsulates the Tokyo Session Breakout rules (see
-    tokyo-session-breakout.md): fed one chronological bar at a time via
-    add_bar(), decides each day's Tokyo range, whether it's tradeable, and
-    simulates the breakout/SL/TP/force-close outcome for both sides.
+def main() -> None:
+    start_time = time.perf_counter()
 
-    Each instance is scoped to one chunk of a caller-defined stream split
-    (see `domain.bar_chunks`); it doesn't know or care what the chunk
-    boundaries are -- that's entirely the caller's business. What it does
-    know is its own retirement: while live, add_bar() creates a new
-    TbsDailySession the moment a bar for a new calendar day appears. Once
-    retire() has been called, add_bar() stops spawning sessions but keeps
-    feeding bars to whatever's already live -- so a session whose window
-    runs past midnight into the next chunk can still resolve. This lets a
-    caller hand the same trailing bars to both the current chunk's instance
-    and the previous chunk's (now-retired) instance during the handover: the
-    retired instance just drains its lingering live session(s) and, once
-    has_live_sessions is False, stops needing bars at all -- it never grows
-    a shadow copy of the new chunk's sessions.
+    args = parse_arguments()
+    source_path = args.source
+    out_dir = Path(args.out)
+    
+    execute(out_dir, source_path, args.max_range_pips, args.risk_reward, args.granularity)
 
-    close_live_sessions() force-closes whatever's still live, for use once
-    the bar stream truly ends (no next chunk arrives to hand off to)."""
+    elapsed = time.perf_counter() - start_time
+    print()
+    print(f"Execution time: {elapsed:.2f}s")
 
-    max_range_pips: float = 30.0
-    risk_reward: float = 1.5
 
-    _sessions: dict[_date, TbsDailySession] = field(default_factory=dict, init=False, repr=False)
-    _session_order: list[_date] = field(default_factory=list, init=False, repr=False)
-    _live_sessions: list[TbsDailySession] = field(default_factory=list, init=False, repr=False)
-    _is_retiring: bool = field(default=False, init=False, repr=False)
+def parse_arguments():
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
 
-    @property
-    def sessions(self) -> list[TbsDailySession]:
-        """Every session this instance has created, oldest first."""
-        return [self._sessions[d] for d in self._session_order]
+    parser.add_argument(
+        "source",
+        help="a single M1 csv export, or a folder of them"
+    )
+    parser.add_argument(
+        "--max-range-pips",
+        type=float,
+        default=30.0,
+        help="cancel a day if its Tokyo range exceeds this many pips (default: 30.0)",
+    )
+    parser.add_argument(
+        "--risk-reward",
+        type=float,
+        default=1.5,
+        help="TP distance as a multiple of the SL distance (default: 1.5)",
+    )
+    parser.add_argument(
+        "--out",
+        default="output/tokyo_breakout_output",
+        help="directory to write tokyo_breakout_report.txt into (default: output/tokyo_breakout_output)",
+    )
+    parser.add_argument(
+        "--granularity",
+        choices=["monthly", "yearly", "none"],
+        default="none",
+        help="how often to force-close still-live sessions while streaming bars (default: none)",
+    )
 
-    @property
-    def has_live_sessions(self) -> bool:
-        return bool(self._live_sessions)
+    return parser.parse_args()
 
-    def add_bar(self, bar: Bar) -> None:
-        """Feed one bar (bars must arrive chronologically). Creates a new
-        DailySession the moment a bar for a new calendar day appears, but
-        only if that day is in this instance's own chunk -- see class
-        docstring. Every currently-live session then receives the bar, so a
-        day's own session (accumulating its Tokyo range) and the previous
-        day's session (still resolving its breakout window, which runs
-        until 09:00 the day after) are both fed the same bar. A session
-        force-closes itself, and freezes, once a bar reaches its
-        window_end; add_bar() only has to notice that and drop it from the
-        live list."""
-        bar_date = bar.dt.date()
 
-        if bar_date not in self._sessions and not self._is_retiring:
-            session = TbsDailySession(bar_date, self.max_range_pips, self.risk_reward)
-            self._sessions[bar_date] = session
-            self._session_order.append(bar_date)
-            self._live_sessions.append(session)
+def execute(
+        report_dir_path : Path,
+        source_path: Path,
+        max_range_pips : float,
+        risk_reward_ratio: float,
+        granularity: str
+    ):
+    
+    with open_report_file(report_dir_path) as report_file:
+        def flush(strategy: TokyoBreakoutStrategy) -> None:
+            strategy.close_live_sessions()
+            print_report(strategy.sessions, report_file)
+            print(file=report_file)
 
-        for session in list(self._live_sessions):
-            session.add_bar(bar)
+        all_bars = _retrieve_bars(source_path)
+        bar_chunks = BarChunks(all_bars, granularity=granularity)
 
-            if session.is_closed:
-                self._live_sessions.remove(session)
+        previous: TokyoBreakoutStrategy | None = None
 
-    def retire(self) -> None:
-        """Force-close all live sessions and mark this chunk as retired."""
-        self._is_retiring = True
+        while bar_chunks.has_more:
+            current = TokyoBreakoutStrategy(max_range_pips=max_range_pips, risk_reward_ratio=risk_reward_ratio)
 
-    def close_live_sessions(self) -> None:
-        """Force-close every still-live session at its own window_end."""
-        for session in self._live_sessions:
-            session.close(session.window_end)
-        self._live_sessions.clear()
+            for bar in bar_chunks.iterate():
+                current.add_bar(bar)
+
+                if previous is not None:
+                    previous.add_bar(bar)
+                    if not previous.has_live_sessions:
+                        flush(previous)
+                        previous = None
+
+            if previous is not None:
+                # Defensive: the previous chunk's sessions outlived this
+                # rollover. Shouldn't happen with real M1 data -- a
+                # session's window runs at most ~1 day past a chunk boundary
+                # -- but don't silently drop it if it ever does.
+                flush(previous)
+
+            current.retire()
+            previous = current
+
+        if previous is None:
+            raise SystemExit("error: no Tokyo-session bars found in source")
+        
+        flush(previous)
+
+    print(f"\nReport written to: {report_dir_path}")
+
+
+def open_report_file(report_dir_path: Path):
+    report_dir_path.mkdir(parents=True, exist_ok=True)
+    report_file_path = report_dir_path / "tokyo_breakout_report.txt"
+
+    if report_file_path.exists():
+        print(f"INFO: {report_file_path} already exists and will be overwritten.")
+
+    return report_file_path.open("w", encoding="utf-8")
+
+
+def _retrieve_bars(source_path: Path) -> Iterator[Bar]:
+    paths = find_files(source_path, recursive=True)
+
+    if not paths:
+        raise SystemExit(f"error: no csv files found at {source_path!r}")
+
+    print(f"Reading {len(paths)} file(s) from {source_path}\n")
+
+    # Broker server time is US Eastern; ZoneInfo applies the correct
+    # EST/EDT offset per bar.
+    zone_info = ZoneInfo("America/New_York")
+
+    for path in paths:
+        bars = iterate_bars(str(path), strict=False)
+        bars = shift_bars(bars, zone_info)
+        yield from bars
 
 
 def _fmt_price(value: float) -> str:
@@ -339,9 +443,10 @@ def _fmt_position(label: str, position: Position | None) -> str:
     header = (
         f"  {label}: triggered {position.open_dt:%Y-%m-%d %H:%M} @ "
         f"{_fmt_price(position.open_price)}  "
-        f"(SL {_fmt_pips(to_pips(position.risk_amount))} @ {_fmt_price(position.sl)}, "
-        f"TP {_fmt_pips(to_pips(position.reward_amount))} @ {_fmt_price(position.tp)})"
+        f"(SL {_fmt_pips(_to_pips(position.risk_amount))} @ {_fmt_price(position.sl)}, "
+        f"TP {_fmt_pips(_to_pips(position.reward_amount))} @ {_fmt_price(position.tp)})"
     )
+
     if not position.is_closed:
         detail = "    -> still open (not yet resolved)"
     elif position.outcome == Outcome.FORCE_CLOSED:
@@ -361,7 +466,7 @@ def print_bar_block(bar_block: BarBlock, indent: str, out: TextIO) -> None:
     print(f"{indent}High: {_fmt_price(bar_block.high_value)} ({bar_block.high_dt})", file=out)
     print(f"{indent}Low: {_fmt_price(bar_block.low_value)} ({bar_block.low_dt})", file=out)
     print(f"{indent}Close: {_fmt_price(bar_block.close_value)} ({bar_block.close_dt})", file=out)
-    print(f"{indent}Range: {_fmt_pips(_range_pips(bar_block))}", file=out)
+    print(f"{indent}Range: {_fmt_pips(_to_pips(bar_block.range))}", file=out)
 
 
 @dataclass
@@ -453,124 +558,6 @@ def print_report(results: list[TbsDailySession], out: TextIO) -> None:
         outcome_counts=outcome_counts,
     )
     write_summary(summary, say)
-
-
-def retrieve_bars(source_path):
-    paths = find_files(source_path, recursive=True)
-    if not paths:
-        raise SystemExit(f"error: no csv files found at {source_path!r}")
-
-    print(f"Reading {len(paths)} file(s) from {source_path}\n")
-
-    return _stream_bars(paths)
-
-
-def _stream_bars(paths: Iterable[Path]) -> Iterator[Bar]:
-    def _raw() -> Iterator[Bar]:
-        for path in paths:
-            yield from iterate_bars(str(path), strict=False)
-
-    # Broker server time is US Eastern; ZoneInfo applies the correct
-    # EST/EDT offset per bar instead of a fixed hour count.
-    return shift_bars(_raw(), ZoneInfo("America/New_York"))
-
-
-def parse_arguments():
-    parser = argparse.ArgumentParser(
-        description=__doc__,
-        formatter_class=argparse.RawDescriptionHelpFormatter
-    )
-    parser.add_argument(
-        "source",
-        help="a single M1 csv export, or a folder of them"
-    )
-    parser.add_argument(
-        "--max-range-pips",
-        type=float,
-        default=30.0,
-        help="cancel a day if its Tokyo range exceeds this many pips (default: 30.0)",
-    )
-    parser.add_argument(
-        "--risk-reward",
-        type=float,
-        default=1.5,
-        help="TP distance as a multiple of the SL distance (default: 1.5)",
-    )
-    parser.add_argument(
-        "--out",
-        default="output/tokyo_breakout_output",
-        help="directory to write tokyo_breakout_report.txt into (default: output/tokyo_breakout_output)",
-    )
-    parser.add_argument(
-        "--granularity",
-        choices=["monthly", "yearly", "none"],
-        default="none",
-        help="how often to force-close still-live sessions while streaming bars (default: none)",
-    )
-    return parser.parse_args()
-
-
-def process_bars(report_path, all_bars, max_range_pips, risk_reward_ration, granularity):
-    bar_chunks = BarChunks(all_bars, granularity=granularity)
-
-    previous: TokyoBreakoutStrategy | None = None
-
-    with report_path.open("w", encoding="utf-8") as out:
-        def flush(strategy: TokyoBreakoutStrategy) -> None:
-            strategy.close_live_sessions()
-            print_report(strategy.sessions, out)
-            print(file=out)
-
-        while bar_chunks.has_more:
-            current = TokyoBreakoutStrategy(max_range_pips=max_range_pips, risk_reward=risk_reward_ration)
-
-            for bar in bar_chunks.iterate():
-                current.add_bar(bar)
-
-                if previous is not None:
-                    previous.add_bar(bar)
-                    if not previous.has_live_sessions:
-                        flush(previous)
-                        previous = None
-
-            if previous is not None:
-                # Defensive: the previous chunk's sessions outlived this
-                # rollover. Shouldn't happen with real M1 data -- a
-                # session's window runs at most ~1 day past a chunk boundary
-                # -- but don't silently drop it if it ever does.
-                flush(previous)
-
-            current.retire()
-            previous = current
-
-        if previous is None:
-            raise SystemExit("error: no Tokyo-session bars found in source")
-        
-        flush(previous)
-
-
-def main() -> None:
-    start_time = time.perf_counter()
-
-    args = parse_arguments()
-
-    source_path = args.source
-
-    out_dir = Path(args.out)
-    out_dir.mkdir(parents=True, exist_ok=True)
-    report_path = out_dir / "tokyo_breakout_report.txt"
-
-    if report_path.exists():
-        print(f"INFO: {report_path} already exists and will be overwritten.")
-
-    all_bars = retrieve_bars(source_path)
-    process_bars(report_path, all_bars, args.max_range_pips, args.risk_reward, args.granularity)
-
-    print(f"\nReport written to: {report_path}")
-
-    elapsed = time.perf_counter() - start_time
-    print()
-    print(f"Execution time: {elapsed:.2f}s")
 
 
 if __name__ == "__main__":

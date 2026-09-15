@@ -25,6 +25,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum, auto
 
+from domain.bar import Bar
+
 __all__ = ["Outcome", "Position", "PendingPosition"]
 
 
@@ -57,11 +59,6 @@ class Position:
     def is_closed(self) -> bool:
         return self.close_dt is not None
 
-    def close(self, at: datetime) -> None:
-        """Force-close the position -- no SL/TP hit, just cut off at `at`."""
-        self.outcome = Outcome.FORCE_CLOSED
-        self.close_dt = at
-
     @property
     def risk_amount(self) -> float:
         return abs(self.open_price - self.sl)
@@ -69,6 +66,55 @@ class Position:
     @property
     def reward_amount(self) -> float:
         return abs(self.tp - self.open_price)
+
+    @property
+    def is_long(self) -> bool:
+        return self.tp > self.open_price
+
+    @property
+    def is_short(self) -> bool:
+        return self.tp < self.open_price
+
+    def close(self, at: datetime) -> None:
+        """Force-close the position -- no SL/TP hit, just cut off at `at`."""
+        self.outcome = Outcome.FORCE_CLOSED
+        self.close_dt = at
+
+    def close_by_sl(self, at: datetime) -> None:
+        """Force-close the position due to SL being hit."""
+        self.outcome = Outcome.SL_HIT
+        self.close_dt = at
+        self.close_price = self.sl
+
+    def close_by_tp(self, at: datetime) -> None:
+        """Force-close the position due to TP being hit."""
+        self.outcome = Outcome.TP_HIT
+        self.close_dt = at
+        self.close_price = self.tp
+
+    def close_ambiguous(self, at: datetime) -> None:
+        """Force-close the position due to both SL and TP being hit in the same bar."""
+        self.outcome = Outcome.AMBIGUOUS
+        self.close_dt = at
+        self.close_price = None
+
+    def hit(self, bar: Bar) -> bool:
+        """Update this position if `bar`'s range touches its SL and/or TP."""
+        if self.is_long:
+            hit_tp = bar.is_partially_above_or_equal(self.tp)
+            hit_sl = bar.is_partially_below_or_equal(self.sl)
+        else:
+            hit_tp = bar.is_partially_below_or_equal(self.tp)
+            hit_sl = bar.is_partially_above_or_equal(self.sl)
+
+        if hit_tp and hit_sl:
+            self.close_ambiguous(bar.dt)
+        elif hit_tp:
+            self.close_by_tp(bar.dt)
+        elif hit_sl:
+            self.close_by_sl(bar.dt)
+
+        return hit_tp or hit_sl
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,6 +126,14 @@ class PendingPosition:
     sl: float
     tp: float
 
+    @property
+    def is_long(self) -> bool:
+        return self.tp > self.price
+
+    @property
+    def is_short(self) -> bool:
+        return self.tp < self.price
+
     @classmethod
     def for_level(cls, price: float, sl: float, risk_reward: float) -> "PendingPosition":
         risk = abs(price - sl)
@@ -90,3 +144,22 @@ class PendingPosition:
 
     def open_position(self, open_dt: datetime) -> Position:
         return Position(open_dt=open_dt, open_price=self.price, sl=self.sl, tp=self.tp)
+
+    def hit(self, bar: Bar) -> Position | None:
+        """Check if this pending position would be triggered by `bar`."""
+        if self.is_long:
+            hit = bar.is_partially_above_or_equal(self.price)
+        else:
+            hit = bar.is_partially_below_or_equal(self.price)
+
+        if hit:
+            return self.open_position(bar.dt)
+
+        return None
+
+    def simulate_hit(self, bar: Bar) -> bool:
+        """Check if this pending position would be triggered by `bar`."""
+        if self.is_long:
+            return bar.is_partially_above_or_equal(self.price)
+        else:
+            return bar.is_partially_below_or_equal(self.price)
