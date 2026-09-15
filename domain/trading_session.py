@@ -1,17 +1,44 @@
-from domain.bar_block import BarBlock
-
-
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
+
+from domain.bar import Bar
+from domain.bar_block import BarBlock
 
 
 @dataclass
 class TradingSession:
 
-    _bar_block: BarBlock = BarBlock()
-
     start_dt: datetime
     end_dt: datetime
+
+    _bar_block: BarBlock = field(default_factory=BarBlock, init=False, repr=False)
+
+    @property
+    def bars(self) -> BarBlock:
+        """The underlying `BarBlock`, for callers that need its full OHLC
+        detail (open/close values and timestamps) rather than just the
+        aggregate stats exposed directly below."""
+        return self._bar_block
+
+    @property
+    def range(self) -> float:
+        return self._bar_block.range
+
+    @property
+    def mid(self) -> float:
+        return self._bar_block.mid
+
+    @property
+    def high_value(self) -> float:
+        return self._bar_block.high_value
+
+    @property
+    def low_value(self) -> float:
+        return self._bar_block.low_value
+
+    @property
+    def bar_count(self) -> int:
+        return self._bar_block.bar_count
 
     def start_dt_utc(self) -> datetime:
         """`start_dt` converted to UTC."""
@@ -38,9 +65,9 @@ class TradingSession:
 
         return self.start_dt_utc() <= dt_utc < self.end_dt_utc()
 
-    def add(self, bar) -> None:
+    def add(self, bar: Bar) -> None:
         """Add a bar to the underlying `BarBlock`."""
-        if not self.contains(bar.datetime):
+        if not self.contains(bar.dt):
             return
 
         self._bar_block.add(bar)

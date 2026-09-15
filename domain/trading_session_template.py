@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from datetime import UTC, date as _date, datetime, time as _time, timedelta, timezone, tzinfo
 from zoneinfo import ZoneInfo
 
-from trading_session import TradingSession
+from domain.trading_session import TradingSession
 
 __all__ = [
     "TradingSessionTemplate",
