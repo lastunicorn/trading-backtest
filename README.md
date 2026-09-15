@@ -12,3 +12,9 @@ Run python scripts:
 python script.py
 ```
 
+Run tests:
+
+```sh
+python -m pytest tests/ -v
+```
+
