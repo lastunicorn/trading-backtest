@@ -101,7 +101,7 @@ def outcome_text(outcome: Outcome) -> str:
 
 
 @dataclass
-class TokyoBreakoutStrategy:
+class SessionBreakoutStrategy:
     """Encapsulates the Tokyo Session Breakout rules (see
     tokyo-session-breakout.md): fed one chronological bar at a time via
     add_bar(), decides each day's range-session range (see
@@ -128,13 +128,13 @@ class TokyoBreakoutStrategy:
     max_range_pips: float = 30.0
     risk_reward_ratio: float = 1.5
 
-    _sessions: dict[_date, TbsDailySession] = field(default_factory=dict, init=False, repr=False)
+    _sessions: dict[_date, StrategyDailySession] = field(default_factory=dict, init=False, repr=False)
     _session_order: list[_date] = field(default_factory=list, init=False, repr=False)
-    _live_sessions: list[TbsDailySession] = field(default_factory=list, init=False, repr=False)
+    _live_sessions: list[StrategyDailySession] = field(default_factory=list, init=False, repr=False)
     _is_retiring: bool = field(default=False, init=False, repr=False)
 
     @property
-    def sessions(self) -> list[TbsDailySession]:
+    def sessions(self) -> list[StrategyDailySession]:
         """Every session this instance has created, oldest first."""
         return [self._sessions[d] for d in self._session_order]
 
@@ -156,7 +156,7 @@ class TokyoBreakoutStrategy:
         bar_date = bar.dt.date()
 
         if bar_date not in self._sessions and not self._is_retiring:
-            session = TbsDailySession(bar_date, self.max_range_pips, self.risk_reward_ratio)
+            session = StrategyDailySession(bar_date, self.max_range_pips, self.risk_reward_ratio)
             self._sessions[bar_date] = session
             self._session_order.append(bar_date)
             self._live_sessions.append(session)
@@ -179,7 +179,7 @@ class TokyoBreakoutStrategy:
 
 
 @dataclass
-class TbsDailySession:
+class StrategyDailySession:
     """One calendar day's range-session range (see `_SESSION_TEMPLATE`) plus
     the breakout window it opens. Accumulates session-window bars via
     `add_bar()` until the session's own end time, decides whether the day
@@ -402,7 +402,7 @@ def execute(
     ):
     
     with open_report_file(report_dir_path) as report_file:
-        def flush(strategy: TokyoBreakoutStrategy) -> None:
+        def flush(strategy: SessionBreakoutStrategy) -> None:
             strategy.close_live_sessions()
             print_report(strategy.sessions, report_file)
             print(file=report_file)
@@ -410,10 +410,10 @@ def execute(
         all_bars = _retrieve_bars(source_path)
         bar_chunks = BarChunks(all_bars, granularity=granularity)
 
-        previous: TokyoBreakoutStrategy | None = None
+        previous: SessionBreakoutStrategy | None = None
 
         while bar_chunks.has_more:
-            current = TokyoBreakoutStrategy(max_range_pips=max_range_pips, risk_reward_ratio=risk_reward_ratio)
+            current = SessionBreakoutStrategy(max_range_pips=max_range_pips, risk_reward_ratio=risk_reward_ratio)
 
             for bar in bar_chunks.iterate():
                 current.add_bar(bar)
@@ -547,7 +547,7 @@ def write_summary(summary: TbsSummary, say: Callable[[str], None]) -> None:
     say(f"  P/L: {summary.pl_percent:.2f} %")
 
 
-def print_report(results: list[TbsDailySession], out: TextIO) -> None:
+def print_report(results: list[StrategyDailySession], out: TextIO) -> None:
     """Write the full day-by-day report to `out` only. The summary section
     at the end is written to `out` and echoed to the console, since it's the
     only part of the report meant to be read there. The summary title's
