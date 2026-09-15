@@ -1,19 +1,24 @@
 """Backtest of the Tokyo Session Breakout strategy (see tokyo-session-breakout.md).
+Originally scoped to the Tokyo session specifically; the range-setting window
+is now any `TradingSessionTemplate` -- see `_SESSION_TEMPLATE` below, which
+defaults to Tokyo (`TokyoSessionTemplate`) but can be swapped for another
+session's hours.
 
 For each calendar day:
 
-  1. Tokyo session (00:00-06:30 UTC -- the Tokyo Stock Exchange's 09:00-15:30
-     JST bell times) sets H (high) and L (low), wicks included. If H-L > 30
-     pips, the day is cancelled -- no trade is evaluated.
-  2. From session end (06:30) until 00:00 the next day, whichever of H/L is
+  1. The configured session (`_SESSION_TEMPLATE`; defaults to Tokyo,
+     00:00-06:30 UTC / 09:00-15:30 JST bell times) sets H (high) and L (low),
+     wicks included. If H-L exceeds --max-range-pips, the day is cancelled --
+     no trade is evaluated.
+  2. From session end until midnight the next day, whichever of H/L is
      broken first opens a trade in that direction. Both may trigger the same
      day (long on the H break, short on the L break, or vice versa) if price
-     reverses after the first breakout. Neither breaking by 00:00 means no
+     reverses after the first breakout. Neither breaking by midnight means no
      trade for that side.
-  3. SL is the midpoint of [L, H] for every trade. TP is set for a 1:2 risk
-     /reward from that same risk (entry to SL).
+  3. SL is the midpoint of [L, H] for every trade. TP is set as a multiple
+     of that same risk (entry to SL) via --risk-reward.
   4. Any position still open is force-closed when the next day's analysis
-     happens, i.e. at 06:30 the day after entry.
+     happens, i.e. at the session's own end time the day after entry.
 
 Entry price is taken as the broken level itself (H for long, L for short),
 not the price of the bar that crossed it -- the strategy only specifies the
@@ -25,9 +30,9 @@ same convention the rest of this repo uses for ambiguous bars.
 Timezone note: bar timestamps are converted from US Eastern (the broker's
 server time) to UTC as they're read (see `_stream_bars`, `domain.shift_bars`),
 via `ZoneInfo("America/New_York")` so the EST/EDT offset applied is correct
-for each bar's date. The Tokyo window is 00:00-06:30 UTC (`TokyoSessionTemplate`,
-09:00-15:30 JST -- JST has no DST, so this offset from UTC never moves), so
-the window edges are only correct once that conversion has been applied.
+for each bar's date. `_SESSION_TEMPLATE` converts its own local start/end
+times to UTC the same way (see `TradingSessionTemplate`), so the window edges
+are only correct once both conversions have been applied.
 
 The full day-by-day report is written to <--out>/tokyo_breakout_report.txt;
 only the summary (one block per month) is echoed to the console.
@@ -44,7 +49,7 @@ import argparse
 import time
 from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, field
-from datetime import date as _date, datetime, time as _time, timedelta
+from datetime import UTC, date as _date, datetime, time as _time, timedelta
 from pathlib import Path
 from typing import TextIO
 from zoneinfo import ZoneInfo
@@ -54,14 +59,25 @@ from domain.bar_block import BarBlock
 from domain.position import Outcome, PendingPosition, Position
 from domain.shift_bars import shift_bars
 from domain.trading_session import TradingSession
-from domain.trading_session_template import TokyoSessionTemplate
+from domain.trading_session_template import TokyoSessionTemplate, TradingSessionTemplate
 from ports.file_system_access.file_system import find_files
 from ports.mt5_file_access import Bar, iterate_bars
 
 PIP = 0.0001
 PRICE_DECIMALS = 5
 
-_TOKYO_SESSION_TEMPLATE = TokyoSessionTemplate()  # 09:00-15:30 JST -> 00:00-06:30 UTC, no DST
+_SESSION_TEMPLATE: TradingSessionTemplate = TokyoSessionTemplate()  # 09:00-15:30 JST -> 00:00-06:30 UTC, no DST
+# _SESSION_TEMPLATE: TradingSessionTemplate = TradingSessionTemplate(
+#     start_time=_time(8, 0),
+#     end_time=_time(9, 0),
+#     timezone=ZoneInfo("America/New_York"),
+# )
+
+# The breakout/force-close window always runs exactly one calendar day past
+# the range-session's own day: entries are only taken up to midnight the day
+# after (`breakout_cutoff`), and any still-open position is force-closed at
+# the session's own end time on that same following day (`window_end`).
+_TRADE_WINDOW = timedelta(days=1)
 
 
 def _to_pips(price_diff: float) -> float:
@@ -73,7 +89,7 @@ _OUTCOME_TEXT: dict[Outcome, str] = {
     Outcome.TP_HIT: "TP HIT",
     Outcome.SL_HIT: "SL HIT",
     Outcome.AMBIGUOUS: "AMBIGUOUS (SL and TP both inside one bar)",
-    Outcome.FORCE_CLOSED: "OPEN AT FORCE-CLOSE (06:30 UTC next day, no SL/TP hit)",
+    Outcome.FORCE_CLOSED: "OPEN AT FORCE-CLOSE (window ended, no SL/TP hit)",
 }
 
 
@@ -85,8 +101,9 @@ def outcome_text(outcome: Outcome) -> str:
 class TokyoBreakoutStrategy:
     """Encapsulates the Tokyo Session Breakout rules (see
     tokyo-session-breakout.md): fed one chronological bar at a time via
-    add_bar(), decides each day's Tokyo range, whether it's tradeable, and
-    simulates the breakout/SL/TP/force-close outcome for both sides.
+    add_bar(), decides each day's range-session range (see
+    `_SESSION_TEMPLATE`), whether it's tradeable, and simulates the
+    breakout/SL/TP/force-close outcome for both sides.
 
     Each instance is scoped to one chunk of a caller-defined stream split
     (see `domain.bar_chunks`); it doesn't know or care what the chunk
@@ -127,12 +144,12 @@ class TokyoBreakoutStrategy:
         DailySession the moment a bar for a new calendar day appears, but
         only if that day is in this instance's own chunk -- see class
         docstring. Every currently-live session then receives the bar, so a
-        day's own session (accumulating its Tokyo range) and the previous
-        day's session (still resolving its breakout window, which runs
-        until 06:30 UTC the day after) are both fed the same bar. A session
-        force-closes itself, and freezes, once a bar reaches its
-        window_end; add_bar() only has to notice that and drop it from the
-        live list."""
+        day's own session (accumulating its range-session range) and the
+        previous day's session (still resolving its breakout window, which
+        runs until the session's own end time the day after) are both fed
+        the same bar. A session force-closes itself, and freezes, once a bar
+        reaches its window_end; add_bar() only has to notice that and drop
+        it from the live list."""
         bar_date = bar.dt.date()
 
         if bar_date not in self._sessions and not self._is_retiring:
@@ -160,17 +177,19 @@ class TokyoBreakoutStrategy:
 
 @dataclass
 class TbsDailySession:
-    """One calendar day's Tokyo range plus the breakout window it opens.
-    Accumulates Tokyo bars via `add_bar()` until 06:30 UTC, decides whether the
-    day trades, then simulates the breakout/SL/TP outcome for both sides as
-    further bars arrive -- through its own window_end (06:30 UTC the day after).
-    `close()` force-closes anything still open and freezes the session;
-    calling `add_bar()` or `close()` again afterwards raises."""
+    """One calendar day's range-session range (see `_SESSION_TEMPLATE`) plus
+    the breakout window it opens. Accumulates session-window bars via
+    `add_bar()` until the session's own end time, decides whether the day
+    trades, then simulates the breakout/SL/TP outcome for both sides as
+    further bars arrive -- through its own window_end (the session's own end
+    time the day after). `close()` force-closes anything still open and
+    freezes the session; calling `add_bar()` or `close()` again afterwards
+    raises."""
 
     day: _date
     max_range_pips: float = 10.0
     risk_reward_ratio: float = 1.0
-    tokyo_session: TradingSession = field(init=False, repr=False)
+    session: TradingSession = field(init=False, repr=False)
 
     pending_long: PendingPosition | None = None
     pending_short: PendingPosition | None = None
@@ -178,7 +197,7 @@ class TbsDailySession:
     position_long: Position | None = None
     position_short: Position | None = None
 
-    _is_tokyo_resolved: bool = field(default=False, init=False, repr=False)
+    _is_session_resolved: bool = field(default=False, init=False, repr=False)
     _is_closed: bool = field(default=False, init=False, repr=False)
     _closed_dt: datetime | None = field(default=None, init=False, repr=False)
 
@@ -186,30 +205,41 @@ class TbsDailySession:
     _last_candle_dt: datetime | None = field(default=None, init=False, repr=False)
 
     def __post_init__(self) -> None:
-        self.tokyo_session = _TOKYO_SESSION_TEMPLATE.create_session(self.day)
+        self.session = _SESSION_TEMPLATE.create_session(self.day)
+
+    @property
+    def session_start(self) -> datetime:
+        """Naive, UTC wall-clock start of the range-accumulation window -- matches
+        every other datetime in this class (see module docstring's timezone note);
+        `session.start_dt_utc()` is aware."""
+        return self.session.start_dt_utc().replace(tzinfo=None)
 
     @property
     def window_start(self) -> datetime:
         """Naive, UTC wall-clock -- matches every other datetime in this class (see
-        module docstring's timezone note); `tokyo_session.end_dt_utc()` is aware."""
-        return self.tokyo_session.end_dt_utc().replace(tzinfo=None)
+        module docstring's timezone note); `session.end_dt_utc()` is aware."""
+        return self.session.end_dt_utc().replace(tzinfo=None)
 
     @property
     def breakout_cutoff(self) -> datetime:
-        return datetime.combine(self.day + timedelta(days=1), _time(0, 0))
+        """Entries are only taken up to midnight `_TRADE_WINDOW` after the
+        session's day -- a break past this point opens no trade."""
+        return datetime.combine(self.day + _TRADE_WINDOW, _time(0, 0))
 
     @property
     def window_end(self) -> datetime:
-        dt = _TOKYO_SESSION_TEMPLATE.end_time_utc_on(self.day + timedelta(days=1))
+        """Force-close point for any position still open: the session's own
+        end time, `_TRADE_WINDOW` after the session's day."""
+        dt = _SESSION_TEMPLATE.end_time_utc_on(self.day + _TRADE_WINDOW)
         return dt.replace(tzinfo=None)
 
     @property
     def range_pips(self) -> float:
-        return _to_pips(self.tokyo_session.range)
+        return _to_pips(self.session.range)
 
     @property
     def is_cancelled(self) -> bool:
-        return self.tokyo_session.bar_count == 0 or self.range_pips > self.max_range_pips
+        return self.session.bar_count == 0 or self.range_pips > self.max_range_pips
 
     @property
     def is_closed(self) -> bool:
@@ -239,8 +269,8 @@ class TbsDailySession:
             self.close(self.window_end)
             return False
 
-        if not self._is_tokyo_resolved:
-            if self._process_bar_tokyo(bar):
+        if not self._is_session_resolved:
+            if self._process_bar_session(bar):
                 return True
 
         if bar.dt >= self.window_start:
@@ -249,21 +279,24 @@ class TbsDailySession:
 
         return False
 
-    def _process_bar_tokyo(self, bar: Bar) -> bool:
-        if bar.dt.date() == self.day and self.tokyo_session.contains(bar.dt):
-            self.tokyo_session.add(bar)
+    def _process_bar_session(self, bar: Bar) -> bool:
+        if bar.dt < self.session_start:
+            return False
+
+        if bar.dt.date() == self.day and self.session.contains(bar.dt):
+            self.session.add(bar)
             return True
 
-        self._resolve_tokyo()
+        self._resolve_session()
         return False
 
-    def _resolve_tokyo(self) -> None:
-        self._is_tokyo_resolved = True
+    def _resolve_session(self) -> None:
+        self._is_session_resolved = True
         if self.is_cancelled:
             return
-        mid = self.tokyo_session.mid
-        self.pending_long = PendingPosition.for_level(self.tokyo_session.high_value, mid, self.risk_reward_ratio)
-        self.pending_short = PendingPosition.for_level(self.tokyo_session.low_value, mid, self.risk_reward_ratio)
+        mid = self.session.mid
+        self.pending_long = PendingPosition.for_level(self.session.high_value, mid, self.risk_reward_ratio)
+        self.pending_short = PendingPosition.for_level(self.session.low_value, mid, self.risk_reward_ratio)
 
     def _process_bar_normal(self, bar: Bar) -> None:
         self.position_long = self._process_side(bar, self.position_long, self.pending_long)
@@ -335,7 +368,7 @@ def parse_arguments():
         "--max-range-pips",
         type=float,
         default=30.0,
-        help="cancel a day if its Tokyo range exceeds this many pips (default: 30.0)",
+        help="cancel a day if its range-session range exceeds this many pips (default: 30.0)",
     )
     parser.add_argument(
         "--risk-reward",
@@ -400,7 +433,7 @@ def execute(
             previous = current
 
         if previous is None:
-            raise SystemExit("error: no Tokyo-session bars found in source")
+            raise SystemExit("error: no session bars found in source")
         
         flush(previous)
 
@@ -504,7 +537,7 @@ class TbsSummary:
 def write_summary(summary: TbsSummary, say: Callable[[str], None]) -> None:
     say(f"=== summary ({summary.first_dt:%Y-%m-%d %H:%M} -> {summary.last_dt:%Y-%m-%d %H:%M}) ===")
     say(f"  Risk/Reward ratio: {summary.risk_reward_ratio}")
-    say(f"  Tokyo sessions: {summary.total_days}   cancelled (range > {summary.max_range_pips:.0f}p): {summary.cancelled_days}")
+    say(f"  Range sessions: {summary.total_days}   cancelled (range > {summary.max_range_pips:.0f}p): {summary.cancelled_days}")
     say(f"  Eligible days: {summary.traded_days}   positions opened: {summary.position_count}")
     say("  Outcome:")
     for outcome in (Outcome.TP_HIT, Outcome.SL_HIT, Outcome.AMBIGUOUS, Outcome.FORCE_CLOSED):
@@ -523,13 +556,14 @@ def print_report(results: list[TbsDailySession], out: TextIO) -> None:
     position_count = 0
 
     for result in results:
-        session = result.tokyo_session
+        session = result.session
         counts["days"] += 1
-        print(f"=== {result.day.isoformat()} (Tokyo 00:00-06:30 UTC) ===", file=out)
+        window_label = f"{session.start_dt_utc():%H:%M}-{session.end_dt_utc():%H:%M} UTC"
+        print(f"=== {result.day.isoformat()} (session {window_label}) ===", file=out)
 
         if session.bar_count == 0:
             counts["cancelled"] += 1
-            print("  CANCELLED (no Tokyo-session bars for this day)\n", file=out)
+            print("  CANCELLED (no session bars for this day)\n", file=out)
             continue
 
         print_bar_block(session.bars, "  ", out)
