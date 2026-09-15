@@ -52,8 +52,10 @@ from domain.bar_block import BarBlock
 from domain.position import Outcome, PendingPosition, Position
 from domain.shift_bars import shift_bars
 from domain.tokyo_session import TokyoSession
+from domain.trading_session_template import NewYorkSessionTemplate, TokyoSessionTemplate
 from ports.file_system_access.file_system import find_files
 from ports.mt5_file_access import Bar, iterate_bars
+from domain.trading_session import TradingSession
 
 PIP = 0.0001
 PRICE_DECIMALS = 5
