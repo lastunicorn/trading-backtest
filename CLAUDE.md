@@ -135,6 +135,12 @@ python3 show_csv.py data/eurusd/1min --interval 5                  # whole folde
 
 `ports/`, `ports/mt5_file_access/`, `ports/file_system_access/`, `domain/` and `application/` are regular packages (each has an `__init__.py`), and the CLIs must stay at the repo root for `ports.*` / `domain.*` / `application.*` to resolve from any working directory.
 
+## Testing
+
+Unit tests live under `tests/`, mirroring the source package layout (`tests/domain/...`, `tests/application/...`). `pytest.ini` sets `testpaths = tests`; run everything with `pytest` from the repo root (inside the activated venv).
+
+For a class or module under test, create a directory named after the file being tested, and inside it one test file per function/method tested (e.g. `domain/trading_session_template.py`'s `TradingSessionTemplate.start_time_on` is tested in `tests/domain/trading_session_template/test_start_time_on.py`). This holds even for small, single-line delegating methods — keep each function's tests isolated rather than folding several into one file. Give every package directory (including `tests/` itself and each subpackage) an `__init__.py`.
+
 ## Methodology invariants
 
 These hold across every script and are the point of the whole exercise — preserve them in any new version:

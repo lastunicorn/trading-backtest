@@ -123,10 +123,15 @@ class SessionBreakoutStrategy:
     a shadow copy of the new chunk's sessions.
 
     close_live_sessions() force-closes whatever's still live, for use once
-    the bar stream truly ends (no next chunk arrives to hand off to)."""
+    the bar stream truly ends (no next chunk arrives to hand off to).
+
+    on_session_closed, if set, is called with each StrategyDailySession the
+    moment it closes (window_end reached, whether via a bar in add_bar() or
+    a force-close in close_live_sessions()) -- exactly once per session."""
 
     max_range_pips: float = 30.0
     risk_reward_ratio: float = 1.5
+    on_session_closed: Callable[[StrategyDailySession], None] | None = None
 
     _sessions: dict[_date, StrategyDailySession] = field(default_factory=dict, init=False, repr=False)
     _session_order: list[_date] = field(default_factory=list, init=False, repr=False)
@@ -166,6 +171,7 @@ class SessionBreakoutStrategy:
 
             if session.is_closed:
                 self._live_sessions.remove(session)
+                self._notify_closed(session)
 
     def retire(self) -> None:
         """Force-close all live sessions and mark this chunk as retired."""
@@ -175,7 +181,12 @@ class SessionBreakoutStrategy:
         """Force-close every still-live session at its own window_end."""
         for session in self._live_sessions:
             session.close(session.window_end)
+            self._notify_closed(session)
         self._live_sessions.clear()
+
+    def _notify_closed(self, session: StrategyDailySession) -> None:
+        if self.on_session_closed is not None:
+            self.on_session_closed(session)
 
 
 @dataclass
@@ -404,16 +415,23 @@ def execute(
     with open_report_file(report_dir_path) as report_file:
         def flush(strategy: SessionBreakoutStrategy) -> None:
             strategy.close_live_sessions()
-            print_report(strategy.sessions, report_file)
-            print(file=report_file)
+            #print_report(strategy.sessions, report_file)
+            #print(file=report_file)
 
         all_bars = _retrieve_bars(source_path)
         bar_chunks = BarChunks(all_bars, granularity=granularity)
 
+        def announce_session_closed(session: StrategyDailySession) -> None:
+            print(f"Session closed: {session.day.isoformat()}")
+
         previous: SessionBreakoutStrategy | None = None
 
         while bar_chunks.has_more:
-            current = SessionBreakoutStrategy(max_range_pips=max_range_pips, risk_reward_ratio=risk_reward_ratio)
+            current = SessionBreakoutStrategy(
+                max_range_pips=max_range_pips,
+                risk_reward_ratio=risk_reward_ratio,
+                on_session_closed=announce_session_closed,
+            )
 
             for bar in bar_chunks.iterate():
                 current.add_bar(bar)
