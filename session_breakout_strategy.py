@@ -131,17 +131,12 @@ class SessionBreakoutStrategy:
 
     max_range_pips: float = 30.0
     risk_reward_ratio: float = 1.5
-    on_session_closed: Callable[[StrategyDailySession], None] | None = None
+    on_session_closed: Callable[[DailyStrategySession], None] | None = None
 
-    _sessions: dict[_date, StrategyDailySession] = field(default_factory=dict, init=False, repr=False)
+    _sessions: dict[_date, DailyStrategySession] = field(default_factory=dict, init=False, repr=False)
     _session_order: list[_date] = field(default_factory=list, init=False, repr=False)
-    _live_sessions: list[StrategyDailySession] = field(default_factory=list, init=False, repr=False)
+    _live_sessions: list[DailyStrategySession] = field(default_factory=list, init=False, repr=False)
     _is_retiring: bool = field(default=False, init=False, repr=False)
-
-    @property
-    def sessions(self) -> list[StrategyDailySession]:
-        """Every session this instance has created, oldest first."""
-        return [self._sessions[d] for d in self._session_order]
 
     @property
     def has_live_sessions(self) -> bool:
@@ -161,7 +156,7 @@ class SessionBreakoutStrategy:
         bar_date = bar.dt.date()
 
         if bar_date not in self._sessions and not self._is_retiring:
-            session = StrategyDailySession(bar_date, self.max_range_pips, self.risk_reward_ratio)
+            session = DailyStrategySession(bar_date, self.max_range_pips, self.risk_reward_ratio)
             self._sessions[bar_date] = session
             self._session_order.append(bar_date)
             self._live_sessions.append(session)
@@ -184,13 +179,13 @@ class SessionBreakoutStrategy:
             self._notify_closed(session)
         self._live_sessions.clear()
 
-    def _notify_closed(self, session: StrategyDailySession) -> None:
+    def _notify_closed(self, session: DailyStrategySession) -> None:
         if self.on_session_closed is not None:
             self.on_session_closed(session)
 
 
 @dataclass
-class StrategyDailySession:
+class DailyStrategySession:
     """One calendar day's range-session range (see `_SESSION_TEMPLATE`) plus
     the breakout window it opens. Accumulates session-window bars via
     `add_bar()` until the session's own end time, decides whether the day
@@ -418,7 +413,7 @@ class _Chunk:
 
 def _make_on_session_closed(
     summary: ReportSummary, report_file: TextIO
-) -> Callable[[StrategyDailySession], None]:
+) -> Callable[[DailyStrategySession], None]:
     """Binds `summary` as a parameter of this call, not a closure over a
     loop variable -- the `summary` local in execute()'s while loop is
     rebound every iteration, and a `previous` chunk keeps receiving bars
@@ -426,7 +421,7 @@ def _make_on_session_closed(
     over that variable would silently miscount those late closes into the
     new chunk's summary instead of its own."""
 
-    def on_session_closed(session: StrategyDailySession) -> None:
+    def on_session_closed(session: DailyStrategySession) -> None:
         write_session_report(session, report_file)
         summary.add(session)
 
@@ -555,7 +550,7 @@ def _fmt_position(label: str, position: Position | None) -> str:
     return header + "\n" + detail
 
 
-def print_bar_block(bar_block: BarBlock, indent: str, out: TextIO) -> None:
+def write_bar_block(bar_block: BarBlock, indent: str, out: TextIO) -> None:
     print(f"{indent}Open: {_fmt_price(bar_block.open_value)} ({bar_block.open_dt})", file=out)
     print(f"{indent}High: {_fmt_price(bar_block.high_value)} ({bar_block.high_dt})", file=out)
     print(f"{indent}Low: {_fmt_price(bar_block.low_value)} ({bar_block.low_dt})", file=out)
@@ -580,7 +575,7 @@ class ReportSummary:
     first_dt: datetime | None = None
     last_dt: datetime | None = None
 
-    def add(self, result: StrategyDailySession) -> None:
+    def add(self, result: DailyStrategySession) -> None:
         if self.total_days == 0:
             self.first_dt = result.first_candle_dt
         self.last_dt = result.last_candle_dt
@@ -607,7 +602,7 @@ class ReportSummary:
         )
 
 
-def write_session_report(result: StrategyDailySession, out: TextIO) -> None:
+def write_session_report(result: DailyStrategySession, out: TextIO) -> None:
     """Write one session's day-by-day block to `out` only -- no accounting.
     Called once per session, directly from the on_session_closed callback,
     as each session closes; see TbsSummary.add for the totals this used to
@@ -620,7 +615,7 @@ def write_session_report(result: StrategyDailySession, out: TextIO) -> None:
         print("  CANCELLED (no session bars for this day)\n", file=out)
         return
 
-    print_bar_block(session.bars, "  ", out)
+    write_bar_block(session.bars, "  ", out)
 
     if result.is_cancelled:
         print(f"  CANCELLED (> {result.max_range_pips:.0f}p threshold)\n", file=out)
