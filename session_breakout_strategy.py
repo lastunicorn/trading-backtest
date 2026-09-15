@@ -380,8 +380,8 @@ def parse_arguments():
     )
     parser.add_argument(
         "--out",
-        default="output/tokyo_breakout_output",
-        help="directory to write tokyo_breakout_report.txt into (default: output/tokyo_breakout_output)",
+        default="output/session_breakout_output",
+        help="directory to write session_breakout_report.txt into (default: output/session_breakout_output)",
     )
     parser.add_argument(
         "--granularity",
@@ -444,7 +444,7 @@ def execute(
 
 def open_report_file(report_dir_path: Path):
     report_dir_path.mkdir(parents=True, exist_ok=True)
-    report_file_path = report_dir_path / "tokyo_breakout_report.txt"
+    report_file_path = report_dir_path / "session_breakout_report.txt"
 
     if report_file_path.exists():
         print(f"INFO: {report_file_path} already exists and will be overwritten.")
