@@ -477,23 +477,34 @@ def _stream_bars(paths: Iterable[Path]) -> Iterator[Bar]:
 
 def parse_arguments():
     parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parser.add_argument("source", help="a single M1 csv export, or a folder of them")
     parser.add_argument(
-        "--max-range-pips", type=float, default=30.0,
+        "source",
+        help="a single M1 csv export, or a folder of them"
+    )
+    parser.add_argument(
+        "--max-range-pips",
+        type=float,
+        default=30.0,
         help="cancel a day if its Tokyo range exceeds this many pips (default: 30.0)",
     )
     parser.add_argument(
-        "--risk-reward", type=float, default=1.5,
+        "--risk-reward",
+        type=float,
+        default=1.5,
         help="TP distance as a multiple of the SL distance (default: 1.5)",
     )
     parser.add_argument(
-        "--out", default="output/tokyo_breakout_output",
+        "--out",
+        default="output/tokyo_breakout_output",
         help="directory to write tokyo_breakout_report.txt into (default: output/tokyo_breakout_output)",
     )
     parser.add_argument(
-        "--granularity", choices=["monthly", "yearly", "none"], default="none",
+        "--granularity",
+        choices=["monthly", "yearly", "none"],
+        default="none",
         help="how often to force-close still-live sessions while streaming bars (default: none)",
     )
     return parser.parse_args()
