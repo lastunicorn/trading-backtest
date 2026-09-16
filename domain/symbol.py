@@ -29,6 +29,8 @@ __all__ = [
     "UsdCad",
     "UsdChf",
     "UsdJpy",
+    "XauUsd",
+    "XagUsd",
 ]
 
 
@@ -122,6 +124,34 @@ class UsdJpy(Symbol):
         super().__init__(
             name="U.S. Dollar / Japanese Yen",
             ticker="USDJPY",
+            pip_size=0.01,
+            tick_size=0.001,
+        )
+
+
+class XauUsd(Symbol):
+    def __init__(self) -> None:
+        # Metals have no cross-broker-standard "pip" the way FX pairs do --
+        # unlike a currency pair's pip, which is fixed by convention, a
+        # metal's is effectively whatever the quoting broker's price
+        # precision implies. These follow the common MT5 default (gold
+        # quoted to 2 decimals, pip = the 1st of those, tick = the 2nd);
+        # adjust to match your actual broker/data source if it differs.
+        super().__init__(
+            name="Gold / U.S. Dollar",
+            ticker="XAUUSD",
+            pip_size=0.1,
+            tick_size=0.01,
+        )
+
+
+class XagUsd(Symbol):
+    def __init__(self) -> None:
+        # See XauUsd's note on metals having no standard pip convention.
+        # Silver commonly quotes one decimal deeper than gold (3 vs 2).
+        super().__init__(
+            name="Silver / U.S. Dollar",
+            ticker="XAGUSD",
             pip_size=0.01,
             tick_size=0.001,
         )

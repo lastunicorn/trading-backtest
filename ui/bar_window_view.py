@@ -65,17 +65,23 @@ def build_rows(bar_window, decimals):
     return header, rows
 
 
-def format_table(header, rows):
+def format_table(header, rows, left_align=frozenset()):
+    """Align each column to `widths`, right-justified except for column
+    indices named in `left_align` (e.g. free-text columns like a name or
+    label, where right-justifying just reads oddly)."""
     widths = [len(name) for name in header]
 
     for row in rows:
         for i, cell in enumerate(row):
             widths[i] = max(widths[i], len(cell))
 
-    lines = ["  ".join(name.rjust(widths[i]) for i, name in enumerate(header))]
+    def justify(cell, i):
+        return cell.ljust(widths[i]) if i in left_align else cell.rjust(widths[i])
+
+    lines = ["  ".join(justify(name, i) for i, name in enumerate(header))]
     lines.append("  ".join("-" * width for width in widths))
 
     for row in rows:
-        lines.append("  ".join(cell.rjust(widths[i]) for i, cell in enumerate(row)))
+        lines.append("  ".join(justify(cell, i) for i, cell in enumerate(row)))
 
     return lines
