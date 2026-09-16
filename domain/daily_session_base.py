@@ -5,16 +5,26 @@ from dataclasses import dataclass, field
 from datetime import date as _date, datetime
 
 from domain.bar import Bar
+from domain.position import PendingPosition, Position
 
 
 @dataclass
 class DailySessionBase(ABC):
     """One calendar day's session lifecycle: accumulates bars via add_bar()
-    until this session's own window_end (force-closing itself the moment a
-    bar reaches it), tracks first/last candle seen, and freezes once closed
-    -- add_bar() or close() again afterwards raises. What actually happens
-    to a bar before window_end, and what "close whatever's open" means, is
-    delegated to the concrete subclass via _process_bar/_close_positions."""
+    until this session's own end_dt (force-closing itself the moment a bar
+    reaches it), tracks first/last candle seen, and freezes once closed --
+    add_bar() or close_at() again afterwards raises. What actually happens
+    to a bar before end_dt is delegated to the concrete subclass via
+    _process_bar; what "close whatever's open" means is delegated via
+    _close_all_positions.
+
+    _process_bar is itself free to reuse the pending/active-position
+    machinery below (_process_positions, and the _process_pending_positions/
+    _process_active_positions it composes) rather than reimplementing it --
+    a subclass only needs to keep `_pending_positions`/`_positions`
+    populated. DailySession does this; a future subclass with no reference-
+    session-resolution step of its own could call _process_positions(bar)
+    directly as its entire _process_bar."""
 
     day: _date
 
@@ -27,6 +37,9 @@ class DailySessionBase(ABC):
 
     _first_candle_dt: datetime | None = field(default=None, init=False, repr=False)
     _last_candle_dt: datetime | None = field(default=None, init=False, repr=False)
+
+    _pending_positions: list[PendingPosition] = field(default_factory=list, init=False, repr=False)
+    _positions: list[Position] = field(default_factory=list, init=False, repr=False)
 
     @property
     def is_closed(self) -> bool:
@@ -63,10 +76,7 @@ class DailySessionBase(ABC):
 
         self._last_candle_dt = bar.dt
 
-        continue_processing: bool = self._on_before_process_positions(bar)
-
-        if continue_processing:
-            self._process_positions(bar)
+        self._process_bar(bar)
 
         return True
 
@@ -87,14 +97,45 @@ class DailySessionBase(ABC):
         return True
 
     @abstractmethod
-    def _on_before_process_positions(self, bar: Bar) -> bool:
-        """Called before processing positions for the given bar. Return whether to continue processing."""
+    def _process_bar(self, bar: Bar) -> None:
+        """Handle one bar that arrived before end_dt -- e.g. whether it
+        should still feed a reference session, and/or whether it's within
+        the window pending/active positions are processed for. The default
+        body below is a ready-made implementation a subclass can delegate
+        to (directly, or via super()._process_bar(bar)) once it has decided
+        the bar should be processed."""
+        self._process_positions(bar)
 
-    @abstractmethod
     def _process_positions(self, bar: Bar) -> None:
-        """Process both pending and active positions for the given bar."""
+        """Try to open every still-pending position against `bar`, then
+        update every still-open position against it -- in that order, so a
+        position opened by this same bar is immediately checked against it
+        too (matches the old same-bar-hit behavior from before pending/
+        active positions were split into separate lists)."""
+        self._process_pending_positions(bar)
+        self._process_active_positions(bar)
+
+    def _process_pending_positions(self, bar):
+        """Iterates a snapshot (`list(...)`), not `self._pending_positions`
+        directly -- removing from the list being iterated skips whatever
+        shifts into the removed slot, silently dropping a same-bar trigger
+        whenever more than one pending position hits on the same bar."""
+        pending_positions = list(self._pending_positions)
+
+        for pending_positon in pending_positions:
+            if pending_positon is not None:
+                new_position = pending_positon.try_open_position(bar)
+
+                if new_position is not None:
+                    self._pending_positions.remove(pending_positon)
+                    self._positions.append(new_position)
+
+    def _process_active_positions(self, bar):
+        for position in self._positions:
+            if position is not None and not position.is_closed:
+                position.hit(bar)
 
     @abstractmethod
     def _close_all_positions(self, at: datetime) -> None:
-        """Close out anything still open, at `at`. Called by close() only
+        """Close out anything still open, at `at`. Called by close_at() only
         after the idempotency check passes."""

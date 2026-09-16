@@ -18,7 +18,7 @@ class DailyStrategyBase(ABC):
     every day's session (_sessions/_session_order) plus the still-live ones
     (_live_sessions), and notifies on_session_closed exactly once per
     session the moment it closes -- whether via a bar in add_bar() crossing
-    its window_end, or a force-close in close_live_sessions() once the bar
+    its end_dt, or a force-close in close_live_sessions() once the bar
     stream truly ends.
 
     Fed the entire bar stream from first bar to last by a single instance --
@@ -36,7 +36,7 @@ class DailyStrategyBase(ABC):
         currently-live session then receives the bar, so a day's own
         session and a still-resolving earlier day's session are both fed
         the same bar. A session force-closes itself, and freezes, once a
-        bar reaches its window_end; add_bar() only has to notice that and
+        bar reaches its end_dt; add_bar() only has to notice that and
         drop it from the live list."""
         bar_date = bar.dt.date()
 
@@ -54,7 +54,7 @@ class DailyStrategyBase(ABC):
                 self._notify_closed(session)
 
     def close_live_sessions(self) -> None:
-        """Force-close every still-live session at its own window_end."""
+        """Force-close every still-live session at its own end_dt."""
         for session in self._live_sessions:
             session.close_at(session.end_dt)
             self._notify_closed(session)

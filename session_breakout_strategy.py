@@ -28,7 +28,7 @@ from OHLC alone; the outcome is reported as AMBIGUOUS rather than guessed, the
 same convention the rest of this repo uses for ambiguous bars.
 
 Timezone note: bar timestamps are converted from US Eastern (the broker's
-server time) to UTC as they're read (see `_stream_bars`, `domain.shift_bars`),
+server time) to UTC as they're read (see `retrieve_bars`, `domain.shift_bars`),
 via `ZoneInfo("America/New_York")` so the EST/EDT offset applied is correct
 for each bar's date. `_SESSION_TEMPLATE` converts its own local start/end
 times to UTC the same way (see `TradingSessionTemplate`), so the window edges
@@ -102,8 +102,8 @@ class DailySession(DailySessionBase):
     the breakout window it opens. Accumulates session-window bars until the
     session's own end time, decides whether the day trades, then simulates
     the breakout/SL/TP outcome for both sides as further bars arrive --
-    through its own window_end (the session's own end time the day after).
-    See `DailySessionBase` for the add_bar/close/window_end lifecycle
+    through its own end_dt (the session's own end time the day after).
+    See `DailySessionBase` for the add_bar/close_at/end_dt lifecycle
     contract."""
 
     # ClassVar, not a field: an annotated class-body assignment on a
@@ -124,14 +124,11 @@ class DailySession(DailySessionBase):
     trading_start_dt: datetime = field(init=False, repr=False)
     trading_end_dt: datetime = field(init=False, repr=False)
 
-    _pending_positions: list[PendingPosition] = field(default_factory=list, init=False, repr=False)
-    _positions: list[Position] = field(default_factory=list, init=False, repr=False)
-
     _is_reference_session_resolved: bool = field(default=False, init=False, repr=False)
 
     def __post_init__(self) -> None:
-        """`session_start`/`window_start`/`window_end`/`breakout_cutoff` are
-        all fixed once `day` (and the module-level `_SESSION_TEMPLATE`) are
+        """`start_dt`/`end_dt`/`trading_start_dt`/`trading_end_dt` are all
+        fixed once `day` (and the module-level `_SESSION_TEMPLATE`) are
         known, so they're computed once here rather than recomputed on every
         `add_bar()` call -- they used to be `@property`s that redid a
         `ZoneInfo` conversion on every single bar of the stream."""
@@ -139,17 +136,17 @@ class DailySession(DailySessionBase):
 
         # Naive, UTC wall-clock -- matches every other datetime in this class
         # (see module docstring's timezone note); `session.start/end_dt_utc()`
-        # are aware.
+        # are aware. Bars before this are ignored by DailySessionBase.add_bar().
         self.start_dt = self.reference_session.start_dt_utc().replace(tzinfo=None)
 
         # Force-close point for any position still open: the session's own
-        # end time, `_TRADE_WINDOW` after the session's day.
+        # end time, one calendar day after the session's own day.
         self.end_dt = self._SESSION_TEMPLATE.end_time_utc_on(self.day + timedelta(days=1)).replace(tzinfo=None)
 
+        # Positions are only opened from the reference session's own end
+        # time (e.g. London open) through end_dt -- the breakout/force-close
+        # window that runs one calendar day past the reference session's own day.
         self.trading_start_dt = self.reference_session.end_dt_utc().replace(tzinfo=None)
-
-        # Tradings are taken until the session end time.
-        # After that, wait to be closed until next session's trading start time.
         self.trading_end_dt = self.end_dt
 
     @property
@@ -161,11 +158,12 @@ class DailySession(DailySessionBase):
         return self.reference_session.bar_count == 0 or self.range_pips > self.max_range_pips
 
     # override
-    def _on_before_process_positions(self, bar: Bar) -> bool:
+    def _process_bar(self, bar: Bar) -> None:
         if not self._is_reference_session_resolved:
             self._add_to_reference_session(bar)
-
-        return self._is_reference_session_resolved
+        
+        if self._is_reference_session_resolved and self.trading_start_dt <= bar.dt <= self.trading_end_dt:
+            self._process_positions(bar)
 
     def _add_to_reference_session(self, bar: Bar) -> bool:
         if bar.dt.date() == self.day:
@@ -188,28 +186,6 @@ class DailySession(DailySessionBase):
 
         pending_short = PendingPosition.for_level(self.reference_session.low_value, mid, self.risk_reward_ratio)
         self._pending_positions.append(pending_short)
-
-    # override
-    def _process_positions(self, bar: Bar) -> None:
-        if self.trading_start_dt <= bar.dt <= self.trading_end_dt:
-            self._process_pending_positions(bar)
-            self._process_active_positions(bar)
-
-    def _process_pending_positions(self, bar):
-        pending_positions = list(self._pending_positions)
-
-        for pending_positon in pending_positions:
-            if pending_positon is not None:
-                new_position = pending_positon.try_open_position(bar)
-
-                if new_position is not None:
-                    self._pending_positions.remove(pending_positon)
-                    self._positions.append(new_position)
-
-    def _process_active_positions(self, bar):
-        for position in self._positions:
-            if position is not None and not position.is_closed:
-                position.hit(bar)
 
     # override
     def _close_all_positions(self, dt: datetime) -> None:
