@@ -18,10 +18,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import Decimal
+from enum import Enum
 from functools import cached_property
 
 __all__ = [
     "Symbol",
+    "SymbolCategory",
     "EurUsd",
     "GbpUsd",
     "AudUsd",
@@ -34,6 +36,14 @@ __all__ = [
 ]
 
 
+class SymbolCategory(Enum):
+    """What kind of instrument a `Symbol` is. Just the two this repo has
+    symbols for so far -- extend as new categories show up."""
+
+    FOREX = "Forex"
+    COMMODITY = "Commodity"
+
+
 @dataclass(frozen=True)
 class Symbol:
     """A tradeable instrument's fixed specification."""
@@ -42,6 +52,7 @@ class Symbol:
     ticker: str
     pip_size: float
     tick_size: float
+    category: SymbolCategory
 
     def to_pips(self, price_diff: float) -> float:
         """Convert a price-unit difference (e.g. `Bar.range`,
@@ -64,6 +75,7 @@ class EurUsd(Symbol):
             ticker="EURUSD",
             pip_size=0.0001,
             tick_size=0.00001,
+            category=SymbolCategory.FOREX,
         )
 
 
@@ -74,6 +86,7 @@ class GbpUsd(Symbol):
             ticker="GBPUSD",
             pip_size=0.0001,
             tick_size=0.00001,
+            category=SymbolCategory.FOREX,
         )
 
 
@@ -84,6 +97,7 @@ class AudUsd(Symbol):
             ticker="AUDUSD",
             pip_size=0.0001,
             tick_size=0.00001,
+            category=SymbolCategory.FOREX,
         )
 
 
@@ -94,6 +108,7 @@ class NzdUsd(Symbol):
             ticker="NZDUSD",
             pip_size=0.0001,
             tick_size=0.00001,
+            category=SymbolCategory.FOREX,
         )
 
 
@@ -104,6 +119,7 @@ class UsdCad(Symbol):
             ticker="USDCAD",
             pip_size=0.0001,
             tick_size=0.00001,
+            category=SymbolCategory.FOREX,
         )
 
 
@@ -114,6 +130,7 @@ class UsdChf(Symbol):
             ticker="USDCHF",
             pip_size=0.0001,
             tick_size=0.00001,
+            category=SymbolCategory.FOREX,
         )
 
 
@@ -126,6 +143,7 @@ class UsdJpy(Symbol):
             ticker="USDJPY",
             pip_size=0.01,
             tick_size=0.001,
+            category=SymbolCategory.FOREX,
         )
 
 
@@ -142,6 +160,7 @@ class XauUsd(Symbol):
             ticker="XAUUSD",
             pip_size=0.1,
             tick_size=0.01,
+            category=SymbolCategory.COMMODITY,
         )
 
 
@@ -154,4 +173,5 @@ class XagUsd(Symbol):
             ticker="XAGUSD",
             pip_size=0.01,
             tick_size=0.001,
+            category=SymbolCategory.COMMODITY,
         )

@@ -1,6 +1,6 @@
 """Tests for `UsdChf`'s frozen specification."""
 
-from domain.symbol import Symbol, UsdChf
+from domain.symbol import Symbol, SymbolCategory, UsdChf
 
 
 def test_is_a_symbol() -> None:
@@ -13,6 +13,7 @@ def test_specification() -> None:
     assert usd_chf.ticker == "USDCHF"
     assert usd_chf.pip_size == 0.0001
     assert usd_chf.tick_size == 0.00001
+    assert usd_chf.category == SymbolCategory.FOREX
 
 
 def test_price_decimals() -> None:

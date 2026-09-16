@@ -6,7 +6,7 @@ in `domain.symbol.XauUsd` on metals having no cross-broker-standard pip.
 
 import pytest
 
-from domain.symbol import Symbol, XagUsd
+from domain.symbol import Symbol, SymbolCategory, XagUsd
 
 
 def test_is_a_symbol() -> None:
@@ -19,6 +19,7 @@ def test_specification() -> None:
     assert xag_usd.ticker == "XAGUSD"
     assert xag_usd.pip_size == 0.01
     assert xag_usd.tick_size == 0.001
+    assert xag_usd.category == SymbolCategory.COMMODITY
 
 
 def test_price_decimals() -> None:

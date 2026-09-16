@@ -7,7 +7,7 @@ the 2nd decimal (0.01) rather than the 4th, and the tradeable tick is the 3rd
 
 import pytest
 
-from domain.symbol import Symbol, UsdJpy
+from domain.symbol import Symbol, SymbolCategory, UsdJpy
 
 
 def test_is_a_symbol() -> None:
@@ -20,6 +20,7 @@ def test_specification() -> None:
     assert usd_jpy.ticker == "USDJPY"
     assert usd_jpy.pip_size == 0.01
     assert usd_jpy.tick_size == 0.001
+    assert usd_jpy.category == SymbolCategory.FOREX
 
 
 def test_price_decimals() -> None:

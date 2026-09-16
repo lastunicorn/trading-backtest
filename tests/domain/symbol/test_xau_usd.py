@@ -7,7 +7,7 @@ see the note in `domain.symbol.XauUsd`.
 
 import pytest
 
-from domain.symbol import Symbol, XauUsd
+from domain.symbol import Symbol, SymbolCategory, XauUsd
 
 
 def test_is_a_symbol() -> None:
@@ -20,6 +20,7 @@ def test_specification() -> None:
     assert xau_usd.ticker == "XAUUSD"
     assert xau_usd.pip_size == 0.1
     assert xau_usd.tick_size == 0.01
+    assert xau_usd.category == SymbolCategory.COMMODITY
 
 
 def test_price_decimals() -> None:

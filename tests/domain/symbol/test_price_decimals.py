@@ -1,10 +1,16 @@
 """Tests for `Symbol.price_decimals`."""
 
-from domain.symbol import Symbol
+from domain.symbol import Symbol, SymbolCategory
 
 
 def _symbol(tick_size: float) -> Symbol:
-    return Symbol(name="Test", ticker="TST", pip_size=0.0001, tick_size=tick_size)
+    return Symbol(
+        name="Test",
+        ticker="TST",
+        pip_size=0.0001,
+        tick_size=tick_size,
+        category=SymbolCategory.FOREX,
+    )
 
 
 def test_counts_decimal_places_from_tick_size() -> None:

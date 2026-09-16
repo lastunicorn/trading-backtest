@@ -68,12 +68,13 @@ def matches(symbol, text):
 
 
 def build_rows(symbols):
-    header = ["TICKER", "NAME", "PIP SIZE", "TICK SIZE", "DECIMALS"]
+    header = ["TICKER", "NAME", "CATEGORY", "PIP SIZE", "TICK SIZE", "DECIMALS"]
 
     rows = [
         [
             symbol.ticker,
             symbol.name,
+            symbol.category.value,
             f"{symbol.pip_size:.{symbol.price_decimals}f}",
             f"{symbol.tick_size:.{symbol.price_decimals}f}",
             str(symbol.price_decimals),

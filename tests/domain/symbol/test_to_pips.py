@@ -2,11 +2,17 @@
 
 import pytest
 
-from domain.symbol import EurUsd, Symbol
+from domain.symbol import EurUsd, Symbol, SymbolCategory
 
 
 def _symbol(pip_size: float) -> Symbol:
-    return Symbol(name="Test", ticker="TST", pip_size=pip_size, tick_size=pip_size)
+    return Symbol(
+        name="Test",
+        ticker="TST",
+        pip_size=pip_size,
+        tick_size=pip_size,
+        category=SymbolCategory.FOREX,
+    )
 
 
 def test_converts_a_price_difference_to_pips() -> None:
