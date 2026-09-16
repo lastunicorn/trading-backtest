@@ -53,6 +53,7 @@ from datetime import UTC, date as _date, datetime, time as _time, timedelta
 from pathlib import Path
 from typing import TextIO
 from zoneinfo import ZoneInfo
+from domain.trading_session_template import AsianSessionTemplate
 
 from domain.bar_chunks import BarChunks
 from domain.bar_block import BarBlock
@@ -60,21 +61,19 @@ from domain.position import Outcome, PendingPosition, Position
 from domain.shift_bars import shift_bars
 from domain.symbol import EurUsd, Symbol
 from domain.trading_session import TradingSession
-from domain.trading_session_template import TokyoSessionTemplate, TradingSessionTemplate
+from domain.trading_session_template import TradingSessionTemplate, TokyoSessionTemplate, AsianSessionTemplate
 from ports.file_system_access.file_system import find_files
 from ports.mt5_file_access import Bar, iterate_bars
 
 _SYMBOL: Symbol = EurUsd()
 
 #_SESSION_TEMPLATE: TradingSessionTemplate = TokyoSessionTemplate()
+_SESSION_TEMPLATE: TradingSessionTemplate = AsianSessionTemplate()
+
 # _SESSION_TEMPLATE: TradingSessionTemplate = TradingSessionTemplate(
 #     start_time=_time(8, 0, tzinfo=ZoneInfo("America/New_York")),
 #     end_time=_time(9, 0, tzinfo=ZoneInfo("America/New_York")),
 # )
-_SESSION_TEMPLATE: TradingSessionTemplate = TradingSessionTemplate(
-    start_time=_time(0, 0, tzinfo=UTC),
-    end_time=_time(9, 0, tzinfo=UTC),
-)
 
 # The breakout/force-close window always runs exactly one calendar day past
 # the range-session's own day: entries are only taken up to midnight the day

@@ -25,6 +25,7 @@ from domain.trading_session import TradingSession
 __all__ = [
     "TradingSessionTemplate",
     "TokyoSessionTemplate",
+    "AsianSessionTemplate",
     "LondonSessionTemplate",
     "NewYorkSessionTemplate",
 ]
@@ -92,6 +93,17 @@ class TokyoSessionTemplate(TradingSessionTemplate):
 
     start_time: _time = _time(9, 0, tzinfo=ZoneInfo("Asia/Tokyo"))
     end_time: _time = _time(15, 30, tzinfo=ZoneInfo("Asia/Tokyo"))
+
+
+@dataclass(frozen=True)
+class AsianSessionTemplate(TradingSessionTemplate):
+    """09:00-18:00 Japan Standard Time -- the rounder, informal FX "Asian
+    session" window, as distinct from `TokyoSessionTemplate`'s exchange
+    bell-to-bell 09:00-15:30.
+    """
+
+    start_time: _time = _time(9, 0, tzinfo=ZoneInfo("Asia/Tokyo"))
+    end_time: _time = _time(18, 0, tzinfo=ZoneInfo("Asia/Tokyo"))
 
 
 @dataclass(frozen=True)
