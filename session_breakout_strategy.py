@@ -50,8 +50,6 @@ import time
 from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, field
 from datetime import UTC, date as _date, datetime, time as _time, timedelta
-from decimal import Decimal
-from functools import cached_property
 from pathlib import Path
 from typing import TextIO
 from zoneinfo import ZoneInfo
@@ -60,30 +58,11 @@ from domain.bar_chunks import BarChunks
 from domain.bar_block import BarBlock
 from domain.position import Outcome, PendingPosition, Position
 from domain.shift_bars import shift_bars
+from domain.symbol import EurUsd, Symbol
 from domain.trading_session import TradingSession
 from domain.trading_session_template import TokyoSessionTemplate, TradingSessionTemplate
 from ports.file_system_access.file_system import find_files
 from ports.mt5_file_access import Bar, iterate_bars
-
-@dataclass(frozen=True)
-class Symbol:
-    name: str
-    ticker: str
-    pip_size: float
-    tick_size: float
-
-    @cached_property
-    def price_decimals(self) -> int:
-        return -Decimal(str(self.tick_size)).as_tuple().exponent
-
-class EurUsd(Symbol):
-    def __init__(self):
-        super().__init__(
-            name="Euro / U.S. Dollar",
-            ticker="EURUSD",
-            pip_size=0.0001,
-            tick_size=0.00001
-        )
 
 TESTED_SYMBOL: Symbol = EurUsd()
 
