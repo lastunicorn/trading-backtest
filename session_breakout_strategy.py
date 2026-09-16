@@ -361,7 +361,7 @@ def execute(
             on_session_closed=monthly_reports,
         )
 
-        for bar in _retrieve_bars(source_path):
+        for bar in retrieve_bars(source_path):
             strategy.add_bar(bar)
 
         strategy.close_live_sessions()
@@ -384,7 +384,7 @@ def open_report_file(report_dir_path: Path):
     return report_file_path.open("w", encoding="utf-8")
 
 
-def _retrieve_bars(source_path: Path) -> Iterator[Bar]:
+def retrieve_bars(source_path: Path) -> Iterator[Bar]:
     paths = find_files(source_path, recursive=True)
 
     if not paths:
@@ -400,36 +400,6 @@ def _retrieve_bars(source_path: Path) -> Iterator[Bar]:
         bars = iterate_bars(str(path), strict=False)
         bars = shift_bars(bars, zone_info)
         yield from bars
-
-
-def _fmt_price(value: float) -> str:
-    return f"{value:.{_SYMBOL.price_decimals}f}"
-
-
-def _fmt_pips(value: float) -> str:
-    return f"{value:.1f}p"
-
-
-def _fmt_position(label: str, position: Position) -> str:
-    header = (
-        f"  {label}: triggered {position.open_dt:%Y-%m-%d %H:%M} @ "
-        f"{_fmt_price(position.open_price)}  "
-        f"(SL {_fmt_pips(_SYMBOL.to_pips(position.risk_amount))} @ {_fmt_price(position.sl)}, "
-        f"TP {_fmt_pips(_SYMBOL.to_pips(position.reward_amount))} @ {_fmt_price(position.tp)})"
-    )
-
-    if not position.is_closed:
-        detail = "    -> still open (not yet resolved)"
-    elif position.outcome == Outcome.FORCE_CLOSED:
-        detail = f"    -> {outcome_text(Outcome.FORCE_CLOSED)} at {position.close_dt:%Y-%m-%d %H:%M}"
-    elif position.outcome == Outcome.AMBIGUOUS:
-        detail = f"    -> {outcome_text(Outcome.AMBIGUOUS)} at {position.close_dt:%Y-%m-%d %H:%M}"
-    else:
-        detail = (
-            f"    -> {outcome_text(position.outcome)} at {position.close_dt:%Y-%m-%d %H:%M} "
-            f"@ {_fmt_price(position.close_price)}"
-        )
-    return header + "\n" + detail
 
 
 @dataclass(frozen=True)
@@ -517,7 +487,11 @@ def write_daily_session_report(report: DailySessionReport, out: TextIO) -> None:
         print("  CANCELLED (no session bars for this day)\n", file=out)
         return
 
-    write_ohlc(report, "  ", out)
+    print(f"  Open: {_fmt_price(report.open_value)} ({report.open_dt})", file=out)
+    print(f"  High: {_fmt_price(report.high_value)} ({report.high_dt})", file=out)
+    print(f"  Low: {_fmt_price(report.low_value)} ({report.low_dt})", file=out)
+    print(f"  Close: {_fmt_price(report.close_value)} ({report.close_dt})", file=out)
+    print(f"  Range: {_fmt_pips(_SYMBOL.to_pips(report.range_value))}", file=out)
 
     if report.is_cancelled:
         print(f"  CANCELLED (> {report.max_range_pips:.0f}p threshold)\n", file=out)
@@ -534,14 +508,6 @@ def write_daily_session_report(report: DailySessionReport, out: TextIO) -> None:
     print(file=out)
 
 
-def write_ohlc(report: DailySessionReport, indent: str, out: TextIO) -> None:
-    print(f"{indent}Open: {_fmt_price(report.open_value)} ({report.open_dt})", file=out)
-    print(f"{indent}High: {_fmt_price(report.high_value)} ({report.high_dt})", file=out)
-    print(f"{indent}Low: {_fmt_price(report.low_value)} ({report.low_dt})", file=out)
-    print(f"{indent}Close: {_fmt_price(report.close_value)} ({report.close_dt})", file=out)
-    print(f"{indent}Range: {_fmt_pips(_SYMBOL.to_pips(report.range_value))}", file=out)
-
-
 def write_report_summary(summary: ReportSummary, say: Callable[[str], None]) -> None:
     say(f"=== summary ({summary.first_dt:%Y-%m-%d %H:%M} -> {summary.last_dt:%Y-%m-%d %H:%M}) ===")
     say(f"  Risk/Reward ratio: {summary.risk_reward_ratio}")
@@ -551,6 +517,36 @@ def write_report_summary(summary: ReportSummary, say: Callable[[str], None]) -> 
     for outcome in (Outcome.TP_HIT, Outcome.SL_HIT, Outcome.AMBIGUOUS, Outcome.FORCE_CLOSED):
         say(f"    {outcome.name}: {summary.outcome_counts[outcome]}")
     say(f"  P/L: {summary.pl_percent:.2f} %")
+
+
+def _fmt_price(value: float) -> str:
+    return f"{value:.{_SYMBOL.price_decimals}f}"
+
+
+def _fmt_pips(value: float) -> str:
+    return f"{value:.1f}p"
+
+
+def _fmt_position(label: str, position: Position) -> str:
+    header = (
+        f"  {label}: triggered {position.open_dt:%Y-%m-%d %H:%M} @ "
+        f"{_fmt_price(position.open_price)}  "
+        f"(SL {_fmt_pips(_SYMBOL.to_pips(position.risk_amount))} @ {_fmt_price(position.sl)}, "
+        f"TP {_fmt_pips(_SYMBOL.to_pips(position.reward_amount))} @ {_fmt_price(position.tp)})"
+    )
+
+    if not position.is_closed:
+        detail = "    -> still open (not yet resolved)"
+    elif position.outcome == Outcome.FORCE_CLOSED:
+        detail = f"    -> {outcome_text(Outcome.FORCE_CLOSED)} at {position.close_dt:%Y-%m-%d %H:%M}"
+    elif position.outcome == Outcome.AMBIGUOUS:
+        detail = f"    -> {outcome_text(Outcome.AMBIGUOUS)} at {position.close_dt:%Y-%m-%d %H:%M}"
+    else:
+        detail = (
+            f"    -> {outcome_text(position.outcome)} at {position.close_dt:%Y-%m-%d %H:%M} "
+            f"@ {_fmt_price(position.close_price)}"
+        )
+    return header + "\n" + detail
 
 
 if __name__ == "__main__":
