@@ -131,11 +131,11 @@ class SessionBreakoutStrategy:
 
     max_range_pips: float = 30.0
     risk_reward_ratio: float = 1.5
-    on_session_closed: Callable[[DailyStrategySession], None] | None = None
+    on_session_closed: Callable[[DailySession], None] | None = None
 
-    _sessions: dict[_date, DailyStrategySession] = field(default_factory=dict, init=False, repr=False)
+    _sessions: dict[_date, DailySession] = field(default_factory=dict, init=False, repr=False)
     _session_order: list[_date] = field(default_factory=list, init=False, repr=False)
-    _live_sessions: list[DailyStrategySession] = field(default_factory=list, init=False, repr=False)
+    _live_sessions: list[DailySession] = field(default_factory=list, init=False, repr=False)
     _is_retiring: bool = field(default=False, init=False, repr=False)
 
     @property
@@ -156,7 +156,7 @@ class SessionBreakoutStrategy:
         bar_date = bar.dt.date()
 
         if bar_date not in self._sessions and not self._is_retiring:
-            session = DailyStrategySession(bar_date, self.max_range_pips, self.risk_reward_ratio)
+            session = DailySession(bar_date, self.max_range_pips, self.risk_reward_ratio)
             self._sessions[bar_date] = session
             self._session_order.append(bar_date)
             self._live_sessions.append(session)
@@ -179,13 +179,13 @@ class SessionBreakoutStrategy:
             self._notify_closed(session)
         self._live_sessions.clear()
 
-    def _notify_closed(self, session: DailyStrategySession) -> None:
+    def _notify_closed(self, session: DailySession) -> None:
         if self.on_session_closed is not None:
             self.on_session_closed(session)
 
 
 @dataclass
-class DailyStrategySession:
+class DailySession:
     """One calendar day's range-session range (see `_SESSION_TEMPLATE`) plus
     the breakout window it opens. Accumulates session-window bars via
     `add_bar()` until the session's own end time, decides whether the day
@@ -412,8 +412,8 @@ class _Chunk:
 
 
 def _make_on_session_closed(
-    summary: ReportSummary, report_file: TextIO
-) -> Callable[[DailyStrategySession], None]:
+    report_summary: ReportSummary, report_file: TextIO
+) -> Callable[[DailySession], None]:
     """Binds `summary` as a parameter of this call, not a closure over a
     loop variable -- the `summary` local in execute()'s while loop is
     rebound every iteration, and a `previous` chunk keeps receiving bars
@@ -421,9 +421,10 @@ def _make_on_session_closed(
     over that variable would silently miscount those late closes into the
     new chunk's summary instead of its own."""
 
-    def on_session_closed(session: DailyStrategySession) -> None:
-        write_session_report(session, report_file)
-        summary.add(session)
+    def on_session_closed(session: DailySession) -> None:
+        daily_session_report = DailySessionReport.from_session(session)
+        write_daily_session_report(daily_session_report, report_file)
+        report_summary.add(daily_session_report)
 
     return on_session_closed
 
@@ -452,7 +453,10 @@ def execute(
         previous: _Chunk | None = None
 
         while bar_chunks.has_more:
-            summary = ReportSummary(risk_reward_ratio=risk_reward_ratio, max_range_pips=max_range_pips)
+            summary = ReportSummary(
+                risk_reward_ratio=risk_reward_ratio,
+                max_range_pips=max_range_pips
+            )
             current = _Chunk(
                 strategy=SessionBreakoutStrategy(
                     max_range_pips=max_range_pips,
@@ -558,13 +562,55 @@ def write_bar_block(bar_block: BarBlock, indent: str, out: TextIO) -> None:
     print(f"{indent}Range: {_fmt_pips(_to_pips(bar_block.range))}", file=out)
 
 
+@dataclass(frozen=True)
+class DailySessionReport:
+    """Everything about one closed DailyStrategySession that's needed to
+    display it -- built once, at close time, from a live DailyStrategySession
+    (see `from_session`), and from then on used as a plain, immutable
+    snapshot by both `write_session_report` and `ReportSummary.add` instead
+    of either reaching back into the (mutable, still-simulating-other-days)
+    domain object directly."""
+
+    day: _date
+    window_label: str
+    bar_count: int
+    bars: BarBlock | None
+    is_cancelled: bool
+    max_range_pips: float
+    range_pips: float
+    risk_reward_ratio: float
+    position_long: Position | None
+    position_short: Position | None
+    first_candle_dt: datetime | None
+    last_candle_dt: datetime | None
+
+    @classmethod
+    def from_session(cls, result: DailySession) -> DailySessionReport:
+        session = result.session
+        return cls(
+            day=result.day,
+            window_label=f"{session.start_dt_utc():%H:%M}-{session.end_dt_utc():%H:%M} UTC",
+            bar_count=session.bar_count,
+            bars=session.bars if session.bar_count > 0 else None,
+            is_cancelled=result.is_cancelled,
+            max_range_pips=result.max_range_pips,
+            range_pips=result.range_pips,
+            risk_reward_ratio=result.risk_reward_ratio,
+            position_long=result.position_long,
+            position_short=result.position_short,
+            first_candle_dt=result.first_candle_dt,
+            last_candle_dt=result.last_candle_dt,
+        )
+
+
 @dataclass
 class ReportSummary:
-    """Aggregated totals for one chunk's sessions, ready for `write_summary`.
-    Starts out holding only the run's fixed parameters; add() folds in one
-    StrategyDailySession at a time as each closes, so by the time a chunk's
-    sessions have all closed this same instance already is the finished
-    summary -- no separate accumulator/finalize step."""
+    """Aggregated totals for one chunk's sessions, ready for
+    `write_report_summary`. Starts out holding only the run's fixed
+    parameters; add() folds in one SessionReport at a time as each session
+    closes, so by the time a chunk's sessions have all closed this same
+    instance already is the finished summary -- no separate
+    accumulator/finalize step."""
 
     risk_reward_ratio: float
     max_range_pips: float
@@ -575,17 +621,17 @@ class ReportSummary:
     first_dt: datetime | None = None
     last_dt: datetime | None = None
 
-    def add(self, result: DailyStrategySession) -> None:
+    def add(self, report: DailySessionReptraded_daysort) -> None:
         if self.total_days == 0:
-            self.first_dt = result.first_candle_dt
-        self.last_dt = result.last_candle_dt
+            self.first_dt = report.first_candle_dt
+        self.last_dt = report.last_candle_dt
         self.total_days += 1
 
-        if result.session.bar_count == 0 or result.is_cancelled:
+        if report.is_cancelled:
             self.cancelled_days += 1
             return
 
-        for position in (result.position_long, result.position_short):
+        for position in (report.position_long, report.position_short):
             if position is not None:
                 self.position_count += 1
                 self.outcome_counts[position.outcome] += 1
@@ -602,29 +648,27 @@ class ReportSummary:
         )
 
 
-def write_session_report(result: DailyStrategySession, out: TextIO) -> None:
+def write_daily_session_report(report: DailySessionReport, out: TextIO) -> None:
     """Write one session's day-by-day block to `out` only -- no accounting.
     Called once per session, directly from the on_session_closed callback,
-    as each session closes; see TbsSummary.add for the totals this used to
-    accumulate inline."""
-    session = result.session
-    window_label = f"{session.start_dt_utc():%H:%M}-{session.end_dt_utc():%H:%M} UTC"
-    print(f"=== {result.day.isoformat()} (session {window_label}) ===", file=out)
+    as each session closes; see ReportSummary.add for the totals this used
+    to accumulate inline."""
+    print(f"=== {report.day.isoformat()} (session {report.window_label}) ===", file=out)
 
-    if session.bar_count == 0:
+    if report.bar_count == 0:
         print("  CANCELLED (no session bars for this day)\n", file=out)
         return
 
-    write_bar_block(session.bars, "  ", out)
+    write_bar_block(report.bars, "  ", out)
 
-    if result.is_cancelled:
-        print(f"  CANCELLED (> {result.max_range_pips:.0f}p threshold)\n", file=out)
+    if report.is_cancelled:
+        print(f"  CANCELLED (> {report.max_range_pips:.0f}p threshold)\n", file=out)
         return
 
-    risk_pips = result.range_pips / 2
-    print(f"  SL: {_fmt_pips(risk_pips)}   TP: {_fmt_pips(risk_pips * result.risk_reward_ratio)}", file=out)
-    print(_fmt_position("LONG ", result.position_long), file=out)
-    print(_fmt_position("SHORT", result.position_short), file=out)
+    risk_pips = report.range_pips / 2
+    print(f"  SL: {_fmt_pips(risk_pips)}   TP: {_fmt_pips(risk_pips * report.risk_reward_ratio)}", file=out)
+    print(_fmt_position("LONG ", report.position_long), file=out)
+    print(_fmt_position("SHORT", report.position_short), file=out)
     print(file=out)
 
 
