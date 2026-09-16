@@ -50,6 +50,8 @@ import time
 from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, field
 from datetime import UTC, date as _date, datetime, time as _time, timedelta
+from decimal import Decimal
+from functools import cached_property
 from pathlib import Path
 from typing import TextIO
 from zoneinfo import ZoneInfo
@@ -63,8 +65,27 @@ from domain.trading_session_template import TokyoSessionTemplate, TradingSession
 from ports.file_system_access.file_system import find_files
 from ports.mt5_file_access import Bar, iterate_bars
 
-PIP = 0.0001
-PRICE_DECIMALS = 5
+@dataclass(frozen=True)
+class Symbol:
+    name: str
+    ticker: str
+    pip_size: float
+    tick_size: float
+
+    @cached_property
+    def price_decimals(self) -> int:
+        return -Decimal(str(self.tick_size)).as_tuple().exponent
+
+class EurUsd(Symbol):
+    def __init__(self):
+        super().__init__(
+            name="Euro / U.S. Dollar",
+            ticker="EURUSD",
+            pip_size=0.0001,
+            tick_size=0.00001
+        )
+
+TESTED_SYMBOL: Symbol = EurUsd()
 
 #_SESSION_TEMPLATE: TradingSessionTemplate = TokyoSessionTemplate()
 # _SESSION_TEMPLATE: TradingSessionTemplate = TradingSessionTemplate(
@@ -84,7 +105,7 @@ _TRADE_WINDOW = timedelta(days=1)
 
 
 def _to_pips(price_diff: float) -> float:
-    return price_diff / PIP
+    return price_diff / TESTED_SYMBOL.pip_size
 
 
 _OUTCOME_TEXT: dict[Outcome, str] = {
@@ -401,7 +422,7 @@ def parse_arguments():
 
 @dataclass
 class _Chunk:
-    """Pairs one SessionBreakoutStrategy instance with the TbsSummary it
+    """Pairs one SessionBreakoutStrategy instance with the ReportSummary it
     accumulates into as its sessions close, so a `previous` chunk
     straddling a rollover carries its own summary with it into the next
     iteration rather than sharing the loop's (rebound-every-iteration)
@@ -522,7 +543,7 @@ def _retrieve_bars(source_path: Path) -> Iterator[Bar]:
 
 
 def _fmt_price(value: float) -> str:
-    return f"{value:.{PRICE_DECIMALS}f}"
+    return f"{value:.{TESTED_SYMBOL.price_decimals}f}"
 
 
 def _fmt_pips(value: float) -> str:
@@ -552,14 +573,6 @@ def _fmt_position(label: str, position: Position | None) -> str:
             f"@ {_fmt_price(position.close_price)}"
         )
     return header + "\n" + detail
-
-
-def write_bar_block(bar_block: BarBlock, indent: str, out: TextIO) -> None:
-    print(f"{indent}Open: {_fmt_price(bar_block.open_value)} ({bar_block.open_dt})", file=out)
-    print(f"{indent}High: {_fmt_price(bar_block.high_value)} ({bar_block.high_dt})", file=out)
-    print(f"{indent}Low: {_fmt_price(bar_block.low_value)} ({bar_block.low_dt})", file=out)
-    print(f"{indent}Close: {_fmt_price(bar_block.close_value)} ({bar_block.close_dt})", file=out)
-    print(f"{indent}Range: {_fmt_pips(_to_pips(bar_block.range))}", file=out)
 
 
 @dataclass(frozen=True)
@@ -621,7 +634,7 @@ class ReportSummary:
     first_dt: datetime | None = None
     last_dt: datetime | None = None
 
-    def add(self, report: DailySessionReptraded_daysort) -> None:
+    def add(self, report: DailySessionReport) -> None:
         if self.total_days == 0:
             self.first_dt = report.first_candle_dt
         self.last_dt = report.last_candle_dt
@@ -670,6 +683,14 @@ def write_daily_session_report(report: DailySessionReport, out: TextIO) -> None:
     print(_fmt_position("LONG ", report.position_long), file=out)
     print(_fmt_position("SHORT", report.position_short), file=out)
     print(file=out)
+
+
+def write_bar_block(bar_block: BarBlock, indent: str, out: TextIO) -> None:
+    print(f"{indent}Open: {_fmt_price(bar_block.open_value)} ({bar_block.open_dt})", file=out)
+    print(f"{indent}High: {_fmt_price(bar_block.high_value)} ({bar_block.high_dt})", file=out)
+    print(f"{indent}Low: {_fmt_price(bar_block.low_value)} ({bar_block.low_dt})", file=out)
+    print(f"{indent}Close: {_fmt_price(bar_block.close_value)} ({bar_block.close_dt})", file=out)
+    print(f"{indent}Range: {_fmt_pips(_to_pips(bar_block.range))}", file=out)
 
 
 def write_report_summary(summary: ReportSummary, say: Callable[[str], None]) -> None:
