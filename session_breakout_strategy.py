@@ -55,7 +55,6 @@ from typing import TextIO
 from zoneinfo import ZoneInfo
 from domain.trading_session_template import AsianSessionTemplate
 
-from domain.bar_chunks import BarChunks
 from domain.bar_block import BarBlock
 from domain.position import Outcome, PendingPosition, Position
 from domain.shift_bars import shift_bars
@@ -103,22 +102,10 @@ class SessionBreakoutStrategy:
     `_SESSION_TEMPLATE`), whether it's tradeable, and simulates the
     breakout/SL/TP/force-close outcome for both sides.
 
-    Each instance is scoped to one chunk of a caller-defined stream split
-    (see `domain.bar_chunks`); it doesn't know or care what the chunk
-    boundaries are -- that's entirely the caller's business. What it does
-    know is its own retirement: while live, add_bar() creates a new
-    TbsDailySession the moment a bar for a new calendar day appears. Once
-    retire() has been called, add_bar() stops spawning sessions but keeps
-    feeding bars to whatever's already live -- so a session whose window
-    runs past midnight into the next chunk can still resolve. This lets a
-    caller hand the same trailing bars to both the current chunk's instance
-    and the previous chunk's (now-retired) instance during the handover: the
-    retired instance just drains its lingering live session(s) and, once
-    has_live_sessions is False, stops needing bars at all -- it never grows
-    a shadow copy of the new chunk's sessions.
-
-    close_live_sessions() force-closes whatever's still live, for use once
-    the bar stream truly ends (no next chunk arrives to hand off to).
+    Fed the entire bar stream from first bar to last by a single instance
+    (see `execute()`) -- it doesn't split, chunk, or hand off state to
+    another instance. close_live_sessions() force-closes whatever's still
+    live, for use once the bar stream truly ends.
 
     on_session_closed, if set, is called with each StrategyDailySession the
     moment it closes (window_end reached, whether via a bar in add_bar() or
@@ -131,26 +118,20 @@ class SessionBreakoutStrategy:
     _sessions: dict[_date, DailySession] = field(default_factory=dict, init=False, repr=False)
     _session_order: list[_date] = field(default_factory=list, init=False, repr=False)
     _live_sessions: list[DailySession] = field(default_factory=list, init=False, repr=False)
-    _is_retiring: bool = field(default=False, init=False, repr=False)
-
-    @property
-    def has_live_sessions(self) -> bool:
-        return bool(self._live_sessions)
 
     def add_bar(self, bar: Bar) -> None:
         """Feed one bar (bars must arrive chronologically). Creates a new
-        DailySession the moment a bar for a new calendar day appears, but
-        only if that day is in this instance's own chunk -- see class
-        docstring. Every currently-live session then receives the bar, so a
-        day's own session (accumulating its range-session range) and the
-        previous day's session (still resolving its breakout window, which
-        runs until the session's own end time the day after) are both fed
-        the same bar. A session force-closes itself, and freezes, once a bar
+        DailySession the moment a bar for a new calendar day appears. Every
+        currently-live session then receives the bar, so a day's own
+        session (accumulating its range-session range) and the previous
+        day's session (still resolving its breakout window, which runs
+        until the session's own end time the day after) are both fed the
+        same bar. A session force-closes itself, and freezes, once a bar
         reaches its window_end; add_bar() only has to notice that and drop
         it from the live list."""
         bar_date = bar.dt.date()
 
-        if bar_date not in self._sessions and not self._is_retiring:
+        if bar_date not in self._sessions:
             session = DailySession(bar_date, self.max_range_pips, self.risk_reward_ratio)
             self._sessions[bar_date] = session
             self._session_order.append(bar_date)
@@ -162,10 +143,6 @@ class SessionBreakoutStrategy:
             if session.is_closed:
                 self._live_sessions.remove(session)
                 self._notify_closed(session)
-
-    def retire(self) -> None:
-        """Force-close all live sessions and mark this chunk as retired."""
-        self._is_retiring = True
 
     def close_live_sessions(self) -> None:
         """Force-close every still-live session at its own window_end."""
@@ -350,7 +327,7 @@ def main() -> None:
     source_path = args.source
     out_dir = Path(args.out)
     
-    execute(out_dir, source_path, args.max_range_pips, args.risk_reward, args.granularity)
+    execute(out_dir, source_path, args.max_range_pips, args.risk_reward)
 
     elapsed = time.perf_counter() - start_time
     print()
@@ -384,44 +361,51 @@ def parse_arguments():
         default="output/session_breakout_output",
         help="directory to write session_breakout_report.txt into (default: output/session_breakout_output)",
     )
-    parser.add_argument(
-        "--granularity",
-        choices=["monthly", "yearly", "none"],
-        default="none",
-        help="how often to force-close still-live sessions while streaming bars (default: none)",
-    )
 
     return parser.parse_args()
 
 
 @dataclass
-class _Chunk:
-    """Pairs one SessionBreakoutStrategy instance with the ReportSummary it
-    accumulates into as its sessions close, so a `previous` chunk
-    straddling a rollover carries its own summary with it into the next
-    iteration rather than sharing the loop's (rebound-every-iteration)
-    local variable -- see `_make_on_session_closed`."""
+class _MonthlyReportWriter:
+    """`on_session_closed` callback: writes each closed DailySession's
+    day-by-day block to the report file as it arrives, and rolls a
+    ReportSummary per calendar month -- the moment a session's day belongs
+    to a new (year, month), the previous month's summary is written out and
+    a fresh one started. `flush()` writes out whatever month was still open
+    once the bar stream ends; sessions arrive in day order (a single
+    strategy instance processes the whole stream), so month boundaries are
+    only ever crossed forward."""
 
-    strategy: SessionBreakoutStrategy
-    summary: ReportSummary
+    risk_reward_ratio: float
+    max_range_pips: float
+    report_file: TextIO
+    say: Callable[[str], None]
 
+    _month_key: tuple[int, int] | None = field(default=None, init=False, repr=False)
+    _summary: ReportSummary | None = field(default=None, init=False, repr=False)
+    has_any_session: bool = field(default=False, init=False, repr=False)
 
-def _make_on_session_closed(
-    report_summary: ReportSummary, report_file: TextIO
-) -> Callable[[DailySession], None]:
-    """Binds `summary` as a parameter of this call, not a closure over a
-    loop variable -- the `summary` local in execute()'s while loop is
-    rebound every iteration, and a `previous` chunk keeps receiving bars
-    (and closing sessions) into the *next* iteration, so a plain closure
-    over that variable would silently miscount those late closes into the
-    new chunk's summary instead of its own."""
+    def __call__(self, session: DailySession) -> None:
+        self.has_any_session = True
+        report = DailySessionReport.from_session(session)
+        write_daily_session_report(report, self.report_file)
 
-    def on_session_closed(session: DailySession) -> None:
-        daily_session_report = DailySessionReport.from_session(session)
-        write_daily_session_report(daily_session_report, report_file)
-        report_summary.add(daily_session_report)
+        month_key = (report.day.year, report.day.month)
+        if month_key != self._month_key:
+            self.flush()
+            self._month_key = month_key
+            self._summary = ReportSummary(
+                risk_reward_ratio=self.risk_reward_ratio,
+                max_range_pips=self.max_range_pips,
+            )
 
-    return on_session_closed
+        self._summary.add(report)
+
+    def flush(self) -> None:
+        if self._summary is not None:
+            write_report_summary(self._summary, self.say)
+            print(file=self.report_file)
+        self._summary = None
 
 
 def execute(
@@ -429,7 +413,6 @@ def execute(
         source_path: Path,
         max_range_pips : float,
         risk_reward_ratio: float,
-        granularity: str
     ):
 
     with open_report_file(report_dir_path) as report_file:
@@ -437,53 +420,28 @@ def execute(
             print(text)
             print(text, file=report_file)
 
-        def flush(chunk: _Chunk) -> None:
-            chunk.strategy.close_live_sessions()
-            write_report_summary(chunk.summary, say)
-            print(file=report_file)
+        monthly_reports = _MonthlyReportWriter(
+            risk_reward_ratio=risk_reward_ratio,
+            max_range_pips=max_range_pips,
+            report_file=report_file,
+            say=say,
+        )
 
-        all_bars = _retrieve_bars(source_path)
-        bar_chunks = BarChunks(all_bars, granularity=granularity)
+        strategy = SessionBreakoutStrategy(
+            max_range_pips=max_range_pips,
+            risk_reward_ratio=risk_reward_ratio,
+            on_session_closed=monthly_reports,
+        )
 
-        previous: _Chunk | None = None
+        for bar in _retrieve_bars(source_path):
+            strategy.add_bar(bar)
 
-        while bar_chunks.has_more:
-            summary = ReportSummary(
-                risk_reward_ratio=risk_reward_ratio,
-                max_range_pips=max_range_pips
-            )
-            current = _Chunk(
-                strategy=SessionBreakoutStrategy(
-                    max_range_pips=max_range_pips,
-                    risk_reward_ratio=risk_reward_ratio,
-                    on_session_closed=_make_on_session_closed(summary, report_file),
-                ),
-                summary=summary,
-            )
+        strategy.close_live_sessions()
 
-            for bar in bar_chunks.iterate():
-                current.strategy.add_bar(bar)
-
-                if previous is not None:
-                    previous.strategy.add_bar(bar)
-                    if not previous.strategy.has_live_sessions:
-                        flush(previous)
-                        previous = None
-
-            if previous is not None:
-                # Defensive: the previous chunk's sessions outlived this
-                # rollover. Shouldn't happen with real M1 data -- a
-                # session's window runs at most ~1 day past a chunk boundary
-                # -- but don't silently drop it if it ever does.
-                flush(previous)
-
-            current.strategy.retire()
-            previous = current
-
-        if previous is None:
+        if not monthly_reports.has_any_session:
             raise SystemExit("error: no session bars found in source")
 
-        flush(previous)
+        monthly_reports.flush()
 
     print(f"\nReport written to: {report_dir_path}")
 
