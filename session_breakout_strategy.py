@@ -64,7 +64,7 @@ from domain.trading_session_template import TokyoSessionTemplate, TradingSession
 from ports.file_system_access.file_system import find_files
 from ports.mt5_file_access import Bar, iterate_bars
 
-TESTED_SYMBOL: Symbol = EurUsd()
+_SYMBOL: Symbol = EurUsd()
 
 #_SESSION_TEMPLATE: TradingSessionTemplate = TokyoSessionTemplate()
 # _SESSION_TEMPLATE: TradingSessionTemplate = TradingSessionTemplate(
@@ -81,10 +81,6 @@ _SESSION_TEMPLATE: TradingSessionTemplate = TradingSessionTemplate(
 # after (`breakout_cutoff`), and any still-open position is force-closed at
 # the session's own end time on that same following day (`window_end`).
 _TRADE_WINDOW = timedelta(days=1)
-
-
-def _to_pips(price_diff: float) -> float:
-    return price_diff / TESTED_SYMBOL.pip_size
 
 
 _OUTCOME_TEXT: dict[Outcome, str] = {
@@ -242,7 +238,7 @@ class DailySession:
 
     @property
     def range_pips(self) -> float:
-        return _to_pips(self.session.range)
+        return _SYMBOL.to_pips(self.session.range)
 
     @property
     def is_cancelled(self) -> bool:
@@ -522,7 +518,7 @@ def _retrieve_bars(source_path: Path) -> Iterator[Bar]:
 
 
 def _fmt_price(value: float) -> str:
-    return f"{value:.{TESTED_SYMBOL.price_decimals}f}"
+    return f"{value:.{_SYMBOL.price_decimals}f}"
 
 
 def _fmt_pips(value: float) -> str:
@@ -536,8 +532,8 @@ def _fmt_position(label: str, position: Position | None) -> str:
     header = (
         f"  {label}: triggered {position.open_dt:%Y-%m-%d %H:%M} @ "
         f"{_fmt_price(position.open_price)}  "
-        f"(SL {_fmt_pips(_to_pips(position.risk_amount))} @ {_fmt_price(position.sl)}, "
-        f"TP {_fmt_pips(_to_pips(position.reward_amount))} @ {_fmt_price(position.tp)})"
+        f"(SL {_fmt_pips(_SYMBOL.to_pips(position.risk_amount))} @ {_fmt_price(position.sl)}, "
+        f"TP {_fmt_pips(_SYMBOL.to_pips(position.reward_amount))} @ {_fmt_price(position.tp)})"
     )
 
     if not position.is_closed:
@@ -669,7 +665,7 @@ def write_bar_block(bar_block: BarBlock, indent: str, out: TextIO) -> None:
     print(f"{indent}High: {_fmt_price(bar_block.high_value)} ({bar_block.high_dt})", file=out)
     print(f"{indent}Low: {_fmt_price(bar_block.low_value)} ({bar_block.low_dt})", file=out)
     print(f"{indent}Close: {_fmt_price(bar_block.close_value)} ({bar_block.close_dt})", file=out)
-    print(f"{indent}Range: {_fmt_pips(_to_pips(bar_block.range))}", file=out)
+    print(f"{indent}Range: {_fmt_pips(_SYMBOL.to_pips(bar_block.range))}", file=out)
 
 
 def write_report_summary(summary: ReportSummary, say: Callable[[str], None]) -> None:

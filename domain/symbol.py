@@ -1,7 +1,7 @@
 """`Symbol`: the fixed specification of a tradeable instrument -- its pip size
 and tick size -- and nothing else. A `Symbol` doesn't know about bars, prices
 observed, or any strategy; it's the constant a strategy consults to convert a
-raw price difference into pips (`pip_size`) or to format a price to the
+raw price difference into pips (`to_pips`) or to format a price to the
 instrument's native precision (`price_decimals`, derived from `tick_size`).
 
 Frozen, like `TradingSessionTemplate` -- a symbol's specification doesn't
@@ -20,7 +20,16 @@ from dataclasses import dataclass
 from decimal import Decimal
 from functools import cached_property
 
-__all__ = ["Symbol", "EurUsd"]
+__all__ = [
+    "Symbol",
+    "EurUsd",
+    "GbpUsd",
+    "AudUsd",
+    "NzdUsd",
+    "UsdCad",
+    "UsdChf",
+    "UsdJpy",
+]
 
 
 @dataclass(frozen=True)
@@ -31,6 +40,11 @@ class Symbol:
     ticker: str
     pip_size: float
     tick_size: float
+
+    def to_pips(self, price_diff: float) -> float:
+        """Convert a price-unit difference (e.g. `Bar.range`,
+        `Position.risk_amount`) into this symbol's pips."""
+        return price_diff / self.pip_size
 
     @cached_property
     def price_decimals(self) -> int:
@@ -48,4 +62,66 @@ class EurUsd(Symbol):
             ticker="EURUSD",
             pip_size=0.0001,
             tick_size=0.00001,
+        )
+
+
+class GbpUsd(Symbol):
+    def __init__(self) -> None:
+        super().__init__(
+            name="British Pound / U.S. Dollar",
+            ticker="GBPUSD",
+            pip_size=0.0001,
+            tick_size=0.00001,
+        )
+
+
+class AudUsd(Symbol):
+    def __init__(self) -> None:
+        super().__init__(
+            name="Australian Dollar / U.S. Dollar",
+            ticker="AUDUSD",
+            pip_size=0.0001,
+            tick_size=0.00001,
+        )
+
+
+class NzdUsd(Symbol):
+    def __init__(self) -> None:
+        super().__init__(
+            name="New Zealand Dollar / U.S. Dollar",
+            ticker="NZDUSD",
+            pip_size=0.0001,
+            tick_size=0.00001,
+        )
+
+
+class UsdCad(Symbol):
+    def __init__(self) -> None:
+        super().__init__(
+            name="U.S. Dollar / Canadian Dollar",
+            ticker="USDCAD",
+            pip_size=0.0001,
+            tick_size=0.00001,
+        )
+
+
+class UsdChf(Symbol):
+    def __init__(self) -> None:
+        super().__init__(
+            name="U.S. Dollar / Swiss Franc",
+            ticker="USDCHF",
+            pip_size=0.0001,
+            tick_size=0.00001,
+        )
+
+
+class UsdJpy(Symbol):
+    def __init__(self) -> None:
+        # JPY pairs quote two decimals fewer than the others -- a pip is the
+        # 2nd decimal (0.01), not the 4th, and the tradeable tick is the 3rd.
+        super().__init__(
+            name="U.S. Dollar / Japanese Yen",
+            ticker="USDJPY",
+            pip_size=0.01,
+            tick_size=0.001,
         )
