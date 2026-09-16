@@ -21,6 +21,6 @@ def test_exposes_the_underlying_bar_block() -> None:
     )
     session.add(bar)
 
-    assert isinstance(session.bars, BarBlock)
-    assert session.bars.open_value == 1.1000
-    assert session.bars.close_value == 1.1005
+    assert isinstance(session.bar_block, BarBlock)
+    assert session.bar_block.open_value == 1.1000
+    assert session.bar_block.close_value == 1.1005

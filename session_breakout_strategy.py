@@ -55,7 +55,6 @@ from typing import TextIO
 from zoneinfo import ZoneInfo
 from domain.trading_session_template import AsianSessionTemplate
 
-from domain.bar_block import BarBlock
 from domain.position import Outcome, PendingPosition, Position
 from domain.shift_bars import shift_bars
 from domain.symbol import EurUsd, Symbol
@@ -319,6 +318,36 @@ class DailySession:
 
         return True
 
+    def create_report(self) -> DailySessionReport:
+        """Snapshot this (closed) session into an immutable `DailySessionReport`
+        -- everything a display layer needs, and nothing that requires reaching
+        back into this (mutable, possibly still-simulating-other-days) session
+        afterwards."""
+        bar_block = self.session.bar_block if self.session.bar_count > 0 else None
+        positions = [p for p in (self.position_long, self.position_short) if p is not None]
+
+        return DailySessionReport(
+            day=self.day,
+            name=f"{self.session.start_dt_utc():%H:%M}-{self.session.end_dt_utc():%H:%M} UTC",
+            bar_count=self.session.bar_count,
+            open_value=bar_block.open_value if bar_block is not None else None,
+            open_dt=bar_block.open_dt if bar_block is not None else None,
+            high_value=bar_block.high_value if bar_block is not None else None,
+            high_dt=bar_block.high_dt if bar_block is not None else None,
+            low_value=bar_block.low_value if bar_block is not None else None,
+            low_dt=bar_block.low_dt if bar_block is not None else None,
+            close_value=bar_block.close_value if bar_block is not None else None,
+            close_dt=bar_block.close_dt if bar_block is not None else None,
+            range_value=bar_block.range if bar_block is not None else None,
+            is_cancelled=self.is_cancelled,
+            max_range_pips=self.max_range_pips,
+            range_pips=self.range_pips,
+            risk_reward_ratio=self.risk_reward_ratio,
+            positions=positions,
+            first_candle_dt=self.first_candle_dt,
+            last_candle_dt=self.last_candle_dt,
+        )
+
 
 def main() -> None:
     start_time = time.perf_counter()
@@ -387,7 +416,7 @@ class _MonthlyReportWriter:
 
     def __call__(self, session: DailySession) -> None:
         self.has_any_session = True
-        report = DailySessionReport.from_session(session)
+        report = session.create_report()
         write_daily_session_report(report, self.report_file)
 
         month_key = (report.day.year, report.day.month)
@@ -482,10 +511,7 @@ def _fmt_pips(value: float) -> str:
     return f"{value:.1f}p"
 
 
-def _fmt_position(label: str, position: Position | None) -> str:
-    if position is None:
-        return f"  {label}: {outcome_text(Outcome.NONE)}"
-
+def _fmt_position(label: str, position: Position) -> str:
     header = (
         f"  {label}: triggered {position.open_dt:%Y-%m-%d %H:%M} @ "
         f"{_fmt_price(position.open_price)}  "
@@ -509,43 +535,32 @@ def _fmt_position(label: str, position: Position | None) -> str:
 
 @dataclass(frozen=True)
 class DailySessionReport:
-    """Everything about one closed DailyStrategySession that's needed to
-    display it -- built once, at close time, from a live DailyStrategySession
-    (see `from_session`), and from then on used as a plain, immutable
-    snapshot by both `write_session_report` and `ReportSummary.add` instead
-    of either reaching back into the (mutable, still-simulating-other-days)
-    domain object directly."""
+    """Everything about one closed DailySession that's needed to display it --
+    built once, at close time, by `DailySession.create_report()`, and from
+    then on used as a plain, immutable snapshot by both
+    `write_daily_session_report` and `ReportSummary.add` instead of either
+    reaching back into the (mutable, still-simulating-other-days) domain
+    object directly."""
 
     day: _date
-    window_label: str
+    name: str
     bar_count: int
-    bars: BarBlock | None
+    open_value: float | None
+    open_dt: datetime | None
+    high_value: float | None
+    high_dt: datetime | None
+    low_value: float | None
+    low_dt: datetime | None
+    close_value: float | None
+    close_dt: datetime | None
+    range_value: float | None
     is_cancelled: bool
     max_range_pips: float
     range_pips: float
     risk_reward_ratio: float
-    position_long: Position | None
-    position_short: Position | None
+    positions: list[Position]
     first_candle_dt: datetime | None
     last_candle_dt: datetime | None
-
-    @classmethod
-    def from_session(cls, result: DailySession) -> DailySessionReport:
-        session = result.session
-        return cls(
-            day=result.day,
-            window_label=f"{session.start_dt_utc():%H:%M}-{session.end_dt_utc():%H:%M} UTC",
-            bar_count=session.bar_count,
-            bars=session.bars if session.bar_count > 0 else None,
-            is_cancelled=result.is_cancelled,
-            max_range_pips=result.max_range_pips,
-            range_pips=result.range_pips,
-            risk_reward_ratio=result.risk_reward_ratio,
-            position_long=result.position_long,
-            position_short=result.position_short,
-            first_candle_dt=result.first_candle_dt,
-            last_candle_dt=result.last_candle_dt,
-        )
 
 
 @dataclass
@@ -576,10 +591,9 @@ class ReportSummary:
             self.cancelled_days += 1
             return
 
-        for position in (report.position_long, report.position_short):
-            if position is not None:
-                self.position_count += 1
-                self.outcome_counts[position.outcome] += 1
+        for position in report.positions:
+            self.position_count += 1
+            self.outcome_counts[position.outcome] += 1
 
     @property
     def traded_days(self) -> int:
@@ -598,13 +612,13 @@ def write_daily_session_report(report: DailySessionReport, out: TextIO) -> None:
     Called once per session, directly from the on_session_closed callback,
     as each session closes; see ReportSummary.add for the totals this used
     to accumulate inline."""
-    print(f"=== {report.day.isoformat()} (session {report.window_label}) ===", file=out)
+    print(f"=== {report.day.isoformat()} (session {report.name}) ===", file=out)
 
     if report.bar_count == 0:
         print("  CANCELLED (no session bars for this day)\n", file=out)
         return
 
-    write_bar_block(report.bars, "  ", out)
+    write_ohlc(report, "  ", out)
 
     if report.is_cancelled:
         print(f"  CANCELLED (> {report.max_range_pips:.0f}p threshold)\n", file=out)
@@ -612,17 +626,21 @@ def write_daily_session_report(report: DailySessionReport, out: TextIO) -> None:
 
     risk_pips = report.range_pips / 2
     print(f"  SL: {_fmt_pips(risk_pips)}   TP: {_fmt_pips(risk_pips * report.risk_reward_ratio)}", file=out)
-    print(_fmt_position("LONG ", report.position_long), file=out)
-    print(_fmt_position("SHORT", report.position_short), file=out)
+    if report.positions:
+        for position in report.positions:
+            label = "LONG " if position.is_long else "SHORT"
+            print(_fmt_position(label, position), file=out)
+    else:
+        print(f"  {outcome_text(Outcome.NONE)}", file=out)
     print(file=out)
 
 
-def write_bar_block(bar_block: BarBlock, indent: str, out: TextIO) -> None:
-    print(f"{indent}Open: {_fmt_price(bar_block.open_value)} ({bar_block.open_dt})", file=out)
-    print(f"{indent}High: {_fmt_price(bar_block.high_value)} ({bar_block.high_dt})", file=out)
-    print(f"{indent}Low: {_fmt_price(bar_block.low_value)} ({bar_block.low_dt})", file=out)
-    print(f"{indent}Close: {_fmt_price(bar_block.close_value)} ({bar_block.close_dt})", file=out)
-    print(f"{indent}Range: {_fmt_pips(_SYMBOL.to_pips(bar_block.range))}", file=out)
+def write_ohlc(report: DailySessionReport, indent: str, out: TextIO) -> None:
+    print(f"{indent}Open: {_fmt_price(report.open_value)} ({report.open_dt})", file=out)
+    print(f"{indent}High: {_fmt_price(report.high_value)} ({report.high_dt})", file=out)
+    print(f"{indent}Low: {_fmt_price(report.low_value)} ({report.low_dt})", file=out)
+    print(f"{indent}Close: {_fmt_price(report.close_value)} ({report.close_dt})", file=out)
+    print(f"{indent}Range: {_fmt_pips(_SYMBOL.to_pips(report.range_value))}", file=out)
 
 
 def write_report_summary(summary: ReportSummary, say: Callable[[str], None]) -> None:

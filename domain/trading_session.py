@@ -31,7 +31,7 @@ class TradingSession:
         return dt.astimezone(UTC)
 
     @property
-    def bars(self) -> BarBlock:
+    def bar_block(self) -> BarBlock:
         """The underlying `BarBlock`, for callers that need its full OHLC
         detail (open/close values and timestamps) rather than just the
         aggregate stats exposed directly below."""
