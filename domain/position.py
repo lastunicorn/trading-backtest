@@ -142,22 +142,24 @@ class PendingPosition:
 
         return cls(price=price, sl=sl, tp=tp)
 
-    def open_position(self, open_dt: datetime) -> Position:
-        return Position(open_dt=open_dt, open_price=self.price, sl=self.sl, tp=self.tp)
-
-    def hit(self, bar: Bar) -> Position | None:
+    def try_open_position(self, bar: Bar) -> Position | None:
         """Check if this pending position would be triggered by `bar`."""
-        if self.is_long:
-            hit = bar.is_partially_above_or_equal(self.price)
-        else:
-            hit = bar.is_partially_below_or_equal(self.price)
+        hit = self._is_hit(bar)
 
         if hit:
-            return self.open_position(bar.dt)
+            return Position(
+                open_dt=bar.dt,
+                open_price=self.price,
+                sl=self.sl,
+                tp=self.tp)
 
         return None
 
-    def simulate_hit(self, bar: Bar) -> bool:
+    def simulate_open_position(self, bar: Bar) -> bool:
+        """Check if this pending position would be triggered by `bar`."""
+        return self._is_hit(bar)
+
+    def _is_hit(self, bar: Bar) -> bool:
         """Check if this pending position would be triggered by `bar`."""
         if self.is_long:
             return bar.is_partially_above_or_equal(self.price)

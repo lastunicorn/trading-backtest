@@ -51,10 +51,12 @@ from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, field
 from datetime import UTC, date as _date, datetime, time as _time, timedelta
 from pathlib import Path
-from typing import TextIO
+from typing import ClassVar, TextIO
 from zoneinfo import ZoneInfo
 from domain.trading_session_template import AsianSessionTemplate
 
+from domain.daily_session_base import DailySessionBase
+from domain.daily_strategy_base import DailyStrategyBase
 from domain.position import Outcome, PendingPosition, Position
 from domain.shift_bars import shift_bars
 from domain.symbol import EurUsd, Symbol
@@ -64,21 +66,6 @@ from ports.file_system_access.file_system import find_files
 from ports.mt5_file_access import Bar, iterate_bars
 
 _SYMBOL: Symbol = EurUsd()
-
-#_SESSION_TEMPLATE: TradingSessionTemplate = TokyoSessionTemplate()
-_SESSION_TEMPLATE: TradingSessionTemplate = AsianSessionTemplate()
-
-# _SESSION_TEMPLATE: TradingSessionTemplate = TradingSessionTemplate(
-#     start_time=_time(8, 0, tzinfo=ZoneInfo("America/New_York")),
-#     end_time=_time(9, 0, tzinfo=ZoneInfo("America/New_York")),
-# )
-
-# The breakout/force-close window always runs exactly one calendar day past
-# the range-session's own day: entries are only taken up to midnight the day
-# after (`breakout_cutoff`), and any still-open position is force-closed at
-# the session's own end time on that same following day (`window_end`).
-_TRADE_WINDOW = timedelta(days=1)
-
 
 _OUTCOME_TEXT: dict[Outcome, str] = {
     Outcome.NONE: "not triggered (H/L not broken by 00:00 next day)",
@@ -94,100 +81,53 @@ def outcome_text(outcome: Outcome) -> str:
 
 
 @dataclass
-class SessionBreakoutStrategy:
+class SessionBreakoutStrategy(DailyStrategyBase):
     """Encapsulates the Tokyo Session Breakout rules (see
-    tokyo-session-breakout.md): fed one chronological bar at a time via
-    add_bar(), decides each day's range-session range (see
+    tokyo-session-breakout.md): decides each day's range-session range (see
     `_SESSION_TEMPLATE`), whether it's tradeable, and simulates the
-    breakout/SL/TP/force-close outcome for both sides.
-
-    Fed the entire bar stream from first bar to last by a single instance
-    (see `execute()`) -- it doesn't split, chunk, or hand off state to
-    another instance. close_live_sessions() force-closes whatever's still
-    live, for use once the bar stream truly ends.
-
-    on_session_closed, if set, is called with each StrategyDailySession the
-    moment it closes (window_end reached, whether via a bar in add_bar() or
-    a force-close in close_live_sessions()) -- exactly once per session."""
+    breakout/SL/TP/force-close outcome for both sides. See
+    `DailyStrategyBase` for the bar-feeding/session-lifecycle contract
+    (add_bar, close_live_sessions, on_session_closed)."""
 
     max_range_pips: float = 30.0
     risk_reward_ratio: float = 1.5
-    on_session_closed: Callable[[DailySession], None] | None = None
 
-    _sessions: dict[_date, DailySession] = field(default_factory=dict, init=False, repr=False)
-    _session_order: list[_date] = field(default_factory=list, init=False, repr=False)
-    _live_sessions: list[DailySession] = field(default_factory=list, init=False, repr=False)
-
-    def add_bar(self, bar: Bar) -> None:
-        """Feed one bar (bars must arrive chronologically). Creates a new
-        DailySession the moment a bar for a new calendar day appears. Every
-        currently-live session then receives the bar, so a day's own
-        session (accumulating its range-session range) and the previous
-        day's session (still resolving its breakout window, which runs
-        until the session's own end time the day after) are both fed the
-        same bar. A session force-closes itself, and freezes, once a bar
-        reaches its window_end; add_bar() only has to notice that and drop
-        it from the live list."""
-        bar_date = bar.dt.date()
-
-        if bar_date not in self._sessions:
-            session = DailySession(bar_date, self.max_range_pips, self.risk_reward_ratio)
-            self._sessions[bar_date] = session
-            self._session_order.append(bar_date)
-            self._live_sessions.append(session)
-
-        for session in list(self._live_sessions):
-            session.add_bar(bar)
-
-            if session.is_closed:
-                self._live_sessions.remove(session)
-                self._notify_closed(session)
-
-    def close_live_sessions(self) -> None:
-        """Force-close every still-live session at its own window_end."""
-        for session in self._live_sessions:
-            session.close(session.window_end)
-            self._notify_closed(session)
-        self._live_sessions.clear()
-
-    def _notify_closed(self, session: DailySession) -> None:
-        if self.on_session_closed is not None:
-            self.on_session_closed(session)
+    def _create_session(self, day: _date) -> DailySessionBase:
+        return DailySession(day, max_range_pips=self.max_range_pips, risk_reward_ratio=self.risk_reward_ratio)
 
 
 @dataclass
-class DailySession:
+class DailySession(DailySessionBase):
     """One calendar day's range-session range (see `_SESSION_TEMPLATE`) plus
-    the breakout window it opens. Accumulates session-window bars via
-    `add_bar()` until the session's own end time, decides whether the day
-    trades, then simulates the breakout/SL/TP outcome for both sides as
-    further bars arrive -- through its own window_end (the session's own end
-    time the day after). `close()` force-closes anything still open and
-    freezes the session; calling `add_bar()` or `close()` again afterwards
-    raises."""
+    the breakout window it opens. Accumulates session-window bars until the
+    session's own end time, decides whether the day trades, then simulates
+    the breakout/SL/TP outcome for both sides as further bars arrive --
+    through its own window_end (the session's own end time the day after).
+    See `DailySessionBase` for the add_bar/close/window_end lifecycle
+    contract."""
 
-    day: _date
+    # ClassVar, not a field: an annotated class-body assignment on a
+    # @dataclass becomes an __init__ parameter unless marked ClassVar,
+    # which silently shifts every positional argument after it.
+    #_SESSION_TEMPLATE: ClassVar[TradingSessionTemplate] = TokyoSessionTemplate()
+    _SESSION_TEMPLATE: ClassVar[TradingSessionTemplate] = AsianSessionTemplate()
+
+    # _SESSION_TEMPLATE: ClassVar[TradingSessionTemplate] = TradingSessionTemplate(
+    #     start_time=_time(8, 0, tzinfo=ZoneInfo("America/New_York")),
+    #     end_time=_time(9, 0, tzinfo=ZoneInfo("America/New_York")),
+    # )
+
     max_range_pips: float = 10.0
     risk_reward_ratio: float = 1.0
-    session: TradingSession = field(init=False, repr=False)
+    reference_session: TradingSession = field(init=False, repr=False)
 
-    session_start: datetime = field(init=False, repr=False)
-    window_start: datetime = field(init=False, repr=False)
-    window_end: datetime = field(init=False, repr=False)
-    breakout_cutoff: datetime = field(init=False, repr=False)
+    trading_start_dt: datetime = field(init=False, repr=False)
+    trading_end_dt: datetime = field(init=False, repr=False)
 
-    pending_long: PendingPosition | None = None
-    pending_short: PendingPosition | None = None
+    _pending_positions: list[PendingPosition] = field(default_factory=list, init=False, repr=False)
+    _positions: list[Position] = field(default_factory=list, init=False, repr=False)
 
-    position_long: Position | None = None
-    position_short: Position | None = None
-
-    _is_session_resolved: bool = field(default=False, init=False, repr=False)
-    _is_closed: bool = field(default=False, init=False, repr=False)
-    _closed_dt: datetime | None = field(default=None, init=False, repr=False)
-
-    _first_candle_dt: datetime | None = field(default=None, init=False, repr=False)
-    _last_candle_dt: datetime | None = field(default=None, init=False, repr=False)
+    _is_reference_session_resolved: bool = field(default=False, init=False, repr=False)
 
     def __post_init__(self) -> None:
         """`session_start`/`window_start`/`window_end`/`breakout_cutoff` are
@@ -195,141 +135,100 @@ class DailySession:
         known, so they're computed once here rather than recomputed on every
         `add_bar()` call -- they used to be `@property`s that redid a
         `ZoneInfo` conversion on every single bar of the stream."""
-        self.session = _SESSION_TEMPLATE.create_session(self.day)
+        self.reference_session = self._SESSION_TEMPLATE.create_session(self.day)
 
         # Naive, UTC wall-clock -- matches every other datetime in this class
         # (see module docstring's timezone note); `session.start/end_dt_utc()`
         # are aware.
-        self.session_start = self.session.start_dt_utc().replace(tzinfo=None)
-        self.window_start = self.session.end_dt_utc().replace(tzinfo=None)
-
-        # Entries are only taken up to midnight `_TRADE_WINDOW` after the
-        # session's day -- a break past this point opens no trade.
-        self.breakout_cutoff = datetime.combine(self.day + _TRADE_WINDOW, _time(0, 0))
+        self.start_dt = self.reference_session.start_dt_utc().replace(tzinfo=None)
 
         # Force-close point for any position still open: the session's own
         # end time, `_TRADE_WINDOW` after the session's day.
-        self.window_end = _SESSION_TEMPLATE.end_time_utc_on(self.day + _TRADE_WINDOW).replace(tzinfo=None)
+        self.end_dt = self._SESSION_TEMPLATE.end_time_utc_on(self.day + timedelta(days=1)).replace(tzinfo=None)
+
+        self.trading_start_dt = self.reference_session.end_dt_utc().replace(tzinfo=None)
+
+        # Tradings are taken until the session end time.
+        # After that, wait to be closed until next session's trading start time.
+        self.trading_end_dt = self.end_dt
 
     @property
     def range_pips(self) -> float:
-        return _SYMBOL.to_pips(self.session.range)
+        return _SYMBOL.to_pips(self.reference_session.range)
 
     @property
     def is_cancelled(self) -> bool:
-        return self.session.bar_count == 0 or self.range_pips > self.max_range_pips
+        return self.reference_session.bar_count == 0 or self.range_pips > self.max_range_pips
 
-    @property
-    def is_closed(self) -> bool:
-        return self._is_closed
+    # override
+    def _on_before_process_positions(self, bar: Bar) -> bool:
+        if not self._is_reference_session_resolved:
+            self._add_to_reference_session(bar)
 
-    @property
-    def closed_dt(self) -> datetime | None:
-        return self._closed_dt
+        return self._is_reference_session_resolved
 
-    @property
-    def first_candle_dt(self) -> datetime | None:
-        return self._first_candle_dt
-
-    @property
-    def last_candle_dt(self) -> datetime | None:
-        return self._last_candle_dt
-
-    def add_bar(self, bar: Bar) -> bool:
-        if self._is_closed:
-            raise RuntimeError(f"DailySession for {self.day} is already closed at {self.closed_dt}. Cannot add more bars.")
-
-        if self._first_candle_dt is None:
-            self._first_candle_dt = bar.dt
-        self._last_candle_dt = bar.dt
-
-        if bar.dt >= self.window_end:
-            self.close(self.window_end)
-            return False
-
-        if not self._is_session_resolved:
-            if self._process_bar_session(bar):
-                return True
-
-        if bar.dt >= self.window_start:
-            self._process_bar_normal(bar)
-            return True
-
-        return False
-
-    def _process_bar_session(self, bar: Bar) -> bool:
-        if bar.dt < self.session_start:
-            return False
-
+    def _add_to_reference_session(self, bar: Bar) -> bool:
         if bar.dt.date() == self.day:
-            success = self.session.add(bar)
-            if success:
+            if self.reference_session.add(bar):
                 return True
 
-        self._resolve_session()
+        self._resolve_reference_session()
         return False
 
-    def _resolve_session(self) -> None:
-        self._is_session_resolved = True
+    def _resolve_reference_session(self) -> None:
+        self._is_reference_session_resolved = True
+
         if self.is_cancelled:
             return
-        mid = self.session.mid
-        self.pending_long = PendingPosition.for_level(self.session.high_value, mid, self.risk_reward_ratio)
-        self.pending_short = PendingPosition.for_level(self.session.low_value, mid, self.risk_reward_ratio)
 
-    def _process_bar_normal(self, bar: Bar) -> None:
-        self.position_long = self._process_side(bar, self.position_long, self.pending_long)
-        self.position_short = self._process_side(bar, self.position_short, self.pending_short)
+        mid = self.reference_session.mid
 
-    def _process_side(
-        self, bar: Bar, position: Position | None, pending: PendingPosition | None
-    ) -> Position | None:
-        if pending is None:
-            return None
+        pending_long = PendingPosition.for_level(self.reference_session.high_value, mid, self.risk_reward_ratio)
+        self._pending_positions.append(pending_long)
 
-        if position is None:
-            if bar.dt < self.breakout_cutoff:
-                position = pending.hit(bar)
-                if position is not None:
-                    position.hit(bar)
-            return position
+        pending_short = PendingPosition.for_level(self.reference_session.low_value, mid, self.risk_reward_ratio)
+        self._pending_positions.append(pending_short)
 
-        if not position.is_closed:
-            position.hit(bar)
+    # override
+    def _process_positions(self, bar: Bar) -> None:
+        if self.trading_start_dt <= bar.dt <= self.trading_end_dt:
+            self._process_pending_positions(bar)
+            self._process_active_positions(bar)
 
-        return position
+    def _process_pending_positions(self, bar):
+        pending_positions = list(self._pending_positions)
 
-    def close_at_end(self) -> bool:
-        return self.close(self.window_end)
+        for pending_positon in pending_positions:
+            if pending_positon is not None:
+                new_position = pending_positon.try_open_position(bar)
 
-    def close(self, at: datetime) -> bool:
-        if self._is_closed:
-            if at !=self.closed_dt:
-                raise RuntimeError(f"DailySession for {self.day} is already closed at {self.closed_dt}")
-            else:
-                return False
+                if new_position is not None:
+                    self._pending_positions.remove(pending_positon)
+                    self._positions.append(new_position)
 
-        for position in (self.position_long, self.position_short):
-            if position is not None and position.is_closed is False:
-                position.close(at)
+    def _process_active_positions(self, bar):
+        for position in self._positions:
+            if position is not None and not position.is_closed:
+                position.hit(bar)
 
-        self._is_closed = True
-        self._closed_dt = at
-
-        return True
+    # override
+    def _close_all_positions(self, dt: datetime) -> None:
+        for position in self._positions:
+            if position.is_closed is False:
+                position.close(dt)
 
     def create_report(self) -> DailySessionReport:
         """Snapshot this (closed) session into an immutable `DailySessionReport`
         -- everything a display layer needs, and nothing that requires reaching
         back into this (mutable, possibly still-simulating-other-days) session
         afterwards."""
-        bar_block = self.session.bar_block if self.session.bar_count > 0 else None
-        positions = [p for p in (self.position_long, self.position_short) if p is not None]
+        bar_block = self.reference_session.bar_block if self.reference_session.bar_count > 0 else None
+        positions = [p for p in self._positions if p is not None]
 
         return DailySessionReport(
             day=self.day,
-            name=f"{self.session.start_dt_utc():%H:%M}-{self.session.end_dt_utc():%H:%M} UTC",
-            bar_count=self.session.bar_count,
+            name=f"{self.reference_session.start_dt_utc():%H:%M}-{self.reference_session.end_dt_utc():%H:%M} UTC",
+            bar_count=self.reference_session.bar_count,
             open_value=bar_block.open_value if bar_block is not None else None,
             open_dt=bar_block.open_dt if bar_block is not None else None,
             high_value=bar_block.high_value if bar_block is not None else None,
