@@ -4,14 +4,13 @@ Utility, not a research stage: reads via ports.mt5_file_access and either
 displays -- nothing written to disk -- or, with --output, writes the
 processed data to a CSV.
 
-    python3 show_csv.py data/eurusd/1min/EURUSD_2020_01.csv        # first 20 bars
-    python3 show_csv.py data/eurusd/1min/EURUSD_2020_01.csv --tail --rows 5
-    python3 show_csv.py data/eurusd/1min/EURUSD_2020_01.csv --all | less
-    python3 show_csv.py data/eurusd/1min --interval 5m              # whole folder, resampled to M5
-    python3 show_csv.py data/eurusd/1min --interval 1w              # resampled to weekly bars
-    python3 show_csv.py data/eurusd/1min --timezone UTC             # broker-server time -> UTC
-    python3 show_csv.py data/eurusd/1min --output scratch/jan.csv   # write instead of display
-    python3 show_csv.py path/to/other.csv --decimals 3
+    python3 read_csv_as_frame.py data/eurusd/1min/EURUSD_2020_01.csv        # first 20 bars
+    python3 read_csv_as_frame.py data/eurusd/1min/EURUSD_2020_01.csv --tail --rows 5
+    python3 read_csv_as_frame.py data/eurusd/1min/EURUSD_2020_01.csv --all | less
+    python3 read_csv_as_frame.py data/eurusd/1min --interval 5m              # whole folder, resampled to M5
+    python3 read_csv_as_frame.py data/eurusd/1min --interval 1w              # resampled to weekly bars
+    python3 read_csv_as_frame.py data/eurusd/1min --timezone UTC             # broker-server time -> UTC
+    python3 read_csv_as_frame.py data/eurusd/1min --output scratch/jan.csv   # write instead of display
 
 `source` is a single file or a folder of exports (see ports.file_system_access
 .find_files) -- a folder's files are read in name order, which is chronological
@@ -21,10 +20,11 @@ timezone (--timezone; off by default -- bars display in raw broker-server
 time otherwise), optionally resample (--interval), then display or write
 (--output). See domain.sample_size.SampleSize for the --interval syntax (5m,
 4h, 7d, 2w, 3M, ...); resampling uses plain pandas bucket semantics (see
-domain.pandas_approach.frames.resample_ohlc).
+domain.pandas_approach.frames.resample_ohlc). Price decimals are fixed by
+the symbol (EurUsd, via domain.symbol) rather than a CLI flag.
 
---rows/--all/--tail/--decimals only affect the console display; --output
-always writes the full processed frame regardless of them.
+--rows/--all/--tail only affect the console display; --output always writes
+the full processed frame regardless of them.
 
 Requires pandas (see requirements.txt); activate .venv first.
 """
@@ -93,8 +93,6 @@ def main():
 
     if target_tz is not None:
         frame = shift_timezone(frame, target_tz)
-    else:
-        frame = shift_timezone(frame, ZoneInfo("UTC"))
 
     if interval is not None:
         frame = resample_ohlc(frame, _to_pandas_rule(interval))
@@ -111,7 +109,7 @@ def main():
         print(f"TIMEZONE: {args.timezone}")
 
     print("=" * 64)
-    print(f"Timezone: {args.timezone or 'UTC'}")
+    print(f"Timezone: {args.timezone or 'America/New_York (broker-server)'}")
     print(f"Bars:   {len(frame):,}")
     print(f"First:  {frame['datetime'].iloc[0]:%Y.%m.%d %H:%M}")
     print(f"Last:   {frame['datetime'].iloc[-1]:%Y.%m.%d %H:%M}")

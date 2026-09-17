@@ -9,7 +9,7 @@ into a DataFrame -- still parsing only, no cross-file dedup, which stays a
 Re-exported so callers can use the short form (`Bar` for convenience; its
 canonical home is `domain.bar`):
 
-    from ports.mt5_file_access import read_bars, iter_bars, Bar, read_frame, write_frame
+    from ports.mt5_file_access import read_bars, iter_bars, Bar, read_frame, write_frame, write_bars
 """
 
 from ports.mt5_file_access.mt5_frame_reader import read_frame, write_frame
@@ -21,6 +21,7 @@ from ports.mt5_file_access.mt5_bar_reader import (
     iterate_bars,
     read_bars,
     sniff_layout,
+    write_bars,
 )
 
 __all__ = [
@@ -32,5 +33,6 @@ __all__ = [
     "read_bars",
     "read_frame",
     "sniff_layout",
+    "write_bars",
     "write_frame",
 ]

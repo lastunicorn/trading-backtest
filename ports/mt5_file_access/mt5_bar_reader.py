@@ -25,9 +25,10 @@ from __future__ import annotations
 
 import csv
 import os
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
 
 from domain.bar_approach.bar import Bar
 
@@ -39,6 +40,7 @@ __all__ = [
     "iterate_bars",
     "read_bars",
     "sniff_layout",
+    "write_bars",
 ]
 
 DELIMITERS = (",", "\t", ";")
@@ -325,3 +327,54 @@ def read_bars(
     the file could be large.
     """
     return list(iterate_bars(path, strict=strict, on_skip=on_skip))
+
+
+def write_bars(bars: Iterable[Bar], path: str | Path) -> None:
+    """Write `bars` to a CSV file in MT5 export shape.
+
+    The `Bar` counterpart to `mt5_frame_reader.write_frame`: same column
+    layout (`date` `YYYY.MM.DD`, `time` `HH:MM`, then open/high/low/close/
+    tick_volume, and optionally volume/spread), the inverse of what this
+    module's readers parse. `volume` is included only when at least one bar
+    carries a real volume, `spread` only when at least one bar carries one --
+    most exports in this repo have neither, matching `write_frame`, which
+    likewise only writes a column the source data actually had.
+    """
+    path = Path(path)
+    bars = list(bars)
+
+    has_real_volume = any(bar.real_volume for bar in bars)
+    has_spread = any(bar.spread is not None for bar in bars)
+
+    header = ["date", "time", "open", "high", "low", "close", "tick_volume"]
+    if has_real_volume:
+        header.append("volume")
+    if has_spread:
+        header.append("spread")
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    with path.open("w", newline="") as f:
+        # lineterminator="\n": csv's own default is "\r\n"; write_frame (pandas
+        # to_csv) writes plain "\n", and the two should agree byte-for-byte.
+        writer = csv.writer(f, lineterminator="\n")
+        writer.writerow(header)
+
+        for bar in bars:
+            row = [
+                bar.dt.strftime("%Y.%m.%d"),
+                bar.dt.strftime("%H:%M"),
+                bar.open,
+                bar.high,
+                bar.low,
+                bar.close,
+                bar.tick_volume,
+            ]
+
+            if has_real_volume:
+                row.append(bar.real_volume)
+
+            if has_spread:
+                row.append("" if bar.spread is None else bar.spread)
+
+            writer.writerow(row)
