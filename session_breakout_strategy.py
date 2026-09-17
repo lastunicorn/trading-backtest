@@ -67,18 +67,6 @@ from ports.mt5_file_access import Bar, iterate_bars
 
 _SYMBOL: Symbol = EurUsd()
 
-_OUTCOME_TEXT: dict[Outcome, str] = {
-    Outcome.NONE: "not triggered (H/L not broken by 00:00 next day)",
-    Outcome.TP_HIT: "TP HIT",
-    Outcome.SL_HIT: "SL HIT",
-    Outcome.AMBIGUOUS: "AMBIGUOUS (SL and TP both inside one bar)",
-    Outcome.FORCE_CLOSED: "OPEN AT FORCE-CLOSE (window ended, no SL/TP hit)",
-}
-
-
-def outcome_text(outcome: Outcome) -> str:
-    return _OUTCOME_TEXT[outcome]
-
 
 @dataclass
 class SessionBreakoutStrategy(DailyStrategyBase):
@@ -523,6 +511,19 @@ def _fmt_position(label: str, position: Position) -> str:
             f"@ {_fmt_price(position.close_price)}"
         )
     return header + "\n" + detail
+
+
+_OUTCOME_TEXT: dict[Outcome, str] = {
+    Outcome.NONE: "not triggered (H/L not broken by 00:00 next day)",
+    Outcome.TP_HIT: "TP HIT",
+    Outcome.SL_HIT: "SL HIT",
+    Outcome.AMBIGUOUS: "AMBIGUOUS (SL and TP both inside one bar)",
+    Outcome.FORCE_CLOSED: "OPEN AT FORCE-CLOSE (window ended, no SL/TP hit)",
+}
+
+
+def outcome_text(outcome: Outcome) -> str:
+    return _OUTCOME_TEXT[outcome]
 
 
 if __name__ == "__main__":

@@ -39,26 +39,6 @@ from application.resample_use_case import resample
 # 90-column rules, matching the reports the pipeline scripts print.
 WIDTH = 90
 
-def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    
-    parser.add_argument("--source",
-        required=True,
-        metavar="PATH",
-        help="folder of raw MT5 M1 exports, or a single csv file of M1 bars "
-             "(the source data must always be M1)")
-
-    parser.add_argument("--destination",
-        required=True,
-        help="CSV to write (overwritten if it exists); a directory means "
-             "output_<timeframe>.csv inside it")
-
-    parser.add_argument("--timeframe",
-        required=True,
-        help="broker timeframe label, e.g. M5")
-    
-    return parser.parse_args()
-
 def main() -> None:
     # Parse command-line arguments.
 
@@ -92,6 +72,26 @@ def main() -> None:
 
     print("\nDONE.")
     print("Report:", report.report_path)
+
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    
+    parser.add_argument("--source",
+        required=True,
+        metavar="PATH",
+        help="folder of raw MT5 M1 exports, or a single csv file of M1 bars "
+             "(the source data must always be M1)")
+
+    parser.add_argument("--destination",
+        required=True,
+        help="CSV to write (overwritten if it exists); a directory means "
+             "output_<timeframe>.csv inside it")
+
+    parser.add_argument("--timeframe",
+        required=True,
+        help="broker timeframe label, e.g. M5")
+    
+    return parser.parse_args()
 
 
 if __name__ == "__main__":
