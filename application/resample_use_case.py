@@ -107,6 +107,8 @@ class ResampleReport:
     errors: list[LoadError] = field(default_factory=list)
     duplicates_removed_count: int = 0
     timeframe: str = "M5"
+    source_tz: tzinfo | None = None
+    destination_tz: tzinfo | None = None
 
     @property
     def skipped_lines_count(self) -> int:
@@ -131,6 +133,9 @@ def format_quality_report(report: ResampleReport) -> str:
         f"Last candle: {report.last_candle_time}",
         f"Clean {label} saved at: {report.destination_file_path}",
     ]
+
+    if report.destination_tz is not None:
+        lines.append(f"Timezone shift: {report.source_tz} -> {report.destination_tz}")
 
     if report.skipped_lines_count:
         lines.append(
@@ -285,6 +290,8 @@ def resample(
         errors=errors,
         duplicates_removed_count=dropped_count,
         timeframe=timeframe,
+        source_tz=(source_tz or DEFAULT_SOURCE_TZ) if destination_tz is not None else None,
+        destination_tz=destination_tz,
     )
 
     report_path.write_text(format_quality_report(report), encoding="utf-8")
