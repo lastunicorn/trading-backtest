@@ -11,6 +11,7 @@ processed data to a CSV.
     python3 read_csv_as_frame.py data/eurusd/1min --interval 1w              # resampled to weekly bars
     python3 read_csv_as_frame.py data/eurusd/1min --timezone UTC             # broker-server time -> UTC
     python3 read_csv_as_frame.py data/eurusd/1min --output scratch/jan.csv   # write instead of display
+    python3 read_csv_as_frame.py path/to/other.csv --decimals 3
     python3 read_csv_as_frame.py data/eurusd/1min/EURUSD_2020_01.csv --source-symbol EURUSD  # fixed decimals
 
 `source` is a single file or a folder of exports (see ports.file_system_access
@@ -21,12 +22,14 @@ timezone (--timezone; off by default -- bars display in raw broker-server
 time otherwise), optionally resample (--interval), then display or write
 (--output). See domain.sample_size.SampleSize for the --interval syntax (5m,
 4h, 7d, 2w, 3M, ...); resampling uses plain pandas bucket semantics (see
-domain.pandas_approach.frames.resample_ohlc). Price decimals are fixed by
---source-symbol's ticker (via domain.symbol.by_ticker); omit it for default
-number formatting. --output writes prices with that same formatting.
+domain.pandas_approach.frames.resample_ohlc). Price decimals come from
+--decimals if given, else --source-symbol's ticker (via domain.symbol
+.by_ticker), else default number formatting; --output writes prices with
+that same formatting.
 
 --rows/--all/--tail only affect the console display; --output always writes
-the full processed frame regardless of them.
+the full processed frame regardless of them, but with the same
+--decimals/--source-symbol formatting applied to its prices.
 
 Requires pandas (see requirements.txt); activate .venv first.
 """
@@ -75,9 +78,9 @@ def main():
             print(f"ERROR: {exc}", file=sys.stderr)
             return 1
 
-    decimals = None
+    decimals = args.decimals
 
-    if args.source_symbol:
+    if decimals is None and args.source_symbol:
         try:
             decimals = by_ticker(args.source_symbol).price_decimals
         except ValueError as exc:
@@ -170,12 +173,22 @@ def parse_args():
     )
 
     parser.add_argument(
+        "--decimals",
+        type=int,
+        default=None,
+        help="Price decimals for display and --output, overriding "
+             "--source-symbol (default: derived from --source-symbol, or "
+             "default number formatting if that's also omitted).",
+    )
+
+    parser.add_argument(
         "--source-symbol",
         default=None,
         metavar="TICKER",
         help="Symbol whose tick size sets price decimals for display and "
              "--output, e.g. 'EURUSD', 'XAUUSD' (see show_symbol.py for the "
-             "full list; omit for default number formatting).",
+             "full list; omit for default number formatting, unless "
+             "--decimals is set).",
     )
 
     parser.add_argument(
