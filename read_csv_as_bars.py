@@ -23,11 +23,12 @@ time otherwise), optionally resample (--interval, via domain.resample_bars --
 see that module's docstring for the interval syntax and what each unit
 anchors to), then display or write (--output). Price decimals come from
 --decimals if given, else --source-symbol's ticker (via domain.symbol
-.by_ticker), else default number formatting.
+.by_ticker), else default number formatting; --output writes prices with
+that same formatting.
 
---rows/--all/--tail/--decimals/--source-symbol only affect the console
-display; --output always writes the full processed bar list regardless of
-them.
+--rows/--all/--tail only affect the console display; --output always writes
+the full processed bar list regardless of them, but with the same
+--decimals/--source-symbol formatting applied to its prices.
 
 Stdlib only (pandas is not used).
 """
@@ -139,7 +140,7 @@ def main():
               f"{skipped[0][0]}: {skipped[0][1]}")
 
     if args.output:
-        write_bars(bars, args.output)
+        write_bars(bars, args.output, decimals=decimals)
         print(f"\nWritten: {args.output}")
     else:
         count = None if args.all else max(args.rows, 0)
@@ -215,18 +216,19 @@ def parse_args():
         "--decimals",
         type=int,
         default=None,
-        help="Price decimals, overriding --source-symbol (default: derived "
-             "from --source-symbol, or default number formatting if that's "
-             "also omitted).",
+        help="Price decimals for display and --output, overriding "
+             "--source-symbol (default: derived from --source-symbol, or "
+             "default number formatting if that's also omitted).",
     )
 
     parser.add_argument(
         "--source-symbol",
         default=None,
         metavar="TICKER",
-        help="Symbol whose tick size sets price decimals for display, e.g. "
-             "'EURUSD', 'XAUUSD' (see show_symbol.py for the full list; "
-             "omit for default number formatting, unless --decimals is set).",
+        help="Symbol whose tick size sets price decimals for display and "
+             "--output, e.g. 'EURUSD', 'XAUUSD' (see show_symbol.py for the "
+             "full list; omit for default number formatting, unless "
+             "--decimals is set).",
     )
 
     parser.add_argument(

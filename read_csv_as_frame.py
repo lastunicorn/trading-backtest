@@ -23,7 +23,7 @@ time otherwise), optionally resample (--interval), then display or write
 4h, 7d, 2w, 3M, ...); resampling uses plain pandas bucket semantics (see
 domain.pandas_approach.frames.resample_ohlc). Price decimals are fixed by
 --source-symbol's ticker (via domain.symbol.by_ticker); omit it for default
-number formatting.
+number formatting. --output writes prices with that same formatting.
 
 --rows/--all/--tail only affect the console display; --output always writes
 the full processed frame regardless of them.
@@ -130,7 +130,7 @@ def main():
               f"{skipped[0][0]}: {skipped[0][1]}")
 
     if args.output:
-        write_frame(frame, args.output)
+        write_frame(frame, args.output, decimals=decimals)
         print(f"\nWritten: {args.output}")
     else:
         display_frame(frame, rows=None if args.all else max(args.rows, 0), tail=args.tail, decimals=decimals)
@@ -173,9 +173,9 @@ def parse_args():
         "--source-symbol",
         default=None,
         metavar="TICKER",
-        help="Symbol whose tick size sets price decimals for display, e.g. "
-             "'EURUSD', 'XAUUSD' (see show_symbol.py for the full list; "
-             "omit for default number formatting).",
+        help="Symbol whose tick size sets price decimals for display and "
+             "--output, e.g. 'EURUSD', 'XAUUSD' (see show_symbol.py for the "
+             "full list; omit for default number formatting).",
     )
 
     parser.add_argument(

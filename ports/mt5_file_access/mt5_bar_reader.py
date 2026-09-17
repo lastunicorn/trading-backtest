@@ -329,7 +329,7 @@ def read_bars(
     return list(iterate_bars(path, strict=strict, on_skip=on_skip))
 
 
-def write_bars(bars: Iterable[Bar], path: str | Path) -> None:
+def write_bars(bars: Iterable[Bar], path: str | Path, *, decimals: int | None = None) -> None:
     """Write `bars` to a CSV file in MT5 export shape.
 
     The `Bar` counterpart to `mt5_frame_reader.write_frame`: same column
@@ -339,6 +339,10 @@ def write_bars(bars: Iterable[Bar], path: str | Path) -> None:
     carries a real volume, `spread` only when at least one bar carries one --
     most exports in this repo have neither, matching `write_frame`, which
     likewise only writes a column the source data actually had.
+
+    `decimals`, when given, formats open/high/low/close to that many decimal
+    places (e.g. a symbol's `price_decimals`); omitted, prices are written
+    as `Bar` stores them -- plain `float`, `csv.writer`'s default `str()`.
     """
     path = Path(path)
     bars = list(bars)
@@ -352,6 +356,8 @@ def write_bars(bars: Iterable[Bar], path: str | Path) -> None:
     if has_spread:
         header.append("spread")
 
+    format_price = (lambda value: value) if decimals is None else (lambda value: f"{value:.{decimals}f}")
+
     path.parent.mkdir(parents=True, exist_ok=True)
 
     with path.open("w", newline="") as f:
@@ -364,10 +370,10 @@ def write_bars(bars: Iterable[Bar], path: str | Path) -> None:
             row = [
                 bar.dt.strftime("%Y.%m.%d"),
                 bar.dt.strftime("%H:%M"),
-                bar.open,
-                bar.high,
-                bar.low,
-                bar.close,
+                format_price(bar.open),
+                format_price(bar.high),
+                format_price(bar.low),
+                format_price(bar.close),
                 bar.tick_volume,
             ]
 

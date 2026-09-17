@@ -233,7 +233,7 @@ def _no_usable_columns(
     return pd.DataFrame(columns=["datetime"])
 
 
-def write_frame(frame: pd.DataFrame, path: str | Path) -> None:
+def write_frame(frame: pd.DataFrame, path: str | Path, *, decimals: int | None = None) -> None:
     """Write a DataFrame to a CSV file in MT5 export shape.
 
     The single `datetime` column is split into two: `date` formatted
@@ -241,6 +241,10 @@ def write_frame(frame: pd.DataFrame, path: str | Path) -> None:
     minute-aligned). Every other column is written unchanged, in order, after
     them. This is the inverse of `read_frame`: the two columns and their formats
     are exactly what its `%Y.%m.%d %H:%M` parse reads back.
+
+    `decimals`, when given, formats open/high/low/close to that many decimal
+    places (e.g. a symbol's `price_decimals`); omitted, prices are written
+    as the frame stores them -- pandas' own default float formatting.
     """
     path = Path(path)
 
@@ -248,6 +252,10 @@ def write_frame(frame: pd.DataFrame, path: str | Path) -> None:
     out = frame.drop(columns="datetime")
     out.insert(0, "time", stamps.dt.strftime("%H:%M"))
     out.insert(0, "date", stamps.dt.strftime("%Y.%m.%d"))
+
+    if decimals is not None:
+        price_columns = [column for column in ("open", "high", "low", "close") if column in out.columns]
+        out[price_columns] = out[price_columns].map(lambda value: f"{value:.{decimals}f}")
 
     path.parent.mkdir(parents=True, exist_ok=True)
     out.to_csv(path, index=False)
