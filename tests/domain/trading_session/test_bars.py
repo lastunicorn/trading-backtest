@@ -2,8 +2,8 @@
 
 from datetime import UTC, datetime
 
-from domain.bar import Bar
-from domain.bar_block import BarBlock
+from domain.bar_approach.bar import Bar
+from domain.bar_approach.bar_block import BarBlock
 from domain.trading_session import TradingSession
 
 

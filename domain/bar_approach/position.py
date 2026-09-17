@@ -25,7 +25,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum, auto
 
-from domain.bar import Bar
+from domain.bar_approach.bar import Bar
 
 __all__ = ["Outcome", "Position", "PendingPosition"]
 

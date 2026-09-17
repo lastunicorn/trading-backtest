@@ -14,8 +14,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date as _date
 
-from domain.daily_session_base import DailySessionBase
-from domain.daily_strategy_base import DailyStrategyBase
+from domain.bar_approach.daily_session_base import DailySessionBase
+from domain.bar_approach.daily_strategy_base import DailyStrategyBase
 from tests.domain.daily_session_base._fakes import FakeDailySession, make_bar
 
 __all__ = ["FakeDailyStrategy", "make_bar"]

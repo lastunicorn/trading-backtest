@@ -4,7 +4,7 @@ from datetime import date, datetime
 
 import pytest
 
-from domain.position import Position
+from domain.bar_approach.position import Position
 from tests.domain.daily_session_base._fakes import FakeDailySession
 
 

@@ -4,8 +4,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import date as _date, datetime
 
-from domain.bar import Bar
-from domain.position import PendingPosition, Position
+from domain.bar_approach.bar import Bar
+from domain.bar_approach.position import PendingPosition, Position
 
 
 @dataclass

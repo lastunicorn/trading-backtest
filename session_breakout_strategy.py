@@ -55,10 +55,10 @@ from typing import ClassVar, TextIO
 from zoneinfo import ZoneInfo
 from domain.trading_session_template import AsianSessionTemplate
 
-from domain.daily_session_base import DailySessionBase
-from domain.daily_strategy_base import DailyStrategyBase
-from domain.position import Outcome, PendingPosition, Position
-from domain.shift_bars import shift_bars
+from domain.bar_approach.daily_session_base import DailySessionBase
+from domain.bar_approach.daily_strategy_base import DailyStrategyBase
+from domain.bar_approach.position import Outcome, PendingPosition, Position
+from domain.bar_approach.shift_bars import shift_bars
 from domain.symbol import EurUsd, Symbol
 from domain.trading_session import TradingSession
 from domain.trading_session_template import TradingSessionTemplate, TokyoSessionTemplate, AsianSessionTemplate

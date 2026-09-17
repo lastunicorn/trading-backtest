@@ -28,8 +28,8 @@ import argparse
 import time
 
 from application.build_clean_dataset_use_case import build_clean_dataset
-from domain.divergence import find_divergences
-from domain.rsi import rsi
+from domain.pandas_approach.divergence import find_divergences
+from domain.pandas_approach.rsi import rsi
 
 WIDTH = 90
 

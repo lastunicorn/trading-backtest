@@ -2,7 +2,7 @@
 
 from datetime import date, datetime
 
-from domain.position import Outcome, Position
+from domain.bar_approach.position import Outcome, Position
 from tests.domain.daily_session_base._fakes import FakeDailySession, make_bar
 
 

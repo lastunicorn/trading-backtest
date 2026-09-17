@@ -16,8 +16,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, time as _time, timedelta
 
-from domain.bar import Bar
-from domain.daily_session_base import DailySessionBase
+from domain.bar_approach.bar import Bar
+from domain.bar_approach.daily_session_base import DailySessionBase
 
 
 @dataclass

@@ -5,8 +5,8 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date as _date
 
-from domain.bar import Bar
-from domain.daily_session_base import DailySessionBase
+from domain.bar_approach.bar import Bar
+from domain.bar_approach.daily_session_base import DailySessionBase
 
 
 @dataclass

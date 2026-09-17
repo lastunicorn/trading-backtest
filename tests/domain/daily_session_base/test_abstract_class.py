@@ -7,7 +7,7 @@ from datetime import date
 
 import pytest
 
-from domain.daily_session_base import DailySessionBase
+from domain.bar_approach.daily_session_base import DailySessionBase
 
 
 def test_cannot_be_instantiated_directly() -> None:

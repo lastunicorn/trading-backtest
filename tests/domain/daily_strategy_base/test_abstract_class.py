@@ -5,7 +5,7 @@ can be constructed."""
 
 import pytest
 
-from domain.daily_strategy_base import DailyStrategyBase
+from domain.bar_approach.daily_strategy_base import DailyStrategyBase
 
 
 def test_cannot_be_instantiated_directly() -> None:

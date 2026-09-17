@@ -24,7 +24,7 @@ from datetime import datetime
 
 import pandas as pd
 
-from domain.frames import resample_ohlc
+from domain.pandas_approach.frames import resample_ohlc
 from ports.file_system_access import find_files
 from ports.mt5_file_access import read_frame
 

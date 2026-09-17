@@ -26,76 +26,19 @@ import argparse
 import sys
 from zoneinfo import ZoneInfo
 
-from domain.resample_bars import resample_bars
-from domain.sample_interval import SampleInterval
-from domain.shift_bars import shift_bars
+from domain.bar_approach.resample_bars import resample_bars
+from domain.sample_size import SampleSize
+from domain.bar_approach.shift_bars import shift_bars
 from ports.file_system_access.file_system import find_files
 from ports.mt5_file_access import BarParseError, iterate_bars
 from ui.bar_window import BarWindow
 from ui.bar_window_view import display_bar_window
 
 
-def parse_args():
-    parser = argparse.ArgumentParser(
-        description="Display an MT5 CSV export in the console, raw or resampled."
-    )
-
-    parser.add_argument(
-        "source",
-        help="CSV file, or a folder of exports, to display.",
-    )
-
-    parser.add_argument(
-        "--interval",
-        default=None,
-        help="Resample before display, e.g. '5m', '4h', '7d', '2w', '3M' "
-             "(m/h/d/w/M, case-sensitive; omit to show raw bars).",
-    )
-
-    parser.add_argument(
-        "--rows",
-        type=int,
-        default=20,
-        help="How many bars to show (default: 20). Ignored with --all.",
-    )
-
-    parser.add_argument(
-        "--all",
-        action="store_true",
-        help="Show every bar instead of just --rows.",
-    )
-
-    parser.add_argument(
-        "--tail",
-        action="store_true",
-        help="Show the last bars instead of the first.",
-    )
-
-    parser.add_argument(
-        "--decimals",
-        type=int,
-        default=5,
-        help="Price decimals (default: 5, correct for EURUSD).",
-    )
-
-    parser.add_argument(
-        "--strict",
-        action="store_true",
-        help="Abort on a malformed line instead of skipping it.",
-    )
-
-    return parser.parse_args()
-
-
-def read_bars(paths, on_skip):
-    for path in paths:
-        yield from iterate_bars(str(path), strict=False, on_skip=on_skip)
-
-
 def main():
     args = parse_args()
 
-    paths = find_files(args.source)
+    paths = find_files(args.source, pattern="*.csv")
 
     if not paths:
         print(f"ERROR: no csv files found at {args.source!r}", file=sys.stderr)
@@ -105,7 +48,7 @@ def main():
 
     if args.interval:
         try:
-            interval = SampleInterval.Parse(args.interval)
+            interval = SampleSize.Parse(args.interval)
         except ValueError as exc:
             print(f"ERROR: {exc}", file=sys.stderr)
             return 1
@@ -163,6 +106,63 @@ def main():
     display_bar_window(window, decimals=args.decimals)
 
     return 0
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Display an MT5 CSV export in the console, raw or resampled."
+    )
+
+    parser.add_argument(
+        "source",
+        help="CSV file, or a folder of exports, to display.",
+    )
+
+    parser.add_argument(
+        "--interval",
+        default=None,
+        help="Resample before display, e.g. '5m', '4h', '7d', '2w', '3M' "
+             "(m/h/d/w/M, case-sensitive; omit to show raw bars).",
+    )
+
+    parser.add_argument(
+        "--rows",
+        type=int,
+        default=20,
+        help="How many bars to show (default: 20). Ignored with --all.",
+    )
+
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Show every bar instead of just --rows.",
+    )
+
+    parser.add_argument(
+        "--tail",
+        action="store_true",
+        help="Show the last bars instead of the first.",
+    )
+
+    parser.add_argument(
+        "--decimals",
+        type=int,
+        default=5,
+        help="Price decimals (default: 5, correct for EURUSD).",
+    )
+
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="Abort on a malformed line instead of skipping it.",
+    )
+
+    return parser.parse_args()
+
+
+def read_bars(paths, on_skip):
+    for path in paths:
+        yield from iterate_bars(str(path), strict=False, on_skip=on_skip)
 
 
 if __name__ == "__main__":

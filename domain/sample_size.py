@@ -1,11 +1,11 @@
-"""`SampleInterval`: an amount plus a unit, parsed from a compact string.
+"""`SampleSize`: an amount plus a unit, parsed from a compact string.
 
 Stdlib only. The unit letters are case-sensitive so "m" (minute) and "M"
 (month) don't collide -- see `SampleUnit`.
 
-    from domain.sample_interval import SampleInterval, SampleUnit
+    from domain.sample_size import SampleSize, SampleUnit
 
-    spec = SampleInterval.Parse("4h")
+    spec = SampleSize.Parse("4h")
     spec.amount, spec.unit             # 4, SampleUnit.Hour
 """
 
@@ -15,7 +15,7 @@ import re
 from dataclasses import dataclass
 from enum import Enum
 
-__all__ = ["SampleInterval", "SampleUnit"]
+__all__ = ["SampleSize", "SampleUnit"]
 
 
 class SampleUnit(Enum):
@@ -35,14 +35,14 @@ _INTERVAL_RE = re.compile(rf"(\d+)([{_UNIT_LETTERS}])")
 
 
 @dataclass(frozen=True, slots=True)
-class SampleInterval:
+class SampleSize:
     """An interval width: an amount plus a unit, e.g. amount=5, unit=Minute for "5m"."""
 
     amount: int
     unit: SampleUnit
 
     @staticmethod
-    def Parse(interval: str) -> SampleInterval:
+    def Parse(interval: str) -> SampleSize:
         """Parse a compact interval string ("5m", "4h", "7d", "2w", "3M").
 
         Case-sensitive: "m" is minutes, "M" is months. Raises ValueError on
@@ -62,4 +62,4 @@ class SampleInterval:
         if amount <= 0:
             raise ValueError(f"interval amount must be positive, got {interval!r}")
 
-        return SampleInterval(amount, SampleUnit(match.group(2)))
+        return SampleSize(amount, SampleUnit(match.group(2)))

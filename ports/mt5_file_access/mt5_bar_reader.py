@@ -29,7 +29,7 @@ from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from datetime import datetime
 
-from domain.bar import Bar
+from domain.bar_approach.bar import Bar
 
 __all__ = [
     "Bar",  # re-exported for convenience; canonical import is `from domain.bar import Bar`

@@ -35,8 +35,8 @@ from __future__ import annotations
 from collections.abc import Iterable, Iterator
 from datetime import date as _date, datetime, timedelta
 
-from domain.bar import Bar
-from domain.sample_interval import SampleInterval, SampleUnit
+from domain.bar_approach.bar import Bar
+from domain.sample_size import SampleSize, SampleUnit
 
 __all__ = ["resample_bars"]
 
@@ -106,7 +106,7 @@ def _squash(bucket_dt: datetime, bars: list[Bar]) -> Bar:
     )
 
 
-def resample_bars(bars: Iterable[Bar], interval: SampleInterval) -> Iterator[Bar]:
+def resample_bars(bars: Iterable[Bar], interval: SampleSize) -> Iterator[Bar]:
     """Collapse `bars` onto buckets sized and anchored by `interval`.
 
     `interval` is a parsed `SampleInterval` (see `SampleInterval.Parse` for

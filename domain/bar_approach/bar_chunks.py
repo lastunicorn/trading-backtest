@@ -35,7 +35,7 @@ from collections.abc import Callable, Iterable, Iterator
 from datetime import datetime
 from typing import Literal
 
-from domain.bar import Bar
+from domain.bar_approach.bar import Bar
 
 __all__ = ["BarChunks", "Granularity", "boundary_key"]
 

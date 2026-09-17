@@ -31,7 +31,7 @@ from collections.abc import Iterable, Iterator
 from dataclasses import replace
 from datetime import timezone, tzinfo
 
-from domain.bar import Bar
+from domain.bar_approach.bar import Bar
 
 __all__ = ["shift_bars"]
 
