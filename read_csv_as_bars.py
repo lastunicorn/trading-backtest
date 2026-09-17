@@ -12,6 +12,7 @@ processed bars to a CSV.
     python3 read_csv_as_bars.py data/eurusd/1min --timezone UTC             # broker-server time -> UTC
     python3 read_csv_as_bars.py data/eurusd/1min --output scratch/jan.csv   # write instead of display
     python3 read_csv_as_bars.py path/to/other.csv --decimals 3
+    python3 read_csv_as_bars.py path/to/other.csv --source-symbol EURUSD
 
 `source` is a single file or a folder of exports (see ports.file_system_access
 .find_files) -- a folder's files are read in name order, which is chronological
@@ -20,10 +21,13 @@ one bar list, clean it up (sort, drop duplicate timestamps), optionally shift
 timezone (--timezone; off by default -- bars display in raw broker-server
 time otherwise), optionally resample (--interval, via domain.resample_bars --
 see that module's docstring for the interval syntax and what each unit
-anchors to), then display or write (--output).
+anchors to), then display or write (--output). Price decimals come from
+--decimals if given, else --source-symbol's ticker (via domain.symbol
+.by_ticker), else default number formatting.
 
---rows/--all/--tail/--decimals only affect the console display; --output
-always writes the full processed bar list regardless of them.
+--rows/--all/--tail/--decimals/--source-symbol only affect the console
+display; --output always writes the full processed bar list regardless of
+them.
 
 Stdlib only (pandas is not used).
 """
@@ -37,6 +41,7 @@ from domain.bar_approach.clean_bars import clean_bars
 from domain.bar_approach.resample_bars import resample_bars
 from domain.sample_size import SampleSize
 from domain.bar_approach.shift_bars import shift_bars
+from domain.symbol import by_ticker
 from ports.file_system_access.file_system import find_files
 from ports.mt5_file_access import BarParseError, iterate_bars, write_bars
 from ui.bar_window import BarWindow
@@ -69,6 +74,15 @@ def main():
     if args.interval:
         try:
             interval = SampleSize.Parse(args.interval)
+        except ValueError as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return 1
+
+    decimals = args.decimals
+
+    if decimals is None and args.source_symbol:
+        try:
+            decimals = by_ticker(args.source_symbol).price_decimals
         except ValueError as exc:
             print(f"ERROR: {exc}", file=sys.stderr)
             return 1
@@ -135,7 +149,7 @@ def main():
         # than the list itself, or read_all() would rescan from the start.
         window = BarWindow(iter(bars), count=count, tail=args.tail)
         window.read_all()
-        display_bar_window(window, decimals=args.decimals)
+        display_bar_window(window, decimals=decimals)
 
     elapsed = time.perf_counter() - start_time
     print()
@@ -200,8 +214,19 @@ def parse_args():
     parser.add_argument(
         "--decimals",
         type=int,
-        default=5,
-        help="Price decimals (default: 5, correct for EURUSD).",
+        default=None,
+        help="Price decimals, overriding --source-symbol (default: derived "
+             "from --source-symbol, or default number formatting if that's "
+             "also omitted).",
+    )
+
+    parser.add_argument(
+        "--source-symbol",
+        default=None,
+        metavar="TICKER",
+        help="Symbol whose tick size sets price decimals for display, e.g. "
+             "'EURUSD', 'XAUUSD' (see show_symbol.py for the full list; "
+             "omit for default number formatting, unless --decimals is set).",
     )
 
     parser.add_argument(

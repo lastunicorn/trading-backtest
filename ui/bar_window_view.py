@@ -3,6 +3,7 @@
     from ui.bar_window_view import display_bar_window
 
     display_bar_window(window, decimals=args.decimals)
+    display_bar_window(window, decimals=None)  # default number formatting
 
 `window` must already be fully read (via `window.read_all()`) and have at
 least one bar -- this module only prints the bar table, it doesn't validate
@@ -32,7 +33,11 @@ def display_bar_window(window, *, decimals):
 
 
 def build_rows(bar_window, decimals):
-    """Turn Bars into aligned text columns, dropping columns nothing uses."""
+    """Turn Bars into aligned text columns, dropping columns nothing uses.
+
+    `decimals=None` means no symbol was given to format against -- prices
+    fall back to plain `str()` rather than a fixed decimal count.
+    """
     header = ["DATE", "TIME", "OPEN", "HIGH", "LOW", "CLOSE", "TICKVOL"]
 
     if bar_window.has_real_volume:
@@ -41,16 +46,18 @@ def build_rows(bar_window, decimals):
     if bar_window.has_spread:
         header.append("SPREAD")
 
+    format_price = (lambda value: str(value)) if decimals is None else (lambda value: f"{value:.{decimals}f}")
+
     rows = []
 
     for bar in bar_window:
         row = [
             bar.dt.strftime("%Y.%m.%d"),
             bar.dt.strftime("%H:%M"),
-            f"{bar.open:.{decimals}f}",
-            f"{bar.high:.{decimals}f}",
-            f"{bar.low:.{decimals}f}",
-            f"{bar.close:.{decimals}f}",
+            format_price(bar.open),
+            format_price(bar.high),
+            format_price(bar.low),
+            format_price(bar.close),
             f"{bar.tick_volume:,}",
         ]
 
