@@ -17,6 +17,15 @@ file of M1 bars -- the source data must always be M1.
 it, overwritten if it already exists (and saying so); if it points at an existing
 directory, the CSV is written inside it as `output_<timeframe>.csv`.
 
+`--destination-timezone` shifts the output's `datetime` column before writing,
+treating the source as wall-clock time in `--source-timezone` (default: UTC)
+and re-expressing it in `--destination-timezone`. Both are optional; leaving
+`--destination-timezone` unset writes the source's own wall clock untouched
+(a `--source-timezone` with no `--destination-timezone` has nothing to shift to
+and is ignored). Note this default source assumption is UTC, not the
+broker-server time the rest of this codebase assumes raw MT5 exports are in --
+pass `--source-timezone America/New_York` for broker-server-time sources.
+
     python3 resample_m1_to_m5.py --source data/eurusd/1min/EURUSD_2020_01.csv \
         --destination scratch/jan.csv --timeframe M5
     python3 resample_m1_to_m5.py --source data/eurusd/1min \
@@ -32,7 +41,10 @@ Requires pandas (see requirements.txt); activate .venv first.
 from __future__ import annotations
 
 import argparse
+import sys
+import time
 from pathlib import Path
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from application.resample_use_case import resample
 
@@ -40,6 +52,7 @@ from application.resample_use_case import resample
 WIDTH = 90
 
 def main() -> None:
+    start_time = time.perf_counter()
     # Parse command-line arguments.
 
     args = _parse_args()
@@ -48,15 +61,45 @@ def main() -> None:
     destination_path = Path(args.destination).resolve()
     destination_timeframe = args.timeframe
 
+    source_tz = None
+    destination_tz = None
+
+    if args.source_timezone:
+        try:
+            source_tz = ZoneInfo(args.source_timezone)
+        except ZoneInfoNotFoundError:
+            print(f"ERROR: unknown timezone {args.source_timezone!r}", file=sys.stderr)
+            sys.exit(1)
+
+    if args.destination_timezone:
+        try:
+            destination_tz = ZoneInfo(args.destination_timezone)
+        except ZoneInfoNotFoundError:
+            print(f"ERROR: unknown timezone {args.destination_timezone!r}", file=sys.stderr)
+            sys.exit(1)
+
+    if source_tz is not None and destination_tz is None:
+        print("INFO: --source-timezone has no effect without --destination-timezone; ignoring it.")
+
     print("=" * WIDTH)
     print(f"EURUSD M1 -> {destination_timeframe} RESAMPLER")
     print("=" * WIDTH)
     print("Source:      ", source_path, "(file)" if source_path.is_file() else "(folder)")
     print("Destination: ", destination_path)
 
+    if destination_tz is not None:
+        print(f"Timezone:     {args.source_timezone or 'UTC'} -> {args.destination_timezone}")
+
     # Resample the source M1 data to the desired timeframe and write the output.
-    
-    report = resample(source_path, destination_path=destination_path, timeframe=destination_timeframe, progress=print)
+
+    report = resample(
+        source_path,
+        destination_path=destination_path,
+        timeframe=destination_timeframe,
+        source_tz=source_tz,
+        destination_tz=destination_tz,
+        progress=print,
+    )
 
     # Print summary of the resampling process.
 
@@ -72,6 +115,10 @@ def main() -> None:
 
     print("\nDONE.")
     print("Report:", report.report_path)
+
+    elapsed = time.perf_counter() - start_time
+    print()
+    print(f"Total execution time: {elapsed:.2f}s")
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
@@ -90,7 +137,21 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--timeframe",
         required=True,
         help="broker timeframe label, e.g. M5")
-    
+
+    parser.add_argument("--source-timezone",
+        default=None,
+        metavar="TZ",
+        help="IANA timezone the source's wall-clock datetimes are in, e.g. "
+             "'America/New_York' (default: UTC). Only takes effect together "
+             "with --destination-timezone.")
+
+    parser.add_argument("--destination-timezone",
+        default=None,
+        metavar="TZ",
+        help="IANA timezone to shift datetimes into before writing, e.g. "
+             "'UTC', 'Europe/London' (default: no shift, keep the source's "
+             "own wall clock).")
+
     return parser.parse_args()
 
 

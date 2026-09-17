@@ -23,14 +23,24 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, tzinfo
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 
 from domain.pandas_approach.frames import resample_ohlc
+from domain.pandas_approach.shift_timezone import shift_timezone
 from ports.file_system_access import find_files
 from ports.mt5_file_access import read_frame, write_frame
+
+# `source_tz` default when a caller asks for `destination_tz` without saying
+# what zone the source is in. Deliberately not the codebase-wide broker-server
+# default (`shift_timezone`'s own default) -- callers of this use case name a
+# raw export, not a pre-shifted frame, so a caller silent on both ends should
+# get bars untouched, and a caller silent on only the source end should get
+# the least surprising guess rather than an assumption specific to this data.
+DEFAULT_SOURCE_TZ = ZoneInfo("UTC")
 
 __all__ = [
     "ResampleReport",
@@ -161,6 +171,8 @@ def resample(
     destination_path,
     *,
     timeframe: str = "M5",
+    source_tz: tzinfo | None = None,
+    destination_tz: tzinfo | None = None,
     skip_parts: Sequence[str] = DEFAULT_SKIP_NAME_PARTS,
     progress: Progress | None = None,
 ) -> ResampleReport:
@@ -171,6 +183,14 @@ def resample(
     (see `find_files`) -- the source data must always be M1. `destination_path`
     is the csv to write; if it points at an existing directory, the csv is
     written inside it under `DEFAULT_CSV_NAME` (`output_<timeframe>.csv`).
+
+    `destination_tz` shifts `datetime` before resampling, treating each file's
+    naive timestamps as wall-clock readings in `source_tz` (default
+    `DEFAULT_SOURCE_TZ`, i.e. UTC) and re-expressing them in `destination_tz`,
+    naive again (`domain.pandas_approach.shift_timezone`). Leave both `None` to
+    keep the source's own wall clock untouched -- the shift only happens when
+    `destination_tz` is given; a `source_tz` with no `destination_tz` has
+    nothing to shift *to* and is ignored.
 
     Each file is resampled on its own before the pieces are concatenated, so
     peak memory is one month rather than the whole history. A file that fails to
@@ -226,6 +246,10 @@ def resample(
                     .drop_duplicates("datetime", keep="last")
                     .reset_index(drop=True)
                 )
+                if destination_tz is not None:
+                    source = shift_timezone(
+                        source, destination_tz, from_tz=source_tz or DEFAULT_SOURCE_TZ
+                    )
             bars = resample_ohlc(source, timeframe)
         except Exception as exc:  # a bad file must not abort the whole build
             say(f"    ERROR: {exc}")
