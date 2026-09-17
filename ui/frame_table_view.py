@@ -3,6 +3,7 @@
     from ui.frame_table_view import display_frame
 
     display_frame(frame, rows=20, tail=False, decimals=5)
+    display_frame(frame, rows=20, tail=False, decimals=None)  # default number formatting
 
 Unlike `ui.bar_window_view` (built for `BarWindow`'s constant-memory
 streaming), this operates on a frame already fully materialized in memory --
@@ -48,7 +49,11 @@ def display_frame(frame, *, rows, tail, decimals):
 
 
 def build_rows(frame, decimals):
-    """Turn frame rows into aligned text columns, dropping columns nothing uses."""
+    """Turn frame rows into aligned text columns, dropping columns nothing uses.
+
+    `decimals=None` means no symbol was given to format against -- prices
+    fall back to plain `str()` rather than a fixed decimal count.
+    """
     header = ["DATE", "TIME", "OPEN", "HIGH", "LOW", "CLOSE", "TICKVOL"]
 
     has_volume = "volume" in frame.columns and (frame["volume"] != 0).any()
@@ -60,16 +65,18 @@ def build_rows(frame, decimals):
     if has_spread:
         header.append("SPREAD")
 
+    format_price = (lambda value: str(value)) if decimals is None else (lambda value: f"{value:.{decimals}f}")
+
     rows = []
 
     for row in frame.itertuples(index=False):
         line = [
             row.datetime.strftime("%Y.%m.%d"),
             row.datetime.strftime("%H:%M"),
-            f"{row.open:.{decimals}f}",
-            f"{row.high:.{decimals}f}",
-            f"{row.low:.{decimals}f}",
-            f"{row.close:.{decimals}f}",
+            format_price(row.open),
+            format_price(row.high),
+            format_price(row.low),
+            format_price(row.close),
             f"{row.tick_volume:,}",
         ]
 

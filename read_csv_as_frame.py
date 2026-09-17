@@ -11,6 +11,7 @@ processed data to a CSV.
     python3 read_csv_as_frame.py data/eurusd/1min --interval 1w              # resampled to weekly bars
     python3 read_csv_as_frame.py data/eurusd/1min --timezone UTC             # broker-server time -> UTC
     python3 read_csv_as_frame.py data/eurusd/1min --output scratch/jan.csv   # write instead of display
+    python3 read_csv_as_frame.py data/eurusd/1min/EURUSD_2020_01.csv --source-symbol EURUSD  # fixed decimals
 
 `source` is a single file or a folder of exports (see ports.file_system_access
 .find_files) -- a folder's files are read in name order, which is chronological
@@ -21,7 +22,8 @@ time otherwise), optionally resample (--interval), then display or write
 (--output). See domain.sample_size.SampleSize for the --interval syntax (5m,
 4h, 7d, 2w, 3M, ...); resampling uses plain pandas bucket semantics (see
 domain.pandas_approach.frames.resample_ohlc). Price decimals are fixed by
-the symbol (EurUsd, via domain.symbol) rather than a CLI flag.
+--source-symbol's ticker (via domain.symbol.by_ticker); omit it for default
+number formatting.
 
 --rows/--all/--tail only affect the console display; --output always writes
 the full processed frame regardless of them.
@@ -39,12 +41,11 @@ import pandas as pd
 from domain.pandas_approach.frames import clean_frame, resample_ohlc
 from domain.pandas_approach.shift_timezone import shift_timezone
 from domain.sample_size import SampleSize, SampleUnit
-from domain.symbol import Symbol, EurUsd
+from domain.symbol import by_ticker
 from ports.file_system_access.file_system import find_files
 from ports.mt5_file_access import read_frame, write_frame
 from ui.frame_table_view import display_frame
 
-_SYMBOL: Symbol = EurUsd()
 
 def main():
     start_time = time.perf_counter()
@@ -70,6 +71,15 @@ def main():
     if args.interval:
         try:
             interval = SampleSize.Parse(args.interval)
+        except ValueError as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return 1
+
+    decimals = None
+
+    if args.source_symbol:
+        try:
+            decimals = by_ticker(args.source_symbol).price_decimals
         except ValueError as exc:
             print(f"ERROR: {exc}", file=sys.stderr)
             return 1
@@ -123,7 +133,7 @@ def main():
         write_frame(frame, args.output)
         print(f"\nWritten: {args.output}")
     else:
-        display_frame(frame, rows=None if args.all else max(args.rows, 0), tail=args.tail, decimals=_SYMBOL.price_decimals)
+        display_frame(frame, rows=None if args.all else max(args.rows, 0), tail=args.tail, decimals=decimals)
 
     elapsed = time.perf_counter() - start_time
     print()
@@ -157,6 +167,15 @@ def parse_args():
         help="Shift from broker-server time (America/New_York) to this IANA "
              "timezone before display, e.g. 'UTC', 'Europe/London' "
              "(omit to keep broker-server time).",
+    )
+
+    parser.add_argument(
+        "--source-symbol",
+        default=None,
+        metavar="TICKER",
+        help="Symbol whose tick size sets price decimals for display, e.g. "
+             "'EURUSD', 'XAUUSD' (see show_symbol.py for the full list; "
+             "omit for default number formatting).",
     )
 
     parser.add_argument(

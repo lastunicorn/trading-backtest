@@ -33,6 +33,7 @@ __all__ = [
     "UsdJpy",
     "XauUsd",
     "XagUsd",
+    "by_ticker",
 ]
 
 
@@ -175,3 +176,20 @@ class XagUsd(Symbol):
             tick_size=0.001,
             category=SymbolCategory.COMMODITY,
         )
+
+
+def by_ticker(ticker: str) -> Symbol:
+    """Look up a concrete `Symbol` subclass by its ticker (case-insensitive).
+
+    Walks `Symbol.__subclasses__()` the same way `show_symbol.py` lists
+    every symbol, so a new symbol added there is found here too with
+    nothing to update.
+    """
+    ticker = ticker.upper()
+
+    for cls in Symbol.__subclasses__():
+        instance = cls()
+        if instance.ticker == ticker:
+            return instance
+
+    raise ValueError(f"unknown symbol ticker {ticker!r}")
