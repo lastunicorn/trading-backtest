@@ -24,7 +24,7 @@ from datetime import datetime
 
 import pandas as pd
 
-from domain.pandas_approach.frames import resample_ohlc
+from domain.pandas_approach.frames import clean_frame, resample_ohlc
 from ports.file_system_access import find_files
 from ports.mt5_file_access import read_frame
 
@@ -103,12 +103,10 @@ class CleanDataset:
 
 def _combine_pieces(pieces: list[pd.DataFrame], say: Progress) -> tuple[pd.DataFrame, int]:
     say("Combining converted pieces...")
-    combined = pd.concat(pieces, ignore_index=True).sort_values(
-        "datetime", kind="stable"
-    )
+    combined = pd.concat(pieces, ignore_index=True)
 
     count_before = len(combined)
-    combined = combined.drop_duplicates("datetime", keep="last").reset_index(drop=True)
+    combined = clean_frame(combined)
 
     count_after = len(combined)
     removed_count = count_before - count_after
@@ -155,11 +153,7 @@ def build_clean_dataset(
             # The port only parses -- sorting and same-file dedup are this
             # module's decision, so they happen here rather than in the port.
             if not source.empty:
-                source = (
-                    source.sort_values("datetime", kind="stable")
-                    .drop_duplicates("datetime", keep="last")
-                    .reset_index(drop=True)
-                )
+                source = clean_frame(source)
             bars = resample_ohlc(source, timeframe)
         except Exception as exc:  # a bad file must not abort the whole build
             say(f"    ERROR: {exc}")

@@ -1,12 +1,14 @@
-"""One timeframe -> a coarser one.
+"""A raw frame -> a clean one, or one timeframe -> a coarser one.
 
 Reading an export into a frame now lives in
-`ports.mt5_file_access.mt5_frame_reader`; this module only collapses what it's
-handed onto a coarser grid -- OHLC by first/max/min/last, volumes summed,
-spread averaged.
+`ports.mt5_file_access.mt5_frame_reader`; this module handles what comes after:
+resolving duplicate timestamps (`clean_frame`) and collapsing bars onto a
+coarser grid -- OHLC by first/max/min/last, volumes summed, spread averaged
+(`resample_ohlc`).
 
-    from domain.frames import resample_ohlc
+    from domain.pandas_approach.frames import clean_frame, resample_ohlc
 
+    m1 = clean_frame(m1)
     m5 = resample_ohlc(m1, "M5")
 
 Timeframes are named the broker's way ("M5", "H1"). This module is the one
@@ -18,7 +20,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-__all__ = ["resample_ohlc"]
+__all__ = ["clean_frame", "resample_ohlc"]
 
 # Broker timeframe label -> the pandas resample rule it means. A label the
 # table does not cover is passed straight to pandas, so a raw rule still works.
@@ -47,6 +49,20 @@ _AGGREGATIONS = {
     "volume": "sum",
     "spread": "mean",
 }
+
+
+def clean_frame(frame: pd.DataFrame) -> pd.DataFrame:
+    """Stable-sort by datetime and drop duplicate timestamps, keeping the last.
+
+    Same rule `application.build_clean_dataset_use_case` uses when two rows
+    claim the same timestamp: the sort is stable, so among rows sharing a
+    timestamp, whichever arrived later in `frame` wins.
+    """
+    return (
+        frame.sort_values("datetime", kind="stable")
+        .drop_duplicates("datetime", keep="last")
+        .reset_index(drop=True)
+    )
 
 
 def resample_ohlc(frame: pd.DataFrame, timeframe: str = "M5") -> pd.DataFrame:

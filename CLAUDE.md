@@ -123,14 +123,16 @@ python3 resample_csv.py --source data/eurusd/1min --destination data/eurusd/15mi
 python3 resample_csv.py --source data/eurusd/1min/EURUSD_2020_01.csv --destination scratch/jan.csv --timeframe M5
 ```
 
-`show_csv.py`'s `source` is a single file or a folder of exports (`ports.file_system_access.find_files` — a folder is read file-by-file in name order, chronological for this repo's monthly exports). `--interval N` resamples via `tools.resample_bars.resample_bars` before display; 0 (the default) shows bars as read:
+`show_csv.py`'s `source` is a single file or a folder of exports (`ports.file_system_access.find_files` — a folder is read file-by-file in name order, chronological for this repo's monthly exports). It runs a pandas pipeline: read every file into one frame, clean it up (stable sort + drop duplicate timestamps, `domain.pandas_approach.frames.clean_frame`), optionally shift timezone (`--timezone`, off by default — bars display in raw broker-server time otherwise), optionally resample (`--interval`, via `domain.pandas_approach.frames.resample_ohlc` with plain pandas bucket semantics — see `domain.sample_size.SampleSize` for the `5m`/`4h`/`7d`/`2w`/`3M` syntax), then display or write (`--output`, which always writes the full processed frame regardless of `--rows`/`--all`/`--tail`):
 
 ```bash
 python3 show_csv.py data/eurusd/1min/EURUSD_2020_01.csv            # first 20 bars (the source arg is required)
 python3 show_csv.py data/eurusd/1min/EURUSD_2020_01.csv --tail --rows 5
 python3 show_csv.py data/eurusd/1min/EURUSD_2020_01.csv --all | less
 python3 show_csv.py path/to/export.csv --decimals 3
-python3 show_csv.py data/eurusd/1min --interval 5                  # whole folder, resampled to M5
+python3 show_csv.py data/eurusd/1min --interval 5m                 # whole folder, resampled to M5
+python3 show_csv.py data/eurusd/1min --timezone UTC                # broker-server time -> UTC
+python3 show_csv.py data/eurusd/1min --interval 5m --output scratch/jan_m5.csv  # write instead of display
 ```
 
 `ports/`, `ports/mt5_file_access/`, `ports/file_system_access/`, `domain/` and `application/` are regular packages (each has an `__init__.py`), and the CLIs must stay at the repo root for `ports.*` / `domain.*` / `application.*` to resolve from any working directory.

@@ -24,6 +24,7 @@ Stdlib only (pandas is not used).
 
 import argparse
 import sys
+import time
 from zoneinfo import ZoneInfo
 
 from domain.bar_approach.resample_bars import resample_bars
@@ -36,6 +37,7 @@ from ui.bar_window_view import display_bar_window
 
 
 def main():
+    start_time = time.perf_counter()
     args = parse_args()
 
     paths = find_files(args.source, pattern="*.csv")
@@ -87,6 +89,8 @@ def main():
         print(f"ERROR: {args.source}: line {line_no}: {reason}", file=sys.stderr)
         return 1
 
+    elapsed_data_processing = time.perf_counter() - start_time
+
     print("=" * 64)
     print(f"SOURCE: {args.source}" + (f"  ({len(paths)} files)" if len(paths) > 1 else ""))
 
@@ -104,7 +108,11 @@ def main():
               f"{skipped[0][0]}: {skipped[0][1]}")
 
     display_bar_window(window, decimals=args.decimals)
-
+    
+    elapsed = time.perf_counter() - start_time
+    print()
+    print(f"Data processing time: {elapsed_data_processing:.2f}s")
+    print(f"Total execution time: {elapsed:.2f}s")
     return 0
 
 
