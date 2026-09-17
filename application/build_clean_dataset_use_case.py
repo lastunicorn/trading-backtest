@@ -10,7 +10,7 @@ exports duplicate.
     dataset = build_clean_dataset("data/eurusd/1min", progress=print)
     dataset.frame.to_csv("EURUSD_M5_CLEAN_2020_2026.csv", index=False)
 
-Unlike `resample_use_case.resample`, this does no file I/O of its own -- it
+Unlike `resample_csv.resample`, this does no file I/O of its own -- it
 returns the frame plus the counters a data-quality report needs and leaves
 writing (and reporting) to the caller, which is what makes it equally usable
 from a CLI, a notebook and a test.
