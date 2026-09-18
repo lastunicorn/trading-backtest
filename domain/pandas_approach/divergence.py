@@ -5,7 +5,7 @@ divergence indicator).
     from domain.divergence import find_divergences
     divergences = find_divergences(df, rsi_series)
     for d in divergences:
-        print(d.kind, d.start_time, "->", d.end_time)
+        print(d.category.value, d.direction.value, d.start_time, "->", d.end_time)
 
 A pivot low (high) in the oscillator is a bar strictly lower (higher) than the
 `pivot_left` bars before it and the `pivot_right` bars after it -- exactly
@@ -24,16 +24,28 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from enum import Enum
 
 import numpy as np
 import pandas as pd
 
-__all__ = ["Divergence", "find_divergences"]
+__all__ = ["Category", "Direction", "Divergence", "find_divergences"]
+
+
+class Category(Enum):
+    REGULAR = "Regular"
+    HIDDEN = "Hidden"
+
+
+class Direction(Enum):
+    BULLISH = "Bullish"
+    BEARISH = "Bearish"
 
 
 @dataclass(frozen=True, slots=True)
 class Divergence:
-    kind: str
+    category: Category
+    direction: Direction
     start_time: datetime
     end_time: datetime
     start_value: float
@@ -82,11 +94,11 @@ def _bullish_divergences(
         osc_ll = osc[curr_p] < osc[prev_p]
 
         if price_ll and osc_hl:
-            out.append(Divergence("Regular Bullish", times.iat[prev_p], times.iat[curr_p],
-                                   osc[prev_p], osc[curr_p]))
+            out.append(Divergence(Category.REGULAR, Direction.BULLISH, times.iat[prev_p],
+                                   times.iat[curr_p], osc[prev_p], osc[curr_p]))
         elif include_hidden and price_hl and osc_ll:
-            out.append(Divergence("Hidden Bullish", times.iat[prev_p], times.iat[curr_p],
-                                   osc[prev_p], osc[curr_p]))
+            out.append(Divergence(Category.HIDDEN, Direction.BULLISH, times.iat[prev_p],
+                                   times.iat[curr_p], osc[prev_p], osc[curr_p]))
 
     return out
 
@@ -112,11 +124,11 @@ def _bearish_divergences(
         osc_hh = osc[curr_p] > osc[prev_p]
 
         if price_hh and osc_lh:
-            out.append(Divergence("Regular Bearish", times.iat[prev_p], times.iat[curr_p],
-                                   osc[prev_p], osc[curr_p]))
+            out.append(Divergence(Category.REGULAR, Direction.BEARISH, times.iat[prev_p],
+                                   times.iat[curr_p], osc[prev_p], osc[curr_p]))
         elif include_hidden and price_lh and osc_hh:
-            out.append(Divergence("Hidden Bearish", times.iat[prev_p], times.iat[curr_p],
-                                   osc[prev_p], osc[curr_p]))
+            out.append(Divergence(Category.HIDDEN, Direction.BEARISH, times.iat[prev_p],
+                                   times.iat[curr_p], osc[prev_p], osc[curr_p]))
 
     return out
 

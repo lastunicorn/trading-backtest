@@ -19,12 +19,14 @@ shifts it to `--timezone` (default: UTC, via
 `domain.pandas_approach.shift_timezone`) before scanning, so every printed
 timestamp -- and the RSI/pivot calculation, which is order- not
 timezone-sensitive -- lines up with UTC clocks. Nothing is written to disk.
-Only divergences that cross
-into the RSI 30-70 band are shown -- the older pivot's RSI value outside
-`--rsi-lower`/`--rsi-upper` and the newer pivot's value inside it -- since
-those are the ones that mark the oscillator actually leaving overbought/
-oversold territory. Each one prints as "<kind>: <start time> -> <end time>",
-the two pivot bars the divergence line connects, oldest first.
+For regular divergences only, the 30-70 band filter applies: the older
+pivot's RSI value must be outside `--rsi-lower`/`--rsi-upper` and the newer
+pivot's value inside it, since those are the ones that mark the oscillator
+actually leaving overbought/oversold territory. Hidden divergences (shown
+only with `--hidden`) are not band-filtered, since they occur mid-trend
+rather than at the extremes the 30-70 band is meant to isolate. Each one
+prints as "<kind>: <start time> -> <end time>", the two pivot bars the
+divergence line connects, oldest first.
 
 Tooling, not a research stage: versionless and freely editable.
 
@@ -42,7 +44,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import pandas as pd
 
-from domain.pandas_approach.divergence import Divergence, find_divergences
+from domain.pandas_approach.divergence import Category, Divergence, Direction, find_divergences
 from domain.pandas_approach.frames import clean_frame, resample_ohlc
 from domain.pandas_approach.rsi import rsi
 from domain.pandas_approach.shift_timezone import shift_timezone
@@ -87,12 +89,16 @@ def main() -> int:
 
     divergences = [
         d for d in divergences
-        if not (args.rsi_lower <= d.start_value <= args.rsi_upper)
-        and args.rsi_lower <= d.end_value <= args.rsi_upper
+        if d.category != Category.REGULAR
+        or (
+            not (args.rsi_lower <= d.start_value <= args.rsi_upper)
+            and args.rsi_lower <= d.end_value <= args.rsi_upper
+        )
     ]
 
     print(f"\n{len(divergences)} divergence(s) found "
-          f"(start outside {args.rsi_lower}-{args.rsi_upper}, end inside):")
+          f"(regular divergences filtered to start outside "
+          f"{args.rsi_lower}-{args.rsi_upper}, end inside):")
     print("-" * SCREEN_WIDTH)
 
     color = sys.stdout.isatty() and "NO_COLOR" not in os.environ
@@ -181,23 +187,25 @@ RESET = "\033[0m"
 
 
 def _colorize(divergence: Divergence, enabled: bool) -> str:
+    category = divergence.category.value
+    direction = divergence.direction.value
     if(divergence.start_time.date() == divergence.end_time.date()):
         line = (
-            f"{divergence.kind:<17} "
+            f"{category:<8} {direction:<8}"
             f"{divergence.start_time} ({divergence.start_value:.2f}) -> "
             f"{divergence.end_time.time()} ({divergence.end_value:.2f})"
         )
     else:
         line = (
-            f"{divergence.kind:<17} "
+            f"{category:<8} {direction:<8}"
             f"{divergence.start_time} ({divergence.start_value:.2f}) -> "
             f"{divergence.end_time} ({divergence.end_value:.2f})"
         )
 
     if not enabled:
         return line
-    
-    color = GREEN if "Bullish" in divergence.kind else RED
+
+    color = GREEN if divergence.direction == Direction.BULLISH else RED
     return f"{color}{line}{RESET}"
 
 

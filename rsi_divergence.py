@@ -64,7 +64,9 @@ def main() -> int:
     print("-" * WIDTH)
 
     for divergence in divergences:
-        print(f"{divergence.kind:<17} {divergence.start_time} -> {divergence.end_time}")
+        category = divergence.category.value
+        direction = divergence.direction.value
+        print(f"{category:<8} {direction:<8} {divergence.start_time} -> {divergence.end_time}")
 
     elapsed = time.perf_counter() - start_time
     print()
