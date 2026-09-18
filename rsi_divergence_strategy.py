@@ -11,12 +11,13 @@ price disagree on direction. See `domain/divergence.py` for the algorithm.
     python3 rsi_divergence.py data/eurusd/1min --hidden --rsi-length 21
 
 `source` is a folder of raw M1 exports or a single M1 csv file -- resampled to
-M5 through the same shared loader the research pipeline uses
-(`application.build_clean_dataset_use_case`), so a scan sees exactly the bars
-the pipeline would. That loader hands back raw broker-server time
-(America/New_York); this script shifts it to `--timezone` (default: UTC,
-via `domain.pandas_approach.shift_timezone`) before scanning, so every
-printed timestamp -- and the RSI/pivot calculation, which is order- not
+M5 bars with the same `ports`/`domain` building blocks the research pipeline
+uses (per-file resample, then a stable-sort dedup across files, matching the
+pipeline's stage-0 convention), so a scan sees the same bars the pipeline
+would. The result is raw broker-server time (America/New_York); this script
+shifts it to `--timezone` (default: UTC, via
+`domain.pandas_approach.shift_timezone`) before scanning, so every printed
+timestamp -- and the RSI/pivot calculation, which is order- not
 timezone-sensitive -- lines up with UTC clocks. Nothing is written to disk.
 Only divergences that cross
 into the RSI 30-70 band are shown -- the older pivot's RSI value outside
@@ -36,26 +37,19 @@ import argparse
 import os
 import sys
 import time
+from collections.abc import Callable
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from application.build_clean_dataset_use_case import build_clean_dataset
+import pandas as pd
+
 from domain.pandas_approach.divergence import Divergence, find_divergences
+from domain.pandas_approach.frames import clean_frame, resample_ohlc
 from domain.pandas_approach.rsi import rsi
 from domain.pandas_approach.shift_timezone import shift_timezone
+from ports.file_system_access import find_files
+from ports.mt5_file_access import read_frame
 
-WIDTH = 90
-
-GREEN = "\033[32m"
-RED = "\033[31m"
-RESET = "\033[0m"
-
-
-def _colorize(divergence: Divergence, enabled: bool) -> str:
-    line = f"{divergence.kind:<17} {divergence.start_time} -> {divergence.end_time}"
-    if not enabled:
-        return line
-    color = GREEN if "Bullish" in divergence.kind else RED
-    return f"{color}{line}{RESET}"
+SCREEN_WIDTH = 90
 
 
 def main() -> int:
@@ -68,14 +62,14 @@ def main() -> int:
         print(f"ERROR: unknown timezone {args.timezone!r}", file=sys.stderr)
         return 1
 
-    print("=" * WIDTH)
+    print("=" * SCREEN_WIDTH)
     print("EURUSD RSI DIVERGENCE SCAN")
-    print("=" * WIDTH)
+    print("=" * SCREEN_WIDTH)
     print("Source:", args.source)
     print("Timezone:", args.timezone, "(source is America/New_York broker-server time)")
 
-    dataset = build_clean_dataset(args.source, timeframe="M5", progress=print)
-    df = shift_timezone(dataset.frame, target_tz)
+    frame = _load_m5_frame(args.source, progress=print)
+    df = shift_timezone(frame, target_tz)
 
     print(f"\n{len(df):,} M5 bars, {df['datetime'].min()} -> {df['datetime'].max()}")
 
@@ -99,7 +93,7 @@ def main() -> int:
 
     print(f"\n{len(divergences)} divergence(s) found "
           f"(start outside {args.rsi_lower}-{args.rsi_upper}, end inside):")
-    print("-" * WIDTH)
+    print("-" * SCREEN_WIDTH)
 
     color = sys.stdout.isatty() and "NO_COLOR" not in os.environ
 
@@ -150,6 +144,61 @@ def _parse_args() -> argparse.Namespace:
              "source data into before scanning and display (default: UTC)")
 
     return parser.parse_args()
+
+
+def _load_m5_frame(source: str, progress: Callable[[str], None]) -> pd.DataFrame:
+    """Resample every M1 export under `source` to M5 bars and merge them.
+
+    Each file is resampled on its own before concatenation, so peak memory is
+    one month rather than the whole history. Where two files cover the same
+    timestamp the later-sorted one wins (stable sort + keep-last dedup),
+    matching the pipeline's stage-0 convention.
+    """
+    file_paths = find_files(source)
+    progress(f"Found {len(file_paths)} candidate source CSV files.")
+
+    pieces: list[pd.DataFrame] = []
+    for index, path in enumerate(file_paths, 1):
+        progress(f"[{index}/{len(file_paths)}] {path.name}")
+        raw = read_frame(path, strict=False)
+        bars = resample_ohlc(clean_frame(raw), "M15") if not raw.empty else pd.DataFrame()
+        if bars.empty:
+            progress("    SKIP: no usable rows")
+            continue
+        progress(f"    OK: {len(raw):,} source rows -> {len(bars):,} bars")
+        pieces.append(bars)
+
+    if not pieces:
+        raise RuntimeError("No usable source files.")
+
+    progress("Combining converted pieces...")
+    big_frame = pd.concat(pieces, ignore_index=True)
+    return clean_frame(big_frame)
+
+GREEN = "\033[32m"
+RED = "\033[31m"
+RESET = "\033[0m"
+
+
+def _colorize(divergence: Divergence, enabled: bool) -> str:
+    if(divergence.start_time.date() == divergence.end_time.date()):
+        line = (
+            f"{divergence.kind:<17} "
+            f"{divergence.start_time} ({divergence.start_value:.2f}) -> "
+            f"{divergence.end_time.time()} ({divergence.end_value:.2f})"
+        )
+    else:
+        line = (
+            f"{divergence.kind:<17} "
+            f"{divergence.start_time} ({divergence.start_value:.2f}) -> "
+            f"{divergence.end_time} ({divergence.end_value:.2f})"
+        )
+
+    if not enabled:
+        return line
+    
+    color = GREEN if "Bullish" in divergence.kind else RED
+    return f"{color}{line}{RESET}"
 
 
 if __name__ == "__main__":
