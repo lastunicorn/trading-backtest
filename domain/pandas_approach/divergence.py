@@ -36,6 +36,8 @@ class Divergence:
     kind: str
     start_time: datetime
     end_time: datetime
+    start_value: float
+    end_value: float
 
 
 def _pivots(values: np.ndarray, left: int, right: int, *, high: bool) -> np.ndarray:
@@ -80,9 +82,11 @@ def _bullish_divergences(
         osc_ll = osc[curr_p] < osc[prev_p]
 
         if price_ll and osc_hl:
-            out.append(Divergence("Regular Bullish", times.iat[prev_p], times.iat[curr_p]))
+            out.append(Divergence("Regular Bullish", times.iat[prev_p], times.iat[curr_p],
+                                   osc[prev_p], osc[curr_p]))
         elif include_hidden and price_hl and osc_ll:
-            out.append(Divergence("Hidden Bullish", times.iat[prev_p], times.iat[curr_p]))
+            out.append(Divergence("Hidden Bullish", times.iat[prev_p], times.iat[curr_p],
+                                   osc[prev_p], osc[curr_p]))
 
     return out
 
@@ -108,9 +112,11 @@ def _bearish_divergences(
         osc_hh = osc[curr_p] > osc[prev_p]
 
         if price_hh and osc_lh:
-            out.append(Divergence("Regular Bearish", times.iat[prev_p], times.iat[curr_p]))
+            out.append(Divergence("Regular Bearish", times.iat[prev_p], times.iat[curr_p],
+                                   osc[prev_p], osc[curr_p]))
         elif include_hidden and price_lh and osc_hh:
-            out.append(Divergence("Hidden Bearish", times.iat[prev_p], times.iat[curr_p]))
+            out.append(Divergence("Hidden Bearish", times.iat[prev_p], times.iat[curr_p],
+                                   osc[prev_p], osc[curr_p]))
 
     return out
 
