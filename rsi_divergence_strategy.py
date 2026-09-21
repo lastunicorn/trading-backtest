@@ -46,6 +46,7 @@ import pandas as pd
 
 from domain.pandas_approach.divergence import Category, Divergence, Direction, find_divergences
 from domain.pandas_approach.frames import clean_frame, resample_ohlc
+from domain.pandas_approach.position import Position, Side, open_positions
 from domain.pandas_approach.rsi import rsi
 from domain.pandas_approach.shift_timezone import shift_timezone
 from ports.file_system_access import find_files
@@ -105,6 +106,21 @@ def main() -> int:
 
     for divergence in divergences:
         print(_colorize(divergence, color))
+
+    positions = open_positions(
+        df, divergences,
+        pivot_right=args.pivot_right,
+        rsi_lower=args.rsi_lower,
+        rsi_upper=args.rsi_upper,
+    )
+
+    print(f"\n{len(positions)} position(s) opened "
+          f"(one per regular divergence, as soon as its pivot is confirmed "
+          f"-- {args.pivot_right} bar(s) after it forms):")
+    print("-" * SCREEN_WIDTH)
+
+    for position in positions:
+        print(_colorize_position(position, color))
 
     elapsed = time.perf_counter() - start_time
     print()
@@ -206,6 +222,21 @@ def _colorize(divergence: Divergence, enabled: bool) -> str:
         return line
 
     color = GREEN if divergence.direction == Direction.BULLISH else RED
+    return f"{color}{line}{RESET}"
+
+
+def _colorize_position(position: Position, enabled: bool) -> str:
+    divergence = position.divergence
+    line = (
+        f"{position.side.value:<6}"
+        f"{position.open_time} @ {position.open_price:.5f}   "
+        f"(divergence {divergence.start_time} -> {divergence.end_time})"
+    )
+
+    if not enabled:
+        return line
+
+    color = GREEN if position.side == Side.LONG else RED
     return f"{color}{line}{RESET}"
 
 
