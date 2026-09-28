@@ -79,8 +79,8 @@ def build_run_info(backtest: Backtest, result: BacktestResult, *, source: str | 
                 "class": type(backtest.cost_model).__name__,
                 **(asdict(backtest.cost_model) if is_dataclass(backtest.cost_model) else {}),
             },
-            "ambiguity": backtest.ambiguity_policy.value,
-            "resolve_from": backtest.position_resolve_delay.value,
+            "ambiguity_policy": backtest.ambiguity_policy.value,
+            "position_close_delay": backtest.position_resolve_delay.value,
             "splits": backtest.splits,
         },
         "trades": len(result.trades),
@@ -109,7 +109,7 @@ def format_report(result: BacktestResult, run_info: dict) -> str:
         lines.append(f"Source:      {run_info['source']}")
     lines += [
         f"Costs:       {sim['cost_model']['class']}({_describe(cost)}) per trade, net of every P&L figure",
-        f"Simulation:  ambiguous bars {sim['ambiguity']}, SL/TP checked from {sim['resolve_from']}",
+        f"Simulation:  ambiguous bars {sim['ambiguity_policy']}, SL/TP checked from {sim['position_close_delay']}",
         f"Created:     {run_info['created']}   git {run_info['git']['commit'] or 'n/a'}"
         + (" (uncommitted changes)" if run_info["git"]["dirty"] else ""),
         "",
@@ -151,7 +151,7 @@ def write_results(result: BacktestResult, run_info: dict, report: str, out_dir, 
     trades.to_csv(paths[0], index=False)
     paths[1].write_text(report, encoding="utf-8")
     result.statistics.to_csv(paths[2], index_label="split")
-    paths[3].write_text(json.dumps(run_info, indent=2, default=str) + "\n", encoding="utf-8")
+    paths[3].write_text(json.dumps(run_info, indent="\t", default=str) + "\n", encoding="utf-8")
     return paths
 
 

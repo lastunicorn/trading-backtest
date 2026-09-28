@@ -53,6 +53,14 @@ def test_report_and_run_info_are_written_as_given(tmp_path) -> None:
     assert json.loads((tmp_path / "run.json").read_text()) == RUN_INFO
 
 
+def test_run_info_is_indented_with_one_tab_per_level(tmp_path) -> None:
+    _write(tmp_path)
+
+    lines = (tmp_path / "run.json").read_text().splitlines()
+    assert lines[1] == '\t"strategy": {'
+    assert lines[2] == '\t\t"name": "ScriptedStrategy"'
+
+
 def test_rewriting_replaces_earlier_results(tmp_path) -> None:
     _write(tmp_path, entry_days=(0, 1, 2))
     _write(tmp_path)
