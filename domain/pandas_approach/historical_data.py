@@ -7,6 +7,7 @@
     data = HistoricalData.from_frame(frame, SampleSize.Parse("5m"), EurUsd(), spread_unit=SpreadUnit.POINTS)
     data.data            # the frame
     data.start_dt, data.end_dt, len(data)
+    data.locate([t1, t2])  # row index of the bar each time falls in
 
 The frame holds one bar per row, prices on the **bid** side:
 
@@ -33,10 +34,12 @@ returns price units (ask - bid). `SpreadUnit` names which one a frame carries.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime, tzinfo
 from enum import Enum
 
+import numpy as np
 import pandas as pd
 
 from domain.pandas_approach.shift_timezone import BROKER_SERVER_TZ
@@ -149,6 +152,18 @@ class HistoricalData:
 
     def __len__(self) -> int:
         return len(self.data)
+
+    def locate(self, stamps: Iterable[datetime]) -> np.ndarray:
+        """Row index of the bar each stamp falls in: the last bar opening at or before it.
+
+        A bar is taken to run until the next one opens, so a stamp inside a
+        weekend gap lands on Friday's last bar. -1 marks a stamp with no bar:
+        before the first one, or missing (`None`/`NaT`).
+        """
+        wanted = pd.to_datetime(pd.Series(list(stamps), dtype="object")).to_numpy()
+        index = np.searchsorted(self.data["datetime"].to_numpy(), wanted, side="right") - 1
+        index[pd.isna(wanted)] = -1
+        return index
 
 
 def _to_nullable_int(values: pd.Series, name: str) -> pd.Series:
