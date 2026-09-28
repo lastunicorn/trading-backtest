@@ -91,38 +91,65 @@ def _parse_args() -> argparse.Namespace:
         help="registered strategy name (strategies.STRATEGIES)")
 
     where = parser.add_mutually_exclusive_group(required=True)
-    where.add_argument("--source",
+
+    where.add_argument(
+        "--source",
         help="pipeline clean CSV, folder of MT5 exports, or one MT5 export")
-    where.add_argument("--dukascopy-years", type=int, nargs="+", metavar="YEAR",
+    
+    where.add_argument(
+        "--dukascopy-years",
+        type=int,
+        nargs="+",
+        metavar="YEAR",
         help="read Dukascopy bid/ask pairs for these years instead of --source")
 
-    parser.add_argument("--out", required=True,
+    parser.add_argument(
+        "--out",
+        required=True,
         help="output directory for the result files (overwritten)")
 
-    parser.add_argument("--timeframe", default="5m",
+    parser.add_argument(
+        "--timeframe",
+        default="5m",
         help="bar size to backtest on, e.g. 5m, 15m, 1h (default: 5m)")
 
-    parser.add_argument("--symbol", default="EURUSD",
+    parser.add_argument(
+        "--symbol",
+        default="EURUSD",
         help="symbol ticker, for pip size and price precision (default: EURUSD)")
 
-    parser.add_argument("--cost-pips", type=float, default=1.7,
+    parser.add_argument(
+        "--cost-pips",
+        type=float,
+        default=1.7,
         help="fixed round-trip cost per trade in pips (default: 1.7, the pipeline's COST_PIPS)")
 
-    parser.add_argument("--spread-cost", action="store_true",
+    parser.add_argument(
+        "--spread-cost",
+        action="store_true",
         help="charge each bar's spread instead of --cost-pips (needs a spread column)")
 
-    parser.add_argument("--commission-pips", type=float, default=0.0,
+    parser.add_argument(
+        "--commission-pips",
+        type=float,
+        default=0.0,
         help="with --spread-cost: flat commission added per trade (default: 0)")
 
-    parser.add_argument("--ambiguity", default=AmbiguityPolicy.EXCLUDE.value,
+    parser.add_argument(
+        "--ambiguity",
+        default=AmbiguityPolicy.EXCLUDE.value,
         choices=[policy.value for policy in AmbiguityPolicy],
         help="a bar touching both SL and TP: exclude it, or assume one level (default: exclude)")
 
-    parser.add_argument("--resolve-from", default=PositionResolveDelay.NEXT_BAR.value,
+    parser.add_argument(
+        "--resolve-from",
+        default=PositionResolveDelay.NEXT_BAR.value,
         choices=[start.value for start in PositionResolveDelay],
         help="first bar SL/TP are checked on (default: next-bar)")
 
-    parser.add_argument("--no-splits", action="store_true",
+    parser.add_argument(
+        "--no-splits",
+        action="store_true",
         help="skip the discovery/validation/test breakdown")
 
     return parser.parse_args()
