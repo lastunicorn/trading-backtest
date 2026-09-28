@@ -11,7 +11,7 @@ Each source differs in format, spread unit and clock, and this module is where
 those differences are settled:
 
     source                       spread unit   clock
-    MT5 exports (and resample_csv output)   points   broker server (America/New_York)
+    MT5 exports (and resample_csv output)   points   broker server (New York + 7h)
     pipeline clean CSV (v24 output)          points   broker server
     Dukascopy bid/ask pairs                  price    UTC
 

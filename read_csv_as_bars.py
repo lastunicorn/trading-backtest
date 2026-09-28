@@ -36,19 +36,19 @@ Stdlib only (pandas is not used).
 import argparse
 import sys
 import time
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+from zoneinfo import ZoneInfoNotFoundError
 
 from domain.bar_approach.clean_bars import clean_bars
 from domain.bar_approach.resample_bars import resample_bars
 from domain.sample_size import SampleSize
 from domain.bar_approach.shift_bars import shift_bars
+from domain.broker_clock import BROKER_SERVER_TZ, timezone_by_name
 from domain.symbol import by_ticker
 from ports.file_system_access.file_system import find_files
 from ports.mt5_file_access import BarParseError, iterate_bars, write_bars
 from ui.bar_window import BarWindow
 from ui.bar_window_view import display_bar_window
 
-_BROKER_SERVER_TZ = ZoneInfo("America/New_York")
 
 
 def main():
@@ -65,7 +65,7 @@ def main():
 
     if args.timezone:
         try:
-            target_tz = ZoneInfo(args.timezone)
+            target_tz = timezone_by_name(args.timezone)
         except ZoneInfoNotFoundError:
             print(f"ERROR: unknown timezone {args.timezone!r}", file=sys.stderr)
             return 1
@@ -112,7 +112,7 @@ def main():
         return 1
 
     if target_tz is not None:
-        bars = list(shift_bars(bars, _BROKER_SERVER_TZ, target_tz))
+        bars = list(shift_bars(bars, BROKER_SERVER_TZ, target_tz))
 
     if interval is not None:
         bars = list(resample_bars(bars, interval))
@@ -129,7 +129,7 @@ def main():
         print(f"TIMEZONE: {args.timezone}")
 
     print("=" * 64)
-    print(f"Timezone: {args.timezone or 'America/New_York (broker-server)'}")
+    print(f"Timezone: {args.timezone or BROKER_SERVER_TZ}")
     print(f"Bars:   {len(bars):,}")
     print(f"First:  {bars[0].dt:%Y.%m.%d %H:%M}")
     print(f"Last:   {bars[-1].dt:%Y.%m.%d %H:%M}")
@@ -180,8 +180,8 @@ def parse_args():
         "--timezone",
         default=None,
         metavar="TZ",
-        help="Shift from broker-server time (America/New_York) to this IANA "
-             "timezone before display, e.g. 'UTC', 'Europe/London' "
+        help="Shift from broker-server time (New York + 7h, see domain.broker_clock) "
+             "to this IANA timezone before display, e.g. 'UTC', 'Europe/London' "
              "(omit to keep broker-server time).",
     )
 

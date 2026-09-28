@@ -17,7 +17,8 @@ The frame holds one bar per row, prices on the **bid** side:
     spread                float64, in pips                  optional
 
 Extra columns pass through untouched. `datetime` is a naive wall-clock time
-in `timezone` -- the broker's server time unless the frame was shifted (see
+in `timezone` -- the broker's server time (New York + 7h,
+`domain.broker_clock`) unless the frame was shifted (see
 `domain.pandas_approach.shift_timezone`).
 
 Two ways in. The constructor only *validates*: it never changes the frame, so
@@ -42,7 +43,7 @@ from enum import Enum
 import numpy as np
 import pandas as pd
 
-from domain.pandas_approach.shift_timezone import BROKER_SERVER_TZ
+from domain.broker_clock import BROKER_SERVER_TZ
 from domain.sample_size import SampleSize
 from domain.symbol import Symbol
 

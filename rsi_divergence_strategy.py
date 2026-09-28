@@ -14,9 +14,9 @@ price disagree on direction. See `domain/divergence.py` for the algorithm.
 M15 bars (`TIMEFRAME`) with the same `ports`/`domain` building blocks the
 research pipeline uses (per-file resample, then a stable-sort dedup across
 files, matching the pipeline's stage-0 convention), so a scan sees the same
-bars the pipeline would. The result is raw broker-server time (America/New_York); this script
-shifts it to `--timezone` (default: UTC, via
-`domain.pandas_approach.shift_timezone`) before scanning, so every printed
+bars the pipeline would. The result is raw broker-server time (New York + 7h,
+`domain.broker_clock`); this script shifts it to `--timezone` (default: UTC,
+via `domain.pandas_approach.shift_timezone`) before scanning, so every printed
 timestamp -- and the RSI/pivot calculation, which is order- not
 timezone-sensitive -- lines up with UTC clocks. Nothing is written to disk.
 For regular divergences only, the 30-70 band filter applies: the older
@@ -39,9 +39,10 @@ import argparse
 import os
 import sys
 import time
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+from zoneinfo import ZoneInfoNotFoundError
 
 from application.load_historical_data_use_case import load_mt5
+from domain.broker_clock import BROKER_SERVER_TZ, timezone_by_name
 from domain.pandas_approach.divergence import Divergence, Direction, filter_regular_by_band, find_divergences
 from domain.pandas_approach.divergence_positions import DivergencePosition, open_positions
 from domain.pandas_approach.rsi import rsi
@@ -62,7 +63,7 @@ def main() -> int:
     args = _parse_args()
 
     try:
-        target_tz = ZoneInfo(args.timezone)
+        target_tz = timezone_by_name(args.timezone)
     except ZoneInfoNotFoundError:
         print(f"ERROR: unknown timezone {args.timezone!r}", file=sys.stderr)
         return 1
@@ -71,7 +72,7 @@ def main() -> int:
     print("EURUSD RSI DIVERGENCE SCAN")
     print("=" * SCREEN_WIDTH)
     print("Source:", args.source)
-    print("Timezone:", args.timezone, "(source is America/New_York broker-server time)")
+    print("Timezone:", args.timezone, f"(source is {BROKER_SERVER_TZ} time)")
 
     frame = load_mt5(args.source, TIMEFRAME, EurUsd(), progress=print).data
     df = shift_timezone(frame, target_tz)
@@ -157,7 +158,7 @@ def _parse_args() -> argparse.Namespace:
         help="upper bound of the RSI 'inside' band (default: 70)")
 
     parser.add_argument("--timezone", default="UTC",
-        help="IANA timezone to shift the broker-server (America/New_York) "
+        help="IANA timezone to shift the broker-server (New York + 7h) "
              "source data into before scanning and display (default: UTC)")
 
     return parser.parse_args()

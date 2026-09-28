@@ -1,10 +1,9 @@
 """Tests for `application.load_historical_data_use_case.load_mt5`."""
 
-from zoneinfo import ZoneInfo
-
 import pytest
 
 from application.load_historical_data_use_case import load_mt5
+from domain.broker_clock import BROKER_SERVER_TZ
 from domain.sample_size import SampleSize
 from domain.symbol import EurUsd
 
@@ -37,7 +36,7 @@ def test_carries_timeframe_symbol_and_broker_clock(tmp_path) -> None:
 
     assert data.timeframe == M5
     assert data.symbol.ticker == "EURUSD"
-    assert data.timezone == ZoneInfo("America/New_York")
+    assert data.timezone == BROKER_SERVER_TZ
 
 
 def test_a_folder_merges_its_exports_dropping_duplicate_bars(tmp_path) -> None:

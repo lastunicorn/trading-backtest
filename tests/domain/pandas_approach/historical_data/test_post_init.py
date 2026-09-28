@@ -1,10 +1,9 @@
 """Tests for `domain.pandas_approach.historical_data.HistoricalData.__post_init__`."""
 
-from zoneinfo import ZoneInfo
-
 import pandas as pd
 import pytest
 
+from domain.broker_clock import BROKER_SERVER_TZ
 from domain.pandas_approach.historical_data import HistoricalData
 from domain.symbol import EurUsd
 
@@ -22,7 +21,7 @@ def test_valid_frame_is_accepted_as_is() -> None:
 
 
 def test_timezone_defaults_to_broker_server_time() -> None:
-    assert HistoricalData(bars(), M5, EurUsd()).timezone == ZoneInfo("America/New_York")
+    assert HistoricalData(bars(), M5, EurUsd()).timezone == BROKER_SERVER_TZ
 
 
 def test_optional_columns_and_extra_columns_are_accepted() -> None:

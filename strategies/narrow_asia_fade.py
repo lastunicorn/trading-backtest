@@ -45,9 +45,9 @@ from datetime import date, datetime, time
 import numpy as np
 import pandas as pd
 
+from domain.broker_clock import BROKER_SERVER_TZ
 from domain.pandas_approach.historical_data import HistoricalData
 from domain.pandas_approach.position import Position, Side
-from domain.pandas_approach.shift_timezone import BROKER_SERVER_TZ
 from domain.pandas_approach.trading_strategy import TradingStrategy
 from domain.sample_size import SampleUnit
 

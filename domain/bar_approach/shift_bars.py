@@ -2,7 +2,7 @@
 
 Stdlib only (`zoneinfo` has been in the standard library since Python 3.9),
 and works bar-by-bar on anything iterable -- a list or a generator such as
-`ports.mt5_file_access.iter_bars` -- so a multi-year stream shifts in
+`ports.mt5_file_access.iterate_bars` -- so a multi-year stream shifts in
 constant memory without going through pandas.
 
 Each bar's `dt` is naive (no tzinfo), as every `Bar.dt` in this codebase is.
@@ -16,13 +16,15 @@ database's actual DST transition dates, so the UTC offset applied shifts
 from -5h (EST) to -4h (EDT) on the correct day each year automatically,
 rather than a hardcoded delta staying wrong for half of the year. A
 `datetime.timezone(timedelta(hours=N))` still works as `from_tz`/`to_tz` for
-a source that genuinely never observes DST (e.g. a fixed-offset broker
-server), which is a plain conversion with no transition to look up.
+a source that genuinely never observes DST, which is a plain conversion with
+no transition to look up. The MT5 broker-server clock is neither -- it is New
+York + 7h -- and `domain.broker_clock.BROKER_SERVER_TZ` models it as a
+`tzinfo`, which this stdlib conversion accepts as-is.
 
-    from zoneinfo import ZoneInfo
-    from domain.shift_bars import shift_bars
+    from domain.bar_approach.shift_bars import shift_bars
+    from domain.broker_clock import BROKER_SERVER_TZ
 
-    utc_bars = shift_bars(server_bars, ZoneInfo("America/New_York"))
+    utc_bars = shift_bars(server_bars, BROKER_SERVER_TZ)
 """
 
 from __future__ import annotations

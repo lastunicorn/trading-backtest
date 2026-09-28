@@ -24,7 +24,8 @@ and re-expressing it in `--destination-timezone`. Both are optional; leaving
 (a `--source-timezone` with no `--destination-timezone` has nothing to shift to
 and is ignored). Note this default source assumption is UTC, not the
 broker-server time the rest of this codebase assumes raw MT5 exports are in --
-pass `--source-timezone America/New_York` for broker-server-time sources.
+pass `--source-timezone broker` for broker-server-time sources (New York + 7h,
+see `domain.broker_clock`).
 
     python3 resample_csv.py --source data/eurusd/1min/EURUSD_2020_01.csv \
         --destination scratch/jan.csv --timeframe M5
@@ -57,6 +58,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import pandas as pd
 
 from domain.pandas_approach.frames import resample_ohlc
+from domain.broker_clock import timezone_by_name
 from domain.pandas_approach.shift_timezone import shift_timezone
 from ports.file_system_access import find_files
 from ports.mt5_file_access import read_frame, write_frame
@@ -329,14 +331,14 @@ def main() -> None:
 
     if args.source_timezone:
         try:
-            source_tz = ZoneInfo(args.source_timezone)
+            source_tz = timezone_by_name(args.source_timezone)
         except ZoneInfoNotFoundError:
             print(f"ERROR: unknown timezone {args.source_timezone!r}", file=sys.stderr)
             sys.exit(1)
 
     if args.destination_timezone:
         try:
-            destination_tz = ZoneInfo(args.destination_timezone)
+            destination_tz = timezone_by_name(args.destination_timezone)
         except ZoneInfoNotFoundError:
             print(f"ERROR: unknown timezone {args.destination_timezone!r}", file=sys.stderr)
             sys.exit(1)
@@ -404,9 +406,9 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--source-timezone",
         default=None,
         metavar="TZ",
-        help="IANA timezone the source's wall-clock datetimes are in, e.g. "
-             "'America/New_York' (default: UTC). Only takes effect together "
-             "with --destination-timezone.")
+        help="IANA timezone the source's wall-clock datetimes are in, or "
+             "'broker' for MT5 broker-server time (default: UTC). Only takes "
+             "effect together with --destination-timezone.")
 
     parser.add_argument("--destination-timezone",
         default=None,

@@ -23,7 +23,7 @@ def test_records_the_data() -> None:
     assert _info(Backtest(ScriptedStrategy([0]), data(10, {})))["data"] == {
         "symbol": "EURUSD",
         "timeframe": "5m",
-        "timezone": "America/New_York",
+        "timezone": "broker-server (America/New_York+7h)",
         "first_bar": "2026-01-05T10:00:00",
         "last_bar": "2026-01-14T10:25:00",
         "bars": 60,
