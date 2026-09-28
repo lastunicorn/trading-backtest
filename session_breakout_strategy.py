@@ -27,10 +27,10 @@ TP price for an open position, which one would have hit first is undecided
 from OHLC alone; the outcome is reported as AMBIGUOUS rather than guessed, the
 same convention the rest of this repo uses for ambiguous bars.
 
-Timezone note: bar timestamps are converted from US Eastern (the broker's
-server time) to UTC as they're read (see `retrieve_bars`, `domain.shift_bars`),
-via `ZoneInfo("America/New_York")` so the EST/EDT offset applied is correct
-for each bar's date. `_SESSION_TEMPLATE` converts its own local start/end
+Timezone note: bar timestamps are converted from broker-server time (New York
++ 7h, `domain.broker_clock.BROKER_SERVER_TZ`) to UTC as they're read (see
+`retrieve_bars`, `domain.bar_approach.shift_bars`), so the GMT+2/GMT+3 offset
+applied follows the US daylight-saving dates, as the broker's does. `_SESSION_TEMPLATE` converts its own local start/end
 times to UTC the same way (see `TradingSessionTemplate`), so the window edges
 are only correct once both conversions have been applied.
 
@@ -59,6 +59,7 @@ from domain.bar_approach.daily_session_base import DailySessionBase
 from domain.bar_approach.daily_strategy_base import DailyStrategyBase
 from domain.bar_approach.position import Outcome, PendingPosition, Position
 from domain.bar_approach.shift_bars import shift_bars
+from domain.broker_clock import BROKER_SERVER_TZ
 from domain.symbol import EurUsd, Symbol
 from domain.trading_session import TradingSession
 from domain.trading_session_template import TradingSessionTemplate, TokyoSessionTemplate, AsianSessionTemplate
@@ -356,13 +357,9 @@ def retrieve_bars(source_path: Path) -> Iterator[Bar]:
 
     print(f"Reading {len(paths)} file(s) from {source_path}\n")
 
-    # Broker server time is US Eastern; ZoneInfo applies the correct
-    # EST/EDT offset per bar.
-    zone_info = ZoneInfo("America/New_York")
-
     for path in paths:
         bars = iterate_bars(str(path), strict=False)
-        bars = shift_bars(bars, zone_info)
+        bars = shift_bars(bars, BROKER_SERVER_TZ)
         yield from bars
 
 

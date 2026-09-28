@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Detect RSI divergences on M5 EURUSD bars resampled from raw M1 exports.
+"""Detect RSI divergences on M15 EURUSD bars resampled from raw M1 exports.
 
 Python translation of `temp/RSI Divergence Indicator.pine` (the LuxAlgo-style
 regular/hidden divergence indicator): find pivot points in RSI, pair each with
@@ -11,12 +11,12 @@ price disagree on direction. See `domain/divergence.py` for the algorithm.
     python3 rsi_divergence.py data/eurusd/1min --hidden --rsi-length 21
 
 `source` is a folder of raw M1 exports or a single M1 csv file -- resampled to
-M5 bars with the same `ports`/`domain` building blocks the research pipeline
-uses (per-file resample, then a stable-sort dedup across files, matching the
-pipeline's stage-0 convention), so a scan sees the same bars the pipeline
-would. The result is raw broker-server time (America/New_York); this script
-shifts it to `--timezone` (default: UTC, via
-`domain.pandas_approach.shift_timezone`) before scanning, so every printed
+M15 bars (`TIMEFRAME`) with the same `ports`/`domain` building blocks the
+research pipeline uses (per-file resample, then a stable-sort dedup across
+files, matching the pipeline's stage-0 convention), so a scan sees the same
+bars the pipeline would. The result is raw broker-server time (New York + 7h,
+`domain.broker_clock`); this script shifts it to `--timezone` (default: UTC,
+via `domain.pandas_approach.shift_timezone`) before scanning, so every printed
 timestamp -- and the RSI/pivot calculation, which is order- not
 timezone-sensitive -- lines up with UTC clocks. Nothing is written to disk.
 For regular divergences only, the 30-70 band filter applies: the older
@@ -39,20 +39,23 @@ import argparse
 import os
 import sys
 import time
-from collections.abc import Callable
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+from zoneinfo import ZoneInfoNotFoundError
 
-import pandas as pd
-
-from domain.pandas_approach.divergence import Category, Divergence, Direction, find_divergences
-from domain.pandas_approach.frames import clean_frame, resample_ohlc
-from domain.pandas_approach.position import Position, Side, open_positions
+from application.load_historical_data_use_case import load_mt5
+from domain.broker_clock import BROKER_SERVER_TZ, timezone_by_name
+from domain.pandas_approach.divergence import Divergence, Direction, filter_regular_by_band, find_divergences
+from domain.pandas_approach.divergence_positions import DivergencePosition, open_positions
 from domain.pandas_approach.rsi import rsi
 from domain.pandas_approach.shift_timezone import shift_timezone
-from ports.file_system_access import find_files
-from ports.mt5_file_access import read_frame
+from domain.pandas_approach.side import Side
+from domain.sample_size import SampleSize
+from domain.symbol import EurUsd
 
 SCREEN_WIDTH = 90
+
+# The bar size the scan runs on -- the same one `strategies.rsi_divergence` was
+# built for.
+TIMEFRAME = SampleSize.Parse("15m")
 
 
 def main() -> int:
@@ -60,7 +63,7 @@ def main() -> int:
     args = _parse_args()
 
     try:
-        target_tz = ZoneInfo(args.timezone)
+        target_tz = timezone_by_name(args.timezone)
     except ZoneInfoNotFoundError:
         print(f"ERROR: unknown timezone {args.timezone!r}", file=sys.stderr)
         return 1
@@ -69,12 +72,12 @@ def main() -> int:
     print("EURUSD RSI DIVERGENCE SCAN")
     print("=" * SCREEN_WIDTH)
     print("Source:", args.source)
-    print("Timezone:", args.timezone, "(source is America/New_York broker-server time)")
+    print("Timezone:", args.timezone, f"(source is {BROKER_SERVER_TZ} time)")
 
-    frame = _load_m5_frame(args.source, progress=print)
+    frame = load_mt5(args.source, TIMEFRAME, EurUsd(), progress=print).data
     df = shift_timezone(frame, target_tz)
 
-    print(f"\n{len(df):,} M5 bars, {df['datetime'].min()} -> {df['datetime'].max()}")
+    print(f"\n{len(df):,} {TIMEFRAME} bars, {df['datetime'].min()} -> {df['datetime'].max()}")
 
     oscillator = rsi(df["close"], length=args.rsi_length)
 
@@ -88,14 +91,7 @@ def main() -> int:
         include_hidden=args.hidden,
     )
 
-    divergences = [
-        d for d in divergences
-        if d.category != Category.REGULAR
-        or (
-            not (args.rsi_lower <= d.start_value <= args.rsi_upper)
-            and args.rsi_lower <= d.end_value <= args.rsi_upper
-        )
-    ]
+    divergences = filter_regular_by_band(divergences, args.rsi_lower, args.rsi_upper)
 
     print(f"\n{len(divergences)} divergence(s) found "
           f"(regular divergences filtered to start outside "
@@ -162,40 +158,11 @@ def _parse_args() -> argparse.Namespace:
         help="upper bound of the RSI 'inside' band (default: 70)")
 
     parser.add_argument("--timezone", default="UTC",
-        help="IANA timezone to shift the broker-server (America/New_York) "
+        help="IANA timezone to shift the broker-server (New York + 7h) "
              "source data into before scanning and display (default: UTC)")
 
     return parser.parse_args()
 
-
-def _load_m5_frame(source: str, progress: Callable[[str], None]) -> pd.DataFrame:
-    """Resample every M1 export under `source` to M5 bars and merge them.
-
-    Each file is resampled on its own before concatenation, so peak memory is
-    one month rather than the whole history. Where two files cover the same
-    timestamp the later-sorted one wins (stable sort + keep-last dedup),
-    matching the pipeline's stage-0 convention.
-    """
-    file_paths = find_files(source)
-    progress(f"Found {len(file_paths)} candidate source CSV files.")
-
-    pieces: list[pd.DataFrame] = []
-    for index, path in enumerate(file_paths, 1):
-        progress(f"[{index}/{len(file_paths)}] {path.name}")
-        raw = read_frame(path, strict=False)
-        bars = resample_ohlc(clean_frame(raw), "M15") if not raw.empty else pd.DataFrame()
-        if bars.empty:
-            progress("    SKIP: no usable rows")
-            continue
-        progress(f"    OK: {len(raw):,} source rows -> {len(bars):,} bars")
-        pieces.append(bars)
-
-    if not pieces:
-        raise RuntimeError("No usable source files.")
-
-    progress("Combining converted pieces...")
-    big_frame = pd.concat(pieces, ignore_index=True)
-    return clean_frame(big_frame)
 
 GREEN = "\033[32m"
 RED = "\033[31m"
@@ -225,7 +192,7 @@ def _colorize(divergence: Divergence, enabled: bool) -> str:
     return f"{color}{line}{RESET}"
 
 
-def _colorize_position(position: Position, enabled: bool) -> str:
+def _colorize_position(position: DivergencePosition, enabled: bool) -> str:
     divergence = position.divergence
     line = (
         f"{position.side.value:<6}"

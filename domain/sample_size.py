@@ -7,6 +7,8 @@ Stdlib only. The unit letters are case-sensitive so "m" (minute) and "M"
 
     spec = SampleSize.Parse("4h")
     spec.amount, spec.unit             # 4, SampleUnit.Hour
+    spec.to_pandas_rule()              # "4h"
+    str(spec)                          # "4h" -- round-trips through Parse
 """
 
 from __future__ import annotations
@@ -32,6 +34,17 @@ class SampleUnit(Enum):
 # one and forgotten in the other.
 _UNIT_LETTERS = "".join(unit.value for unit in SampleUnit)
 _INTERVAL_RE = re.compile(rf"(\d+)([{_UNIT_LETTERS}])")
+
+# SampleUnit -> the pandas frequency alias it means. Months map to "MS"
+# (month start) so a monthly bucket is labelled by its first day, like every
+# other bucket here is labelled by its start.
+_PANDAS_ALIAS = {
+    SampleUnit.Minute: "min",
+    SampleUnit.Hour: "h",
+    SampleUnit.Day: "D",
+    SampleUnit.Week: "W",
+    SampleUnit.Month: "MS",
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,3 +76,11 @@ class SampleSize:
             raise ValueError(f"interval amount must be positive, got {interval!r}")
 
         return SampleSize(amount, SampleUnit(match.group(2)))
+
+    def __str__(self) -> str:
+        """The compact form `Parse` reads: amount then unit letter ("5m", "3M")."""
+        return f"{self.amount}{self.unit.value}"
+
+    def to_pandas_rule(self) -> str:
+        """The pandas resample rule this size means ("5m" -> "5min", "3M" -> "3MS")."""
+        return f"{self.amount}{_PANDAS_ALIAS[self.unit]}"
