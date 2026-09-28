@@ -25,7 +25,7 @@ import time
 
 from application.load_historical_data_use_case import load_dukascopy, load_source
 from application.run_backtest_use_case import BacktestRun, run_backtest
-from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest, ResolveFrom
+from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest, PositionResolveDelay
 from domain.pandas_approach.cost_model import FixedCost, SpreadCost
 from domain.sample_size import SampleSize
 from domain.symbol import Symbol, by_ticker
@@ -75,7 +75,7 @@ def _run(args: argparse.Namespace, timeframe: SampleSize, symbol: Symbol) -> Bac
         data=data,
         cost_model=cost,
         ambiguity_policy=AmbiguityPolicy(args.ambiguity),
-        resolve_from=ResolveFrom(args.resolve_from),
+        position_resolve_delay=PositionResolveDelay(args.resolve_from),
         splits=not args.no_splits,
     )
     return run_backtest(backtest, args.out, source=str(source))
@@ -115,8 +115,8 @@ def _parse_args() -> argparse.Namespace:
         choices=[policy.value for policy in AmbiguityPolicy],
         help="a bar touching both SL and TP: exclude it, or assume one level (default: exclude)")
 
-    parser.add_argument("--resolve-from", default=ResolveFrom.NEXT_BAR.value,
-        choices=[start.value for start in ResolveFrom],
+    parser.add_argument("--resolve-from", default=PositionResolveDelay.NEXT_BAR.value,
+        choices=[start.value for start in PositionResolveDelay],
         help="first bar SL/TP are checked on (default: next-bar)")
 
     parser.add_argument("--no-splits", action="store_true",

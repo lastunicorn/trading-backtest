@@ -55,7 +55,7 @@ from domain.pandas_approach.statistics import statistics_by_split
 from domain.pandas_approach.trade_results import trade_results
 from domain.pandas_approach.trading_strategy import TradingStrategy
 
-__all__ = ["AmbiguityPolicy", "Backtest", "BacktestResult", "ResolveFrom"]
+__all__ = ["AmbiguityPolicy", "Backtest", "BacktestResult", "PositionResolveDelay"]
 
 
 class AmbiguityPolicy(Enum):
@@ -66,7 +66,7 @@ class AmbiguityPolicy(Enum):
     ASSUME_TP = "assume-tp"
 
 
-class ResolveFrom(Enum):
+class PositionResolveDelay(Enum):
     """The first bar SL/TP are checked on."""
 
     NEXT_BAR = "next-bar"
@@ -93,13 +93,13 @@ class Backtest:
     data: HistoricalData
     cost_model: CostModel = field(default_factory=FixedCost)
     ambiguity_policy: AmbiguityPolicy = AmbiguityPolicy.EXCLUDE
-    resolve_from: ResolveFrom = ResolveFrom.NEXT_BAR
+    position_resolve_delay: PositionResolveDelay = PositionResolveDelay.NEXT_BAR
     # Report per discovery/validation/test split as well as overall.
     splits: bool = True
 
     def run(self) -> BacktestResult:
         positions = self.strategy.generate_positions(self.data)
-        self._simulate_close(positions)
+        self._close_positions(positions)
 
         trades = positions_to_frame(positions)
         trades = trade_results(trades, self.data.symbol, self.cost_model.cost_pips(trades, self.data))
@@ -114,7 +114,7 @@ class Backtest:
             statistics=statistics_by_split(trades)
         )
 
-    def _simulate_close(self, positions: list[Position]) -> None:
+    def _close_positions(self, positions: list[Position]) -> None:
         """Close every position in place, under the exit rules in the module docstring.
 
         Positions must be open and must not open before the first bar; either
@@ -137,7 +137,7 @@ class Backtest:
             if entry_bar < 0:
                 raise ValueError(f"position opens at {position.open_dt}, before the first bar {self.data.start_dt}")
 
-            first = entry_bar + 1 if self.resolve_from == ResolveFrom.NEXT_BAR else entry_bar
+            first = entry_bar + 1 if self.position_resolve_delay == PositionResolveDelay.NEXT_BAR else entry_bar
 
             # One past the last bar the position may trade on.
             if position.exit_dt is None:

@@ -80,7 +80,7 @@ def build_run_info(backtest: Backtest, result: BacktestResult, *, source: str | 
                 **(asdict(backtest.cost_model) if is_dataclass(backtest.cost_model) else {}),
             },
             "ambiguity": backtest.ambiguity_policy.value,
-            "resolve_from": backtest.resolve_from.value,
+            "resolve_from": backtest.position_resolve_delay.value,
             "splits": backtest.splits,
         },
         "trades": len(result.trades),
