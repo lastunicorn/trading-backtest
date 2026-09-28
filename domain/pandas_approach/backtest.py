@@ -37,6 +37,7 @@ class BacktestResult:
     # positions_to_frame + trade_results columns, plus "split" when splitting;
     # sorted by open_dt.
     trades: pd.DataFrame
+
     # statistics_by_split: rows "all" then one per split.
     statistics: pd.DataFrame
 
@@ -47,18 +48,18 @@ class Backtest:
 
     strategy: TradingStrategy
     data: HistoricalData
-    cost: CostModel = field(default_factory=FixedCost)
-    ambiguity: AmbiguityPolicy = AmbiguityPolicy.EXCLUDE
+    cost_model: CostModel = field(default_factory=FixedCost)
+    ambiguity_policy: AmbiguityPolicy = AmbiguityPolicy.EXCLUDE
     resolve_from: ResolveFrom = ResolveFrom.NEXT_BAR
     # Report per discovery/validation/test split as well as overall.
     splits: bool = True
 
     def run(self) -> BacktestResult:
         positions = self.strategy.generate_positions(self.data)
-        simulate_positions(self.data, positions, ambiguity=self.ambiguity, resolve_from=self.resolve_from)
+        simulate_positions(self.data, positions, ambiguity=self.ambiguity_policy, resolve_from=self.resolve_from)
 
         trades = positions_to_frame(positions)
-        trades = trade_results(trades, self.data.symbol, self.cost.cost_pips(trades, self.data))
+        trades = trade_results(trades, self.data.symbol, self.cost_model.cost_pips(trades, self.data))
         trades = trades.sort_values("open_dt", kind="stable").reset_index(drop=True)
 
         if self.splits:

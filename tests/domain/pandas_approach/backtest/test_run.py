@@ -41,7 +41,7 @@ def test_statistics_cover_all_trades_and_each_split() -> None:
 
 
 def test_cost_model_is_applied() -> None:
-    result = Backtest(ScriptedStrategy([0]), data(10, {0: "win"}), cost=FixedCost(pips=0.5)).run()
+    result = Backtest(ScriptedStrategy([0]), data(10, {0: "win"}), cost_model=FixedCost(pips=0.5)).run()
 
     assert result.trades["net_pips"].tolist() == pytest.approx([19.5])
 
@@ -52,7 +52,7 @@ def test_ambiguity_policy_is_passed_through() -> None:
     both.data.loc[1, ["high", "low"]] = [1.1025, 1.0975]
 
     excluded = Backtest(ScriptedStrategy([0]), both).run()
-    assumed = Backtest(ScriptedStrategy([0]), both, ambiguity=AmbiguityPolicy.ASSUME_SL).run()
+    assumed = Backtest(ScriptedStrategy([0]), both, ambiguity_policy=AmbiguityPolicy.ASSUME_SL).run()
 
     assert excluded.trades["outcome"].tolist() == ["ambiguous"]
     assert assumed.trades["outcome"].tolist() == ["stop-loss-hit"]

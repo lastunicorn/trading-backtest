@@ -74,8 +74,8 @@ def _run(args: argparse.Namespace, timeframe: SampleSize, symbol: Symbol) -> Bac
     backtest = Backtest(
         strategy=STRATEGIES[args.strategy](),
         data=data,
-        cost=cost,
-        ambiguity=AmbiguityPolicy(args.ambiguity),
+        cost_model=cost,
+        ambiguity_policy=AmbiguityPolicy(args.ambiguity),
         resolve_from=ResolveFrom(args.resolve_from),
         splits=not args.no_splits,
     )

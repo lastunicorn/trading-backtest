@@ -32,8 +32,8 @@ def test_records_the_data() -> None:
 
 def test_records_the_simulation_settings() -> None:
     backtest = Backtest(
-        ScriptedStrategy([0]), data(10, {}), cost=FixedCost(pips=1.2),
-        ambiguity=AmbiguityPolicy.ASSUME_SL, resolve_from=ResolveFrom.ENTRY_BAR, splits=False,
+        ScriptedStrategy([0]), data(10, {}), cost_model=FixedCost(pips=1.2),
+        ambiguity_policy=AmbiguityPolicy.ASSUME_SL, resolve_from=ResolveFrom.ENTRY_BAR, splits=False,
     )
 
     assert _info(backtest)["simulation"] == {

@@ -72,6 +72,8 @@ class RsiDivergence(TradingStrategy):
 
     def generate_positions(self, data: HistoricalData) -> list[Position]:
         frame = data.data
+
+        # Find divergences
         divergences = find_divergences(
             frame,
             rsi(frame["close"], length=self.rsi_length),
@@ -81,6 +83,8 @@ class RsiDivergence(TradingStrategy):
             range_upper=self.range_upper,
             include_hidden=False,
         )
+
+        # Keep regular divergences that fall within the specified RSI band
         divergences = filter_regular_by_band(divergences, self.rsi_lower, self.rsi_upper)
         signals = open_positions(
             frame, divergences, pivot_right=self.pivot_right, rsi_lower=self.rsi_lower, rsi_upper=self.rsi_upper,
@@ -91,22 +95,24 @@ class RsiDivergence(TradingStrategy):
 
         positions = []
         for signal, pivot_row in zip(signals, pivot_rows):
-            entry = float(signal.open_price)
+            entry_price = float(signal.open_price)
+
             if signal.side == Side.LONG:
                 sl = float(frame["low"].iat[pivot_row]) - buffer
-                if not sl < entry:
+                if not sl < entry_price:
                     continue
-                tp = entry + self.risk_reward * (entry - sl)
+                tp = entry_price + self.risk_reward * (entry_price - sl)
             else:
                 sl = float(frame["high"].iat[pivot_row]) + buffer
-                if not sl > entry:
+                if not sl > entry_price:
                     continue
-                tp = entry - self.risk_reward * (sl - entry)
+                tp = entry_price - self.risk_reward * (sl - entry_price)
 
             direction = "bullish" if signal.side == Side.LONG else "bearish"
+
             positions.append(Position(
                 open_dt=pd.Timestamp(signal.open_time),
-                open_price=entry,
+                open_price=entry_price,
                 side=signal.side,
                 sl=sl,
                 tp=tp,

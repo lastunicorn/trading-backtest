@@ -76,10 +76,10 @@ def build_run_info(backtest: Backtest, result: BacktestResult, *, source: str | 
         },
         "simulation": {
             "cost_model": {
-                "class": type(backtest.cost).__name__,
-                **(asdict(backtest.cost) if is_dataclass(backtest.cost) else {}),
+                "class": type(backtest.cost_model).__name__,
+                **(asdict(backtest.cost_model) if is_dataclass(backtest.cost_model) else {}),
             },
-            "ambiguity": backtest.ambiguity.value,
+            "ambiguity": backtest.ambiguity_policy.value,
             "resolve_from": backtest.resolve_from.value,
             "splits": backtest.splits,
         },

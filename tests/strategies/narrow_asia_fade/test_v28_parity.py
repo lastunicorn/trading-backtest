@@ -25,7 +25,7 @@ DATASET = Path(__file__).resolve().parents[3] / "output/research_output_v24_1/EU
 def test_reproduces_v28_range_mult_1_00() -> None:
     data = load_clean_csv(DATASET, SampleSize.Parse("5m"), EurUsd())
     backtest = Backtest(
-        NarrowAsiaFade(), data, ambiguity=AmbiguityPolicy.ASSUME_SL, resolve_from=ResolveFrom.NEXT_BAR,
+        NarrowAsiaFade(), data, ambiguity_policy=AmbiguityPolicy.ASSUME_SL, resolve_from=ResolveFrom.NEXT_BAR,
     )
 
     stats = backtest.run().statistics.loc["all"]
