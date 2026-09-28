@@ -1,14 +1,16 @@
 """Tests for `domain.pandas_approach.backtest.Backtest.run`."""
 
+import math
+
+import pandas as pd
 import pytest
 
-from domain.pandas_approach.backtest import Backtest
+from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest, ResolveFrom
 from domain.pandas_approach.cost_model import FixedCost
-from domain.pandas_approach.position import FRAME_COLUMNS
-from domain.pandas_approach.simulation import AmbiguityPolicy, ResolveFrom
+from domain.pandas_approach.position import FRAME_COLUMNS, PositionOutcome
 from domain.pandas_approach.trade_results import RESULT_COLUMNS
 
-from ._fakes import ScriptedStrategy, data, day
+from ._fakes import QUIET, T0, Replay, ScriptedStrategy, at, bars, data, day, long_position, short_position
 
 
 def test_every_position_comes_back_closed_with_pnl_and_split() -> None:
@@ -90,3 +92,223 @@ def test_no_positions_gives_empty_trades_and_zero_counts() -> None:
 
     assert result.trades.empty
     assert result.statistics.loc["all", "trades"] == 0
+
+
+# --- exit rules -------------------------------------------------------------------
+# One or two positions over a few hand-written bars; each test reads how the
+# position closed from the trades frame `run()` returns.
+
+HITS_TP_LONG = (1.1000, 1.1045, 1.0995, 1.1030)
+HITS_SL_LONG = (1.1000, 1.1005, 1.0975, 1.0985)
+HITS_BOTH = (1.1000, 1.1045, 1.0975, 1.1000)
+
+
+def _trades(rows, *positions, **settings) -> pd.DataFrame:
+    return Backtest(Replay(*positions), bars(*rows), splits=False, **settings).run().trades
+
+
+def _one(rows, position, **settings) -> tuple:
+    [trade] = _trades(rows, position, **settings).itertuples(index=False)
+    return trade
+
+
+# hits
+
+def test_long_take_profit() -> None:
+    trade = _one([QUIET, QUIET, HITS_TP_LONG, QUIET], long_position())
+
+    assert trade.outcome == PositionOutcome.TAKE_PROFIT_HIT.value
+    assert trade.close_price == 1.1040
+    assert trade.close_dt == at(2)
+
+
+def test_long_stop_loss() -> None:
+    trade = _one([QUIET, HITS_SL_LONG, QUIET], long_position())
+
+    assert trade.outcome == PositionOutcome.STOP_LOSS_HIT.value
+    assert trade.close_price == 1.0980
+    assert trade.close_dt == at(1)
+
+
+def test_short_take_profit_on_the_low() -> None:
+    trade = _one([QUIET, (1.1000, 1.1005, 1.0960, 1.0970)], short_position())
+
+    assert trade.outcome == PositionOutcome.TAKE_PROFIT_HIT.value
+    assert trade.close_price == 1.0960
+
+
+def test_short_stop_loss_on_the_high() -> None:
+    trade = _one([QUIET, (1.1000, 1.1020, 1.0995, 1.1010)], short_position())
+
+    assert trade.outcome == PositionOutcome.STOP_LOSS_HIT.value
+    assert trade.close_price == 1.1020
+
+
+def test_touching_the_level_exactly_counts_as_a_hit() -> None:
+    trade = _one([QUIET, (1.1000, 1.1040, 1.0990, 1.1030)], long_position())
+
+    assert trade.outcome == PositionOutcome.TAKE_PROFIT_HIT.value
+
+
+def test_first_hit_wins_over_a_later_one() -> None:
+    trade = _one([QUIET, HITS_SL_LONG, HITS_TP_LONG], long_position())
+
+    assert trade.outcome == PositionOutcome.STOP_LOSS_HIT.value
+    assert trade.close_dt == at(1)
+
+
+def test_gap_through_the_stop_fills_at_the_stop_level() -> None:
+    gap_down = (1.0950, 1.0955, 1.0940, 1.0945)
+
+    trade = _one([QUIET, gap_down], long_position())
+
+    assert trade.outcome == PositionOutcome.STOP_LOSS_HIT.value
+    assert trade.close_price == 1.0980
+
+
+# where checking starts
+
+def test_next_bar_ignores_a_hit_on_the_entry_bar() -> None:
+    trade = _one([HITS_TP_LONG, QUIET, HITS_SL_LONG], long_position(), resolve_from=ResolveFrom.NEXT_BAR)
+
+    assert trade.outcome == PositionOutcome.STOP_LOSS_HIT.value
+    assert trade.close_dt == at(2)
+
+
+def test_entry_bar_counts_a_hit_on_the_entry_bar() -> None:
+    trade = _one([HITS_TP_LONG, QUIET, HITS_SL_LONG], long_position(), resolve_from=ResolveFrom.ENTRY_BAR)
+
+    assert trade.outcome == PositionOutcome.TAKE_PROFIT_HIT.value
+    assert trade.close_dt == at(0)
+
+
+def test_next_bar_is_the_default() -> None:
+    trade = _one([HITS_TP_LONG, QUIET], long_position())
+
+    assert trade.outcome == PositionOutcome.END_OF_DATA.value
+
+
+def test_open_time_inside_a_bar_uses_that_bar_as_the_entry_bar() -> None:
+    inside_bar_1 = at(1) + pd.Timedelta("2min")
+
+    trade = _one([QUIET, HITS_SL_LONG, HITS_TP_LONG], long_position(open_dt=inside_bar_1))
+
+    # Bar 1 is the entry bar and skipped under NEXT_BAR; bar 2 decides.
+    assert trade.outcome == PositionOutcome.TAKE_PROFIT_HIT.value
+    assert trade.close_dt == at(2)
+
+
+# ambiguous bars
+
+def test_ambiguous_bar_is_excluded_by_default() -> None:
+    trade = _one([QUIET, HITS_BOTH], long_position())
+
+    assert trade.outcome == PositionOutcome.AMBIGUOUS.value
+    assert math.isnan(trade.close_price)
+    assert trade.close_dt == at(1)
+
+
+def test_ambiguous_bar_assumed_stop_loss() -> None:
+    trade = _one([QUIET, HITS_BOTH], long_position(), ambiguity_policy=AmbiguityPolicy.ASSUME_SL)
+
+    assert trade.outcome == PositionOutcome.STOP_LOSS_HIT.value
+    assert trade.close_price == 1.0980
+
+
+def test_ambiguous_bar_assumed_take_profit() -> None:
+    trade = _one([QUIET, HITS_BOTH], long_position(), ambiguity_policy=AmbiguityPolicy.ASSUME_TP)
+
+    assert trade.outcome == PositionOutcome.TAKE_PROFIT_HIT.value
+    assert trade.close_price == 1.1040
+
+
+def test_ambiguity_policy_only_matters_when_both_levels_are_hit_on_one_bar() -> None:
+    trade = _one([QUIET, HITS_TP_LONG], long_position(), ambiguity_policy=AmbiguityPolicy.ASSUME_SL)
+
+    assert trade.outcome == PositionOutcome.TAKE_PROFIT_HIT.value
+
+
+# time stop and end of data
+
+def test_time_stop_closes_at_the_last_bar_before_exit_dt() -> None:
+    rows = [QUIET, QUIET, (1.1000, 1.1010, 1.0990, 1.1007), HITS_TP_LONG]
+
+    trade = _one(rows, long_position(exit_dt=at(3)))
+
+    # Bar 3 opens at exit_dt, so its TP is never reached.
+    assert trade.outcome == PositionOutcome.MANUAL_CLOSE.value
+    assert trade.close_price == 1.1007
+    assert trade.close_dt == at(3)
+
+
+def test_time_stop_inside_a_bar_still_trades_that_bar() -> None:
+    rows = [QUIET, QUIET, HITS_TP_LONG, QUIET]
+
+    trade = _one(rows, long_position(exit_dt=at(2) + pd.Timedelta("2min")))
+
+    assert trade.outcome == PositionOutcome.TAKE_PROFIT_HIT.value
+    assert trade.close_dt == at(2)
+
+
+def test_hit_before_the_time_stop_wins() -> None:
+    trade = _one([QUIET, HITS_SL_LONG, QUIET, QUIET], long_position(exit_dt=at(3)))
+
+    assert trade.outcome == PositionOutcome.STOP_LOSS_HIT.value
+
+
+def test_time_stop_right_after_the_entry_bar_closes_at_the_entry_bar_close() -> None:
+    trade = _one([QUIET, HITS_TP_LONG], long_position(exit_dt=at(1)))
+
+    assert trade.outcome == PositionOutcome.MANUAL_CLOSE.value
+    assert trade.close_price == QUIET[3]
+
+
+def test_no_hit_and_no_time_stop_closes_at_end_of_data() -> None:
+    last = (1.1000, 1.1010, 1.0990, 1.1003)
+
+    trade = _one([QUIET, QUIET, last], long_position())
+
+    assert trade.outcome == PositionOutcome.END_OF_DATA.value
+    assert trade.close_price == 1.1003
+    assert trade.close_dt == at(2)
+
+
+def test_time_stop_beyond_the_data_is_end_of_data_not_manual_close() -> None:
+    trade = _one([QUIET, QUIET], long_position(exit_dt=at(10)))
+
+    assert trade.outcome == PositionOutcome.END_OF_DATA.value
+    assert trade.close_dt == at(1)
+
+
+def test_entry_on_the_last_bar_closes_at_end_of_data() -> None:
+    trade = _one([QUIET], long_position())
+
+    assert trade.outcome == PositionOutcome.END_OF_DATA.value
+    assert trade.close_dt == T0
+
+
+# several positions and bad input
+
+def test_positions_are_resolved_independently() -> None:
+    # One bar hits the long's TP and, separately, the short's SL.
+    rows = [QUIET, (1.1000, 1.1045, 1.0995, 1.1030)]
+
+    trades = _trades(rows, long_position(), short_position())
+
+    assert trades.set_index("side")["outcome"].to_dict() == {
+        "long": PositionOutcome.TAKE_PROFIT_HIT.value,
+        "short": PositionOutcome.STOP_LOSS_HIT.value,
+    }
+
+
+def test_position_opening_before_the_first_bar_is_rejected() -> None:
+    with pytest.raises(ValueError, match="before the first bar"):
+        _trades([QUIET], long_position(open_dt=T0 - pd.Timedelta("5min")))
+
+
+def test_already_closed_position_is_rejected() -> None:
+    position = long_position()
+    position.close(at(1), 1.1040, PositionOutcome.TAKE_PROFIT_HIT)
+
+    with pytest.raises(ValueError, match="already closed"):
+        _trades([QUIET, QUIET], position)

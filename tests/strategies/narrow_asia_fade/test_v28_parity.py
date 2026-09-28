@@ -12,8 +12,7 @@ from pathlib import Path
 import pytest
 
 from application.load_historical_data_use_case import load_clean_csv
-from domain.pandas_approach.backtest import Backtest
-from domain.pandas_approach.simulation import AmbiguityPolicy, ResolveFrom
+from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest, ResolveFrom
 from domain.sample_size import SampleSize
 from domain.symbol import EurUsd
 from strategies.narrow_asia_fade import NarrowAsiaFade

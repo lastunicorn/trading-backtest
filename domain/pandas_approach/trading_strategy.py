@@ -8,7 +8,7 @@
             ...   # decide entries: open_dt, open_price, side, sl, tp, maybe exit_dt
 
 A strategy only decides **entries**. It returns open positions, and
-`domain.pandas_approach.simulation.simulate_positions` decides how each one
+`domain.pandas_approach.backtest.Backtest` decides how each one
 closed. So a strategy never looks at what happens after its entry, and exit
 logic is written and tested once.
 

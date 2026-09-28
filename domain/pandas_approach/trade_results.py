@@ -2,7 +2,7 @@
 
     from domain.pandas_approach.trade_results import trade_results
 
-    trades = positions_to_frame(simulate_positions(data, positions))
+    trades = positions_to_frame(closed_positions)
     trades = trade_results(trades, data.symbol, cost_model.cost_pips(trades, data))
 
 Adds, in this order:

@@ -21,7 +21,7 @@ A backtest runs **one strategy** over **one set of historical bars** under **one
 ```
 HistoricalData ──► TradingStrategy.generate_positions() ──► open Positions (entry, SL, TP, optional time stop)
                                                               │
-                          simulate_positions() ◄──────────────┘  decides how each position closed
+                          Backtest._simulate() ◄──────────────┘  decides how each position closed
                                  │
    positions_to_frame ─► CostModel.cost_pips ─► trade_results ─► assign_splits ─► statistics_by_split
    └──────────────────── Backtest.run() → BacktestResult(trades, statistics) ─────────────────────┘
@@ -76,14 +76,13 @@ The same run from Python:
 
 ```python
 from application.load_historical_data_use_case import load_source
-from domain.pandas_approach.backtest import Backtest
-from domain.pandas_approach.simulation import AmbiguityPolicy
+from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest
 from domain.sample_size import SampleSize
 from domain.symbol import EurUsd
 from strategies.narrow_asia_fade import NarrowAsiaFade
 
 data = load_source("output/research_output_v24_1/EURUSD_M5_CLEAN_2020_2026.csv", SampleSize.Parse("5m"), EurUsd())
-result = Backtest(NarrowAsiaFade(), data, ambiguity=AmbiguityPolicy.ASSUME_SL).run()
+result = Backtest(NarrowAsiaFade(), data, ambiguity_policy=AmbiguityPolicy.ASSUME_SL).run()
 
 result.statistics.loc["all", "total_net_pips"]     # 257.45 (the report rounds it to 257.5)
 result.trades.head()                                # one row per trade
@@ -377,9 +376,8 @@ Use this when you need non-default strategy parameters, several runs in a loop, 
 ```python
 from application.load_historical_data_use_case import load_source
 from application.run_backtest_use_case import run_backtest
-from domain.pandas_approach.backtest import Backtest
+from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest, ResolveFrom
 from domain.pandas_approach.cost_model import FixedCost
-from domain.pandas_approach.simulation import AmbiguityPolicy, ResolveFrom
 from domain.sample_size import SampleSize
 from domain.symbol import EurUsd
 from strategies.opening_range_breakout import OpeningRangeBreakout
@@ -388,8 +386,8 @@ data = load_source("output/research_output_v24_1/EURUSD_M5_CLEAN_2020_2026.csv",
 backtest = Backtest(
     OpeningRangeBreakout(risk_reward=1.5),
     data,
-    cost=FixedCost(pips=1.7),
-    ambiguity=AmbiguityPolicy.EXCLUDE,
+    cost_model=FixedCost(pips=1.7),
+    ambiguity_policy=AmbiguityPolicy.EXCLUDE,
     resolve_from=ResolveFrom.NEXT_BAR,
 )
 
@@ -590,14 +588,7 @@ pandas rejects custom `tzinfo` objects, so don't pass `BROKER_SERVER_TZ` to `tz_
 
 **`STRATEGIES`**: `dict[str, type[TradingStrategy]]`, the names `backtest.py --strategy` accepts.
 
-### 7.4 Simulation, costs, results
-
-#### `domain.pandas_approach.simulation`
-
-**`simulate_positions(data, positions, *, ambiguity=AmbiguityPolicy.EXCLUDE, resolve_from=ResolveFrom.NEXT_BAR) -> list[Position]`**: closes every position in place and returns them, in the order given. It raises `ValueError` on a position that is already closed or that opens before the first bar; these are never skipped silently. The rules are in [section 3](#3-how-a-backtest-decides-things).
-
-- **`AmbiguityPolicy`**: `EXCLUDE` (`"exclude"`), `ASSUME_SL` (`"assume-sl"`), `ASSUME_TP` (`"assume-tp"`).
-- **`ResolveFrom`**: `NEXT_BAR` (`"next-bar"`), `ENTRY_BAR` (`"entry-bar"`).
+### 7.4 Costs, results, the backtest
 
 #### `domain.pandas_approach.cost_model`
 
@@ -626,9 +617,12 @@ pandas rejects custom `tzinfo` objects, so don't pass `BROKER_SERVER_TZ` to `tz_
 
 #### `domain.pandas_approach.backtest`
 
-**`Backtest(strategy, data, cost=FixedCost(), ambiguity=EXCLUDE, resolve_from=NEXT_BAR, splits=True)`**: one strategy, one dataset, one set of rules.
+**`Backtest(strategy, data, cost_model=FixedCost(), ambiguity_policy=AmbiguityPolicy.EXCLUDE, resolve_from=ResolveFrom.NEXT_BAR, splits=True)`**: one strategy, one dataset, one set of rules.
 
-- `run() -> BacktestResult`: a pure calculation, with no files, clock or git.
+- `run() -> BacktestResult`: a pure calculation, with no files, clock or git. It closes every position the strategy returned under the rules in [section 3](#3-how-a-backtest-decides-things) (in the private `_simulate`, the one place exits are decided), then applies costs, splits and statistics. It raises `ValueError` on a position that is already closed or that opens before the first bar; these are never skipped silently.
+
+- **`AmbiguityPolicy`**: `EXCLUDE` (`"exclude"`), `ASSUME_SL` (`"assume-sl"`), `ASSUME_TP` (`"assume-tp"`).
+- **`ResolveFrom`**: `NEXT_BAR` (`"next-bar"`), `ENTRY_BAR` (`"entry-bar"`).
 
 **`BacktestResult(trades, statistics)`** (frozen):
 

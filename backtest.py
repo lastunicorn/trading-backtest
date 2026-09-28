@@ -25,9 +25,8 @@ import time
 
 from application.load_historical_data_use_case import load_dukascopy, load_source
 from application.run_backtest_use_case import BacktestRun, run_backtest
-from domain.pandas_approach.backtest import Backtest
+from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest, ResolveFrom
 from domain.pandas_approach.cost_model import FixedCost, SpreadCost
-from domain.pandas_approach.simulation import AmbiguityPolicy, ResolveFrom
 from domain.sample_size import SampleSize
 from domain.symbol import Symbol, by_ticker
 from strategies import STRATEGIES

@@ -148,7 +148,7 @@ A reusable way to backtest any strategy on the same bars and under the same rule
 ```
 HistoricalData ─► TradingStrategy.generate_positions() ─► open Positions (entry, SL, TP, optional exit_dt)
                                                             │
-                         simulate_positions() ◄─────────────┘   the ONE place exits are decided
+                         Backtest._simulate() ◄─────────────┘   the ONE place exits are decided
                                 │
        positions_to_frame ─► CostModel.cost_pips ─► trade_results ─► assign_splits ─► statistics_by_split
        └─────────────────────── Backtest.run() → BacktestResult(trades, statistics) ───────────────────┘   [domain, no I/O]
@@ -161,12 +161,11 @@ domain/pandas_approach/historical_data.py  HistoricalData (frame + SampleSize + 
 domain/pandas_approach/side.py             Side ("long"/"short")
 domain/pandas_approach/position.py         Position, PositionOutcome, positions_to_frame
 domain/pandas_approach/trading_strategy.py TradingStrategy base class (generate_positions, parameters, split_days)
-domain/pandas_approach/simulation.py       simulate_positions, AmbiguityPolicy, ResolveFrom
 domain/pandas_approach/cost_model.py       CostModel, FixedCost (default 1.7 pips), SpreadCost
 domain/pandas_approach/trade_results.py    per-trade gross/cost/net pips, risk pips, net R, duration
 domain/pandas_approach/splits.py           Split, split_dates (v28's exact 60/20/20 cut), assign_splits
 domain/pandas_approach/statistics.py       compute_statistics, statistics_by_split, max_drawdown, max_consecutive_losses
-domain/pandas_approach/backtest.py         Backtest(strategy, data, cost, ambiguity, resolve_from, splits).run()
+domain/pandas_approach/backtest.py         Backtest(strategy, data, cost_model, ambiguity_policy, resolve_from, splits).run(); exits (`_simulate`), AmbiguityPolicy, ResolveFrom
 application/load_historical_data_use_case.py  load_mt5 / load_clean_csv / load_dukascopy / load_source → HistoricalData
 application/run_backtest_use_case.py       run_backtest → BacktestRun; build_run_info, format_report, write_results
 strategies/__init__.py                     STRATEGIES registry: the names backtest.py --strategy accepts

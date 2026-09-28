@@ -1,8 +1,13 @@
-"""A scripted strategy and flat-ish bars for the backtest tests.
+"""Builders for the backtest tests, in two sets.
 
-Bars are M5, one trading day each at 10:00-10:25 for `days` consecutive days.
-The strategy opens a long at 10:00 on each listed day (SL -20 pips, TP +20
-pips); bar 10:05 of a "win" day hits TP, of a "loss" day hits SL.
+Multi-day runs (`data`, `ScriptedStrategy`): M5 bars, one trading day each at
+10:00-10:25 for `days` consecutive days. The strategy opens a long at 10:00 on
+each listed day (SL -20 pips, TP +20 pips); bar 10:05 of a "win" day hits TP,
+of a "loss" day hits SL.
+
+Exit rules (`bars`, `Replay`, `long_position`, `short_position`): hand-written
+M5 bars from `T0`, and a long at 1.1000 (SL 1.0980, TP 1.1040) or a short at
+1.1000 (SL 1.1020, TP 1.0960), opened on the first bar.
 """
 
 from datetime import date
@@ -56,3 +61,45 @@ class ScriptedStrategy(TradingStrategy):
             Position(day(i) + pd.Timedelta(hours=10), 1.1000, Side.LONG, sl=1.0980, tp=1.1020)
             for i in self.entry_days
         ]
+
+
+# --- exit rules -----------------------------------------------------------------
+
+T0 = pd.Timestamp("2026-01-05 10:00")
+
+
+def at(bar: int) -> pd.Timestamp:
+    """Open time of bar number `bar` in `bars(...)`."""
+    return T0 + pd.Timedelta(minutes=5 * bar)
+
+
+def bars(*rows: tuple[float, float, float, float]) -> HistoricalData:
+    """M5 bars from `T0`, one (open, high, low, close) tuple each."""
+    frame = pd.DataFrame(rows, columns=["open", "high", "low", "close"])
+    frame.insert(0, "datetime", pd.date_range(T0, periods=len(rows), freq="5min"))
+    return HistoricalData(frame, SampleSize.Parse("5m"), EurUsd())
+
+
+class Replay(TradingStrategy):
+    """Hands back the positions it was given, whatever the data."""
+
+    def __init__(self, *positions: Position) -> None:
+        self.positions = list(positions)
+
+    def parameters(self) -> dict[str, object]:
+        return {}
+
+    def generate_positions(self, data: HistoricalData) -> list[Position]:
+        return self.positions
+
+
+def long_position(**overrides) -> Position:
+    fields = dict(open_dt=T0, open_price=1.1000, side=Side.LONG, sl=1.0980, tp=1.1040)
+    fields.update(overrides)
+    return Position(**fields)
+
+
+def short_position(**overrides) -> Position:
+    fields = dict(open_dt=T0, open_price=1.1000, side=Side.SHORT, sl=1.1020, tp=1.0960)
+    fields.update(overrides)
+    return Position(**fields)

@@ -1,9 +1,8 @@
 """Tests for `application.run_backtest_use_case.build_run_info`."""
 
 from application.run_backtest_use_case import build_run_info
-from domain.pandas_approach.backtest import Backtest
+from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest, ResolveFrom
 from domain.pandas_approach.cost_model import FixedCost
-from domain.pandas_approach.simulation import AmbiguityPolicy, ResolveFrom
 from tests.domain.pandas_approach.backtest._fakes import ScriptedStrategy, data
 
 
