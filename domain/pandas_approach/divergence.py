@@ -29,7 +29,7 @@ from enum import Enum
 import numpy as np
 import pandas as pd
 
-__all__ = ["Category", "Direction", "Divergence", "find_divergences"]
+__all__ = ["Category", "Direction", "Divergence", "filter_regular_by_band", "find_divergences"]
 
 
 class Category(Enum):
@@ -164,3 +164,18 @@ def find_divergences(
 
     divergences.sort(key=lambda d: d.end_time)
     return divergences
+
+
+def filter_regular_by_band(divergences: list[Divergence], lower: float, upper: float) -> list[Divergence]:
+    """Keep regular divergences that start outside [lower, upper] and end inside it.
+
+    Those mark the oscillator actually leaving overbought/oversold territory
+    (the 30/70 band by default in the callers). Hidden divergences pass
+    through untouched: they occur mid-trend, not at the extremes the band is
+    meant to isolate.
+    """
+    return [
+        d for d in divergences
+        if d.category != Category.REGULAR
+        or (not (lower <= d.start_value <= upper) and lower <= d.end_value <= upper)
+    ]

@@ -31,9 +31,9 @@ __all__ = ["DivergencePosition", "open_positions"]
 class DivergencePosition:
     """An entry signal tied to the divergence that produced it.
 
-    Predates the backtest framework's `domain.pandas_approach.position.Position`
-    and carries no SL/TP; it goes away once the RSI divergence strategy is
-    ported onto `TradingStrategy`."""
+    Entry only -- no SL/TP. `strategies.rsi_divergence` adds the exit levels
+    and turns it into a backtestable `domain.pandas_approach.position.Position`;
+    the scan script prints it as-is."""
 
     divergence: Divergence
     side: Side

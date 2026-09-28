@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Detect RSI divergences on M5 EURUSD bars resampled from raw M1 exports.
+"""Detect RSI divergences on M15 EURUSD bars resampled from raw M1 exports.
 
 Python translation of `temp/RSI Divergence Indicator.pine` (the LuxAlgo-style
 regular/hidden divergence indicator): find pivot points in RSI, pair each with
@@ -11,10 +11,10 @@ price disagree on direction. See `domain/divergence.py` for the algorithm.
     python3 rsi_divergence.py data/eurusd/1min --hidden --rsi-length 21
 
 `source` is a folder of raw M1 exports or a single M1 csv file -- resampled to
-M5 bars with the same `ports`/`domain` building blocks the research pipeline
-uses (per-file resample, then a stable-sort dedup across files, matching the
-pipeline's stage-0 convention), so a scan sees the same bars the pipeline
-would. The result is raw broker-server time (America/New_York); this script
+M15 bars (`TIMEFRAME`) with the same `ports`/`domain` building blocks the
+research pipeline uses (per-file resample, then a stable-sort dedup across
+files, matching the pipeline's stage-0 convention), so a scan sees the same
+bars the pipeline would. The result is raw broker-server time (America/New_York); this script
 shifts it to `--timezone` (default: UTC, via
 `domain.pandas_approach.shift_timezone`) before scanning, so every printed
 timestamp -- and the RSI/pivot calculation, which is order- not
@@ -42,7 +42,7 @@ import time
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from application.load_historical_data_use_case import load_mt5
-from domain.pandas_approach.divergence import Category, Divergence, Direction, find_divergences
+from domain.pandas_approach.divergence import Divergence, Direction, filter_regular_by_band, find_divergences
 from domain.pandas_approach.divergence_positions import DivergencePosition, open_positions
 from domain.pandas_approach.rsi import rsi
 from domain.pandas_approach.shift_timezone import shift_timezone
@@ -52,9 +52,8 @@ from domain.symbol import EurUsd
 
 SCREEN_WIDTH = 90
 
-# The bar size the scan runs on. The module docstring and the printed bar count
-# say M5, but the loader this replaced resampled to M15; kept as-is until the
-# intended timeframe is confirmed.
+# The bar size the scan runs on -- the same one `strategies.rsi_divergence` was
+# built for.
 TIMEFRAME = SampleSize.Parse("15m")
 
 
@@ -77,7 +76,7 @@ def main() -> int:
     frame = load_mt5(args.source, TIMEFRAME, EurUsd(), progress=print).data
     df = shift_timezone(frame, target_tz)
 
-    print(f"\n{len(df):,} M5 bars, {df['datetime'].min()} -> {df['datetime'].max()}")
+    print(f"\n{len(df):,} {TIMEFRAME} bars, {df['datetime'].min()} -> {df['datetime'].max()}")
 
     oscillator = rsi(df["close"], length=args.rsi_length)
 
@@ -91,14 +90,7 @@ def main() -> int:
         include_hidden=args.hidden,
     )
 
-    divergences = [
-        d for d in divergences
-        if d.category != Category.REGULAR
-        or (
-            not (args.rsi_lower <= d.start_value <= args.rsi_upper)
-            and args.rsi_lower <= d.end_value <= args.rsi_upper
-        )
-    ]
+    divergences = filter_regular_by_band(divergences, args.rsi_lower, args.rsi_upper)
 
     print(f"\n{len(divergences)} divergence(s) found "
           f"(regular divergences filtered to start outside "
