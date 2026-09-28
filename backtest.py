@@ -24,12 +24,12 @@ import sys
 import time
 
 from application.load_historical_data_use_case import load_dukascopy, load_source
-from application.run_backtest_use_case import run_backtest
+from application.run_backtest_use_case import BacktestRun, run_backtest
 from domain.pandas_approach.backtest import Backtest
 from domain.pandas_approach.cost_model import FixedCost, SpreadCost
 from domain.pandas_approach.simulation import AmbiguityPolicy, ResolveFrom
 from domain.sample_size import SampleSize
-from domain.symbol import by_ticker
+from domain.symbol import Symbol, by_ticker
 from strategies import STRATEGIES
 
 
@@ -44,6 +44,24 @@ def main() -> int:
         print(f"ERROR: {error}", file=sys.stderr)
         return 1
 
+    try:
+        run = _run(args, timeframe, symbol)
+    except (ValueError, FileNotFoundError) as error:
+        # Data and strategy that don't fit together (wrong clock, no spread
+        # column, missing Dukascopy year): say so plainly, not as a traceback.
+        print(f"ERROR: {error}", file=sys.stderr)
+        return 1
+
+    print()
+    print(run.report)
+    for path in run.paths:
+        print(f"Wrote {path}")
+
+    print(f"\nExecution time: {time.perf_counter() - started:.2f}s")
+    return 0
+
+
+def _run(args: argparse.Namespace, timeframe: SampleSize, symbol: Symbol) -> BacktestRun:
     if args.source is not None:
         source = args.source
         data = load_source(args.source, timeframe, symbol, progress=print)
@@ -61,15 +79,7 @@ def main() -> int:
         resolve_from=ResolveFrom(args.resolve_from),
         splits=not args.no_splits,
     )
-    run = run_backtest(backtest, args.out, source=str(source))
-
-    print()
-    print(run.report)
-    for path in run.paths:
-        print(f"Wrote {path}")
-
-    print(f"\nExecution time: {time.perf_counter() - started:.2f}s")
-    return 0
+    return run_backtest(backtest, args.out, source=str(source))
 
 
 def _parse_args() -> argparse.Namespace:
