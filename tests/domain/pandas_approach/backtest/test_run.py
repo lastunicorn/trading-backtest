@@ -60,7 +60,7 @@ def test_ambiguity_policy_is_passed_through() -> None:
     assert assumed.trades["outcome"].tolist() == ["stop-loss-hit"]
 
 
-def test_resolve_from_is_passed_through() -> None:
+def test_position_resolve_delay_is_passed_through() -> None:
     entry_bar_hits_tp = data(10, {})
     entry_bar_hits_tp.data.loc[0, "high"] = 1.1025
 
@@ -169,14 +169,14 @@ def test_gap_through_the_stop_fills_at_the_stop_level() -> None:
 # where checking starts
 
 def test_next_bar_ignores_a_hit_on_the_entry_bar() -> None:
-    trade = _one([HITS_TP_LONG, QUIET, HITS_SL_LONG], long_position(), resolve_from=PositionResolveDelay.NEXT_BAR)
+    trade = _one([HITS_TP_LONG, QUIET, HITS_SL_LONG], long_position(), position_resolve_delay=PositionResolveDelay.NEXT_BAR)
 
     assert trade.outcome == PositionOutcome.STOP_LOSS_HIT.value
     assert trade.close_dt == at(2)
 
 
 def test_entry_bar_counts_a_hit_on_the_entry_bar() -> None:
-    trade = _one([HITS_TP_LONG, QUIET, HITS_SL_LONG], long_position(), resolve_from=PositionResolveDelay.ENTRY_BAR)
+    trade = _one([HITS_TP_LONG, QUIET, HITS_SL_LONG], long_position(), position_resolve_delay=PositionResolveDelay.ENTRY_BAR)
 
     assert trade.outcome == PositionOutcome.TAKE_PROFIT_HIT.value
     assert trade.close_dt == at(0)

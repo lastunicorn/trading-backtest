@@ -1,10 +1,10 @@
-"""Tests for `application.run_backtest_use_case.write_results`."""
+"""Tests for `backtest.write_results`."""
 
 import json
 
 import pandas as pd
 
-from application.run_backtest_use_case import write_results
+from backtest import write_results
 from domain.pandas_approach.backtest import Backtest
 from tests.domain.pandas_approach.backtest._fakes import ScriptedStrategy, data
 

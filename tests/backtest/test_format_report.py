@@ -1,6 +1,6 @@
-"""Tests for `application.run_backtest_use_case.format_report`."""
+"""Tests for `backtest.format_report`."""
 
-from application.run_backtest_use_case import build_run_info, format_report
+from backtest import build_run_info, format_report
 from domain.pandas_approach.backtest import Backtest
 from tests.domain.pandas_approach.backtest._fakes import ScriptedStrategy, data
 

@@ -1,6 +1,6 @@
 """`Backtest`: run one strategy over one dataset under one set of simulation rules.
 
-    from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest, ResolveFrom
+    from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest, PositionResolveDelay
 
     result = Backtest(strategy, data, cost_model=FixedCost(pips=1.7)).run()
     result.trades                                   # one row per trade, P&L and split included
@@ -9,7 +9,7 @@
 `run()` goes strategy -> open positions -> exits (`_simulate`) -> costs ->
 per-trade P&L -> discovery/validation/test split -> statistics, and returns
 the numbers. It is a pure calculation: no files, no clock, no git. Recording
-provenance and writing results is `application.run_backtest_use_case`'s job.
+provenance and writing results is the `backtest.py` CLI's job.
 
 `_simulate` is the one place exit logic lives, so strategies only decide
 entries. Each position is walked independently from its entry bar to its time
@@ -21,7 +21,7 @@ The exit rules, all on bid OHLC (see `HistoricalData`):
 - **Hits.** A long hits TP when a bar's high reaches it and SL when its low
   does; a short mirrors that. The fill is the level itself. That includes a bar
   that *gaps* through the level, so SL fills are optimistic after gaps.
-- **Where checking starts** is `ResolveFrom`. With NEXT_BAR (the default, and
+- **Where checking starts** is `PositionResolveDelay`. With NEXT_BAR (the default, and
   v28's rule) the entry bar is skipped, because an entry at a level *inside*
   the bar can't tell whether the bar's extremes came before or after the fill.
   ENTRY_BAR is right for entries at the bar's open.

@@ -1,6 +1,6 @@
-"""Tests for `application.run_backtest_use_case.build_run_info`."""
+"""Tests for `backtest.build_run_info`."""
 
-from application.run_backtest_use_case import build_run_info
+from backtest import build_run_info
 from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest, PositionResolveDelay
 from domain.pandas_approach.cost_model import FixedCost
 from tests.domain.pandas_approach.backtest._fakes import ScriptedStrategy, data
@@ -37,8 +37,8 @@ def test_records_the_simulation_settings() -> None:
 
     assert _info(backtest)["simulation"] == {
         "cost_model": {"class": "FixedCost", "pips": 1.2},
-        "ambiguity": "assume-sl",
-        "resolve_from": "entry-bar",
+        "ambiguity_policy": "assume-sl",
+        "position_resolve_delay": "entry-bar",
         "splits": False,
     }
 

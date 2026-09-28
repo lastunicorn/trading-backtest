@@ -74,7 +74,7 @@ The split between the packages is the point of the layout:
 
 - **`ports/`** knows *file formats*. A port parses records and stops — no cleaning, no deduplication, no resampling, whether it hands back `Bar` objects or a DataFrame. Most ports are **stdlib-only** (no pandas, no numpy), so they run in any sandbox as-is; `mt5_file_access.mt5_frame_reader` is the deliberate exception, using pandas to build the DataFrame directly. `Bar` itself is a `domain/` entity (`domain/bar_approach/bar.py`) — the MT5 port parses files into it but does not own it.
 - **`domain/`** knows *what the data means*: what one OHLC candle is (`bar_approach.bar.Bar`), how bars collapse into a coarser timeframe (`pandas_approach.frames.resample_ohlc`), which of two rows claiming the same timestamp wins, and how a trade is simulated and scored. `domain/pandas_approach/` is where pandas lives; `domain/bar_approach/bar.py` is stdlib-only, which is what lets `ports/` depend on it. `domain/` never reads or writes files, and never imports `ports/` or `application/`.
-- **`application/`** wires `ports/` and `domain/` into a whole task: read the raw exports, resample and merge, write the result, return the numbers a CLI prints. The I/O that `domain/` refuses lives here — including the clock and git, which is why `Backtest.run()` is domain but recording a run is application.
+- **`application/`** wires `ports/` and `domain/` into a whole task: read the raw exports, resample and merge, write the result, return the numbers a CLI prints. The I/O that `domain/` refuses lives here — including the clock and git, which is why `Backtest.run()` is domain but recording a run is not. (A use case whose only caller is one CLI can live in that CLI instead — `resample_csv.py`'s `resample()` and `backtest.py`'s `run_backtest()` do.)
 
 ```
 ports/mt5_file_access/mt5_bar_reader.py   MT5 CSV → `Bar` objects (dt, OHLC, volumes, spread)            [stdlib]
@@ -153,7 +153,7 @@ HistoricalData ─► TradingStrategy.generate_positions() ─► open Positions
        positions_to_frame ─► CostModel.cost_pips ─► trade_results ─► assign_splits ─► statistics_by_split
        └─────────────────────── Backtest.run() → BacktestResult(trades, statistics) ───────────────────┘   [domain, no I/O]
                                 │
-       run_backtest(): run_info (git, clock) + statistics.txt + 4 files                                   [application]
+       run_backtest(): run_info (git, clock) + statistics.txt + 4 files                               [backtest.py]
 ```
 
 ```
@@ -165,13 +165,12 @@ domain/pandas_approach/cost_model.py       CostModel, FixedCost (default 1.7 pip
 domain/pandas_approach/trade_results.py    per-trade gross/cost/net pips, risk pips, net R, duration
 domain/pandas_approach/splits.py           Split, split_dates (v28's exact 60/20/20 cut), assign_splits
 domain/pandas_approach/statistics.py       compute_statistics, statistics_by_split, max_drawdown, max_consecutive_losses
-domain/pandas_approach/backtest.py         Backtest(strategy, data, cost_model, ambiguity_policy, resolve_from, splits).run(); exits (`_simulate`), AmbiguityPolicy, ResolveFrom
+domain/pandas_approach/backtest.py         Backtest(strategy, data, cost_model, ambiguity_policy, position_resolve_delay, splits).run(); exits (`_simulate`), AmbiguityPolicy, PositionResolveDelay
 application/load_historical_data_use_case.py  load_mt5 / load_clean_csv / load_dukascopy / load_source → HistoricalData
-application/run_backtest_use_case.py       run_backtest → BacktestRun; build_run_info, format_report, write_results
 strategies/__init__.py                     STRATEGIES registry: the names backtest.py --strategy accepts
 strategies/narrow_asia_fade.py             v28's frozen rules (NarrowAsiaFade)
 strategies/rsi_divergence.py               RSI divergence reversal (RsiDivergence), entries = rsi_divergence_strategy.py's
-backtest.py                                the CLI
+backtest.py                                the CLI, plus run_backtest → BacktestRun; build_run_info, format_report, write_results
 ```
 
 ```bash

@@ -1,8 +1,8 @@
-"""Tests for `application.run_backtest_use_case.run_backtest`."""
+"""Tests for `backtest.run_backtest`."""
 
 import json
 
-from application.run_backtest_use_case import run_backtest
+from backtest import run_backtest
 from domain.pandas_approach.backtest import Backtest
 from tests.domain.pandas_approach.backtest._fakes import ScriptedStrategy, data
 

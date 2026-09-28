@@ -22,7 +22,7 @@ For each weekday, in broker-server time:
 Step 4's exits are the simulator's job. This class only emits the entries,
 with `exit_dt` set to the end of the 14:00 bar. v28 resolved exits from the bar
 after entry and settled a bar touching both SL and TP as a stop, so the parity
-run is `AmbiguityPolicy.ASSUME_SL` with `ResolveFrom.NEXT_BAR`:
+run is `AmbiguityPolicy.ASSUME_SL` with `PositionResolveDelay.NEXT_BAR`:
 
     python3 backtest.py --strategy narrow_asia_fade --ambiguity assume-sl --resolve-from next-bar \\
         --source output/research_output_v24_1/EURUSD_M5_CLEAN_2020_2026.csv --out output/backtest_narrow_asia_fade

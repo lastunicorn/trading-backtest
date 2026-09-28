@@ -98,7 +98,7 @@ Every backtest runs under these rules. Two of them are settings, so pick those d
 
 **A hit fills at the level itself.** A long hits TP when a bar's high reaches it and SL when its low does; a short mirrors that. Touching the level counts. The fill is the level even when a bar *gaps* past it, which flatters stop-loss fills after gaps.
 
-**Where checking starts (`ResolveFrom`, a setting).**
+**Where checking starts (`PositionResolveDelay`, a setting).**
 - `NEXT_BAR` (default) skips the entry bar. Use it when the entry is at a price *inside* the bar, like a level being re-crossed: the bar's high and low may have happened before the fill.
 - `ENTRY_BAR` checks the entry bar too. Use it when the entry is at the bar's *open*: everything in that bar then happened after the fill.
 
@@ -375,8 +375,8 @@ Use this when you need non-default strategy parameters, several runs in a loop, 
 
 ```python
 from application.load_historical_data_use_case import load_source
-from application.run_backtest_use_case import run_backtest
-from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest, ResolveFrom
+from backtest import run_backtest
+from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest, PositionResolveDelay
 from domain.pandas_approach.cost_model import FixedCost
 from domain.sample_size import SampleSize
 from domain.symbol import EurUsd
@@ -388,7 +388,7 @@ backtest = Backtest(
     data,
     cost_model=FixedCost(pips=1.7),
     ambiguity_policy=AmbiguityPolicy.EXCLUDE,
-    resolve_from=ResolveFrom.NEXT_BAR,
+    position_resolve_delay=PositionResolveDelay.NEXT_BAR,
 )
 
 result = backtest.run()                          # numbers only, nothing written
@@ -617,12 +617,12 @@ pandas rejects custom `tzinfo` objects, so don't pass `BROKER_SERVER_TZ` to `tz_
 
 #### `domain.pandas_approach.backtest`
 
-**`Backtest(strategy, data, cost_model=FixedCost(), ambiguity_policy=AmbiguityPolicy.EXCLUDE, resolve_from=ResolveFrom.NEXT_BAR, splits=True)`**: one strategy, one dataset, one set of rules.
+**`Backtest(strategy, data, cost_model=FixedCost(), ambiguity_policy=AmbiguityPolicy.EXCLUDE, position_resolve_delay=PositionResolveDelay.NEXT_BAR, splits=True)`**: one strategy, one dataset, one set of rules.
 
 - `run() -> BacktestResult`: a pure calculation, with no files, clock or git. It closes every position the strategy returned under the rules in [section 3](#3-how-a-backtest-decides-things) (in the private `_simulate`, the one place exits are decided), then applies costs, splits and statistics. It raises `ValueError` on a position that is already closed or that opens before the first bar; these are never skipped silently.
 
 - **`AmbiguityPolicy`**: `EXCLUDE` (`"exclude"`), `ASSUME_SL` (`"assume-sl"`), `ASSUME_TP` (`"assume-tp"`).
-- **`ResolveFrom`**: `NEXT_BAR` (`"next-bar"`), `ENTRY_BAR` (`"entry-bar"`).
+- **`PositionResolveDelay`**: `NEXT_BAR` (`"next-bar"`), `ENTRY_BAR` (`"entry-bar"`).
 
 **`BacktestResult(trades, statistics)`** (frozen):
 
@@ -643,7 +643,7 @@ pandas rejects custom `tzinfo` objects, so don't pass `BROKER_SERVER_TZ` to `tz_
 
 All return a `HistoricalData` resampled to `timeframe`. Pass `progress=print` to see one line per file.
 
-#### `application.run_backtest_use_case`
+#### `backtest` (the CLI module, importable)
 
 - **`run_backtest(backtest, out_dir, *, source=None) -> BacktestRun`**: runs the backtest and writes the four files. `BacktestRun` has `result`, `run_info` (the `run.json` content), `report` (the `statistics.txt` text) and `paths`.
 - The three steps it chains, usable on their own:
