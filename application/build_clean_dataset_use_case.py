@@ -25,6 +25,7 @@ from datetime import datetime
 import pandas as pd
 
 from domain.pandas_approach.frames import clean_frame, resample_ohlc
+from domain.sample_size import SampleSize
 from ports.file_system_access import find_files
 from ports.mt5_file_access import read_frame
 
@@ -77,7 +78,8 @@ class LoadError:
 class CleanDataset:
     """The combined result, plus the numbers a data-quality report needs.
 
-    Carries the `timeframe` it was built on (a broker label like "M5") so a
+    Carries the `timeframe` it was built on (a broker label like "M5", or a
+    `SampleSize`, whichever the caller passed) so a
     caller writing a report does not have to keep it alongside the dataset it
     describes.
     """
@@ -86,7 +88,7 @@ class CleanDataset:
     stats: list[FileStat] = field(default_factory=list)
     errors: list[LoadError] = field(default_factory=list)
     duplicates_removed_count: int = 0
-    timeframe: str = "M5"
+    timeframe: str | SampleSize = "M5"
 
     @property
     def first(self) -> datetime:
@@ -118,7 +120,7 @@ def _combine_pieces(pieces: list[pd.DataFrame], say: Progress) -> tuple[pd.DataF
 def build_clean_dataset(
     input_directory,
     *,
-    timeframe: str = "M5",
+    timeframe: str | SampleSize = "M5",
     skip_parts: Sequence[str] = DEFAULT_SKIP_NAME_PARTS,
     progress: Progress | None = None,
 ) -> CleanDataset:

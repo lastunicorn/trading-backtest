@@ -8,6 +8,7 @@ Stdlib only. The unit letters are case-sensitive so "m" (minute) and "M"
     spec = SampleSize.Parse("4h")
     spec.amount, spec.unit             # 4, SampleUnit.Hour
     spec.to_pandas_rule()              # "4h"
+    str(spec)                          # "4h" -- round-trips through Parse
 """
 
 from __future__ import annotations
@@ -75,6 +76,10 @@ class SampleSize:
             raise ValueError(f"interval amount must be positive, got {interval!r}")
 
         return SampleSize(amount, SampleUnit(match.group(2)))
+
+    def __str__(self) -> str:
+        """The compact form `Parse` reads: amount then unit letter ("5m", "3M")."""
+        return f"{self.amount}{self.unit.value}"
 
     def to_pandas_rule(self) -> str:
         """The pandas resample rule this size means ("5m" -> "5min", "3M" -> "3MS")."""

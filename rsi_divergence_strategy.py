@@ -39,21 +39,23 @@ import argparse
 import os
 import sys
 import time
-from collections.abc import Callable
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-import pandas as pd
-
+from application.load_historical_data_use_case import load_mt5
 from domain.pandas_approach.divergence import Category, Divergence, Direction, find_divergences
-from domain.pandas_approach.frames import clean_frame, resample_ohlc
 from domain.pandas_approach.divergence_positions import DivergencePosition, open_positions
 from domain.pandas_approach.rsi import rsi
 from domain.pandas_approach.shift_timezone import shift_timezone
 from domain.pandas_approach.side import Side
-from ports.file_system_access import find_files
-from ports.mt5_file_access import read_frame
+from domain.sample_size import SampleSize
+from domain.symbol import EurUsd
 
 SCREEN_WIDTH = 90
+
+# The bar size the scan runs on. The module docstring and the printed bar count
+# say M5, but the loader this replaced resampled to M15; kept as-is until the
+# intended timeframe is confirmed.
+TIMEFRAME = SampleSize.Parse("15m")
 
 
 def main() -> int:
@@ -72,7 +74,7 @@ def main() -> int:
     print("Source:", args.source)
     print("Timezone:", args.timezone, "(source is America/New_York broker-server time)")
 
-    frame = _load_m5_frame(args.source, progress=print)
+    frame = load_mt5(args.source, TIMEFRAME, EurUsd(), progress=print).data
     df = shift_timezone(frame, target_tz)
 
     print(f"\n{len(df):,} M5 bars, {df['datetime'].min()} -> {df['datetime'].max()}")
@@ -168,35 +170,6 @@ def _parse_args() -> argparse.Namespace:
 
     return parser.parse_args()
 
-
-def _load_m5_frame(source: str, progress: Callable[[str], None]) -> pd.DataFrame:
-    """Resample every M1 export under `source` to M5 bars and merge them.
-
-    Each file is resampled on its own before concatenation, so peak memory is
-    one month rather than the whole history. Where two files cover the same
-    timestamp the later-sorted one wins (stable sort + keep-last dedup),
-    matching the pipeline's stage-0 convention.
-    """
-    file_paths = find_files(source)
-    progress(f"Found {len(file_paths)} candidate source CSV files.")
-
-    pieces: list[pd.DataFrame] = []
-    for index, path in enumerate(file_paths, 1):
-        progress(f"[{index}/{len(file_paths)}] {path.name}")
-        raw = read_frame(path, strict=False)
-        bars = resample_ohlc(clean_frame(raw), "M15") if not raw.empty else pd.DataFrame()
-        if bars.empty:
-            progress("    SKIP: no usable rows")
-            continue
-        progress(f"    OK: {len(raw):,} source rows -> {len(bars):,} bars")
-        pieces.append(bars)
-
-    if not pieces:
-        raise RuntimeError("No usable source files.")
-
-    progress("Combining converted pieces...")
-    big_frame = pd.concat(pieces, ignore_index=True)
-    return clean_frame(big_frame)
 
 GREEN = "\033[32m"
 RED = "\033[31m"
