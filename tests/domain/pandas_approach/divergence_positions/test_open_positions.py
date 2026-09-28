@@ -1,9 +1,10 @@
-"""Tests for `domain.pandas_approach.position.open_positions`."""
+"""Tests for `domain.pandas_approach.divergence_positions.open_positions`."""
 
 import pandas as pd
 
 from domain.pandas_approach.divergence import Category, Direction, Divergence
-from domain.pandas_approach.position import Side, open_positions
+from domain.pandas_approach.divergence_positions import open_positions
+from domain.pandas_approach.side import Side
 
 
 def _frame(n: int) -> pd.DataFrame:

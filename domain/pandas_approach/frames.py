@@ -11,14 +11,17 @@ coarser grid -- OHLC by first/max/min/last, volumes summed, spread averaged
     m1 = clean_frame(m1)
     m5 = resample_ohlc(m1, "M5")
 
-Timeframes are named the broker's way ("M5", "H1"). This module is the one
-place that has to know the pandas resample rule they map to, so the lookup
-lives here rather than being threaded through every caller.
+Timeframes are named the broker's way ("M5", "H1") or given as a
+`domain.sample_size.SampleSize` (which knows its own pandas rule). This module
+is the one place that has to know the pandas resample rule a broker label maps
+to, so the lookup lives here rather than being threaded through every caller.
 """
 
 from __future__ import annotations
 
 import pandas as pd
+
+from domain.sample_size import SampleSize
 
 __all__ = ["clean_frame", "resample_ohlc"]
 
@@ -65,11 +68,11 @@ def clean_frame(frame: pd.DataFrame) -> pd.DataFrame:
     )
 
 
-def resample_ohlc(frame: pd.DataFrame, timeframe: str = "M5") -> pd.DataFrame:
+def resample_ohlc(frame: pd.DataFrame, timeframe: str | SampleSize = "M5") -> pd.DataFrame:
     """Collapse bars onto a coarser grid: OHLC by first/max/min/last.
 
-    `timeframe` is a broker label ("M5", "H1"); it is mapped to the pandas
-    resample rule here. Volumes sum, spread averages. Bins with no source bar
+    `timeframe` is a broker label ("M5", "H1"), mapped to the pandas resample
+    rule here, or a `SampleSize`, which supplies its own. Volumes sum, spread averages. Bins with no source bar
     are dropped rather than emitted as gaps.
     """
     if frame.empty:
@@ -82,7 +85,10 @@ def resample_ohlc(frame: pd.DataFrame, timeframe: str = "M5") -> pd.DataFrame:
         if name in indexed.columns
     }
 
-    rule = _PANDAS_RULES.get(timeframe, timeframe)
+    if isinstance(timeframe, SampleSize):
+        rule = timeframe.to_pandas_rule()
+    else:
+        rule = _PANDAS_RULES.get(timeframe, timeframe)
     resampled = indexed.resample(rule).agg(agg)
 
     return resampled.dropna(subset=_OHLC).reset_index()

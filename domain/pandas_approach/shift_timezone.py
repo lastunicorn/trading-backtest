@@ -23,12 +23,12 @@ from zoneinfo import ZoneInfo
 
 import pandas as pd
 
-__all__ = ["shift_timezone"]
+__all__ = ["BROKER_SERVER_TZ", "shift_timezone"]
 
-_BROKER_SERVER_TZ = ZoneInfo("America/New_York")
+BROKER_SERVER_TZ = ZoneInfo("America/New_York")
 
 
-def shift_timezone(frame: pd.DataFrame, to_tz: tzinfo, *, from_tz: tzinfo = _BROKER_SERVER_TZ) -> pd.DataFrame:
+def shift_timezone(frame: pd.DataFrame, to_tz: tzinfo, *, from_tz: tzinfo = BROKER_SERVER_TZ) -> pd.DataFrame:
     """Return `frame` with `datetime` re-expressed in `to_tz`, still naive.
 
     `frame["datetime"]` is assumed naive, holding a wall-clock time in

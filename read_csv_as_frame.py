@@ -43,7 +43,7 @@ import pandas as pd
 
 from domain.pandas_approach.frames import clean_frame, resample_ohlc
 from domain.pandas_approach.shift_timezone import shift_timezone
-from domain.sample_size import SampleSize, SampleUnit
+from domain.sample_size import SampleSize
 from domain.symbol import by_ticker
 from ports.file_system_access.file_system import find_files
 from ports.mt5_file_access import read_frame, write_frame
@@ -108,7 +108,7 @@ def main():
         frame = shift_timezone(frame, target_tz)
 
     if interval is not None:
-        frame = resample_ohlc(frame, _to_pandas_rule(interval))
+        frame = resample_ohlc(frame, interval)
 
     elapsed_data_processing = time.perf_counter() - start_time
 
@@ -235,23 +235,6 @@ def read_all(paths, *, strict, on_skip):
     """
     pieces = [read_frame(path, strict=strict, on_skip=on_skip) for path in paths]
     return pd.concat(pieces, ignore_index=True)
-
-
-# SampleSize's unit letters -> the pandas frequency alias they mean. Kept
-# local to this CLI: it is specifically about turning the --interval syntax
-# into what resample_ohlc expects, not something resample_ohlc itself needs
-# to know.
-_PANDAS_ALIAS = {
-    SampleUnit.Minute: "min",
-    SampleUnit.Hour: "h",
-    SampleUnit.Day: "D",
-    SampleUnit.Week: "W",
-    SampleUnit.Month: "MS",
-}
-
-
-def _to_pandas_rule(size: SampleSize) -> str:
-    return f"{size.amount}{_PANDAS_ALIAS[size.unit]}"
 
 
 if __name__ == "__main__":

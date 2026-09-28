@@ -46,9 +46,10 @@ import pandas as pd
 
 from domain.pandas_approach.divergence import Category, Divergence, Direction, find_divergences
 from domain.pandas_approach.frames import clean_frame, resample_ohlc
-from domain.pandas_approach.position import Position, Side, open_positions
+from domain.pandas_approach.divergence_positions import DivergencePosition, open_positions
 from domain.pandas_approach.rsi import rsi
 from domain.pandas_approach.shift_timezone import shift_timezone
+from domain.pandas_approach.side import Side
 from ports.file_system_access import find_files
 from ports.mt5_file_access import read_frame
 
@@ -225,7 +226,7 @@ def _colorize(divergence: Divergence, enabled: bool) -> str:
     return f"{color}{line}{RESET}"
 
 
-def _colorize_position(position: Position, enabled: bool) -> str:
+def _colorize_position(position: DivergencePosition, enabled: bool) -> str:
     divergence = position.divergence
     line = (
         f"{position.side.value:<6}"
