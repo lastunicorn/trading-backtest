@@ -1,9 +1,10 @@
 """Reader for raw MT5 CSV exports.
 
-Parses an export into `Bar` objects (the domain entity, `domain.bar.Bar`) so
-callers never re-implement timestamp/price parsing. Pure I/O: no cleaning, no
-resampling, no strategy logic. This module's own code is stdlib only -- its one
-non-stdlib dependency is the pandas-free `domain.bar`.
+Parses an export into `Bar` objects (the domain entity,
+`domain.bar_approach.bar.Bar`) so callers never re-implement timestamp/price
+parsing. Pure I/O: no cleaning, no resampling, no strategy logic. This
+module's own code is stdlib only -- its one non-stdlib dependency is the
+pandas-free `domain.bar_approach.bar`.
 
     from ports.mt5_file_access import read_bars, iter_bars
 
@@ -33,7 +34,7 @@ from pathlib import Path
 from domain.bar_approach.bar import Bar
 
 __all__ = [
-    "Bar",  # re-exported for convenience; canonical import is `from domain.bar import Bar`
+    "Bar",  # re-exported for convenience; canonical import is `from domain.bar_approach.bar import Bar`
     "BarParseError",
     "SourceLayout",
     "detect_layout",

@@ -1,9 +1,9 @@
 """Resample a stream of `Bar` objects onto a coarser grid.
 
-Stdlib only -- unlike `domain.frames.resample_ohlc`, which collapses a pandas
-frame, this works bar-by-bar on anything iterable (a list, or a generator such
-as `ports.mt5_file_access.iter_bars`), so a multi-year stream resamples in
-constant memory without ever going through pandas.
+Stdlib only -- unlike `domain.pandas_approach.frames.resample_ohlc`, which
+collapses a pandas frame, this works bar-by-bar on anything iterable (a list,
+or a generator such as `ports.mt5_file_access.iter_bars`), so a multi-year
+stream resamples in constant memory without ever going through pandas.
 
     from ports.mt5_file_access import iter_bars
     from domain.resample_bars import resample_bars

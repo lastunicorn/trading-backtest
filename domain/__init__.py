@@ -7,13 +7,14 @@ into a coarser timeframe (`frames.resample_ohlc`), which of two rows claiming
 the same timestamp wins, and what a triggered trade looks like once it has an
 entry, a stop-loss and a take-profit (`position.Position`).
 
-    from domain.bar import Bar
-    from domain.frames import resample_ohlc
-    from domain.position import Position
+    from domain.bar_approach.bar import Bar
+    from domain.pandas_approach.frames import resample_ohlc
+    from domain.bar_approach.position import Position
 
-`domain/frames.py` needs pandas; `domain/bar.py` and `domain/position.py` are
-stdlib only, and this `__init__` imports nothing, so `ports.mt5_file_access.mt5_bar_reader`
-can import `domain.bar` without gaining a pandas dependency. `domain/` never
+`domain/pandas_approach/frames.py` needs pandas; `domain/bar_approach/bar.py`
+and `domain/bar_approach/position.py` are stdlib only, and this `__init__`
+imports nothing, so `ports.mt5_file_access.mt5_bar_reader` can import
+`domain.bar_approach.bar` without gaining a pandas dependency. `domain/` never
 imports from `ports/` or `application/`; wiring those together is
 `application/`'s job.
 """

@@ -5,7 +5,7 @@ Domain vocabulary alongside `bar.Bar` -- where a `Bar` is one candle, a
 one bar at a time via `add()`. It starts empty: `day` is `None` and the OHLC
 fields are meaningless until the first bar lands.
 
-    from domain.bar_block import BarBlock
+    from domain.bar_approach.bar_block import BarBlock
 
     block = BarBlock()
     for bar in bars:
@@ -21,7 +21,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date as _date, datetime
 
-from domain.bar import Bar
+from domain.bar_approach.bar import Bar
 
 __all__ = ["BarBlock"]
 

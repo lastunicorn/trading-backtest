@@ -66,23 +66,24 @@ The v25–v28 scripts take session-window flags in **broker server time**, not U
 
 ## Tooling outside the pipeline
 
-`ports/`, `domain/`, `application/`, `tools/`, `show_csv.py` and `resample_csv.py` are **not** research stages. They are shared code: reading raw data, and building the clean dataset the pipeline consumes. They are versionless and freely editable — the immutability rule applies only to `eurusd_*_vNN.py`.
+`ports/`, `domain/`, `application/`, `read_csv_as_frame.py`, `read_csv_as_bars.py` and `resample_csv.py` are **not** research stages. They are shared code: reading raw data, and building the clean dataset the pipeline consumes. They are versionless and freely editable — the immutability rule applies only to `eurusd_*_vNN.py`.
 
 The split between the packages is the point of the layout:
 
-- **`ports/`** knows *file formats*. A port parses records and stops — no cleaning, no deduplication, no resampling, whether it hands back `Bar` objects or a DataFrame. Most ports are **stdlib-only** (no pandas, no numpy), so they run in any sandbox as-is; `mt5_file_access.mt5_frame_reader` is the deliberate exception, using pandas to build the DataFrame directly. `Bar` itself is a `domain/` entity (`domain/bar.py`) — the MT5 port parses files into it but does not own it.
-- **`domain/`** knows *what the data means*: what one OHLC candle is (`bar.Bar`), how bars collapse into a coarser timeframe (`frames.resample_ohlc`), which of two rows claiming the same timestamp wins. `domain/frames.py` is where pandas lives; `domain/bar.py` is stdlib-only, which is what lets `ports/` depend on it. `domain/` never reads or writes files, and never imports `ports/` or `application/`.
+- **`ports/`** knows *file formats*. A port parses records and stops — no cleaning, no deduplication, no resampling, whether it hands back `Bar` objects or a DataFrame. Most ports are **stdlib-only** (no pandas, no numpy), so they run in any sandbox as-is; `mt5_file_access.mt5_frame_reader` is the deliberate exception, using pandas to build the DataFrame directly. `Bar` itself is a `domain/` entity (`domain/bar_approach/bar.py`) — the MT5 port parses files into it but does not own it.
+- **`domain/`** knows *what the data means*: what one OHLC candle is (`Bar`), how bars collapse into a coarser timeframe, which of two rows claiming the same timestamp wins. It holds two parallel implementations of those concepts: **`domain/bar_approach/`** works on streams of `Bar` objects and is stdlib-only, which is what lets `ports/` depend on it; **`domain/pandas_approach/`** works on DataFrames and is where pandas lives. Modules that belong to neither (`sample_size`, `symbol`, `trading_session*`) sit directly in `domain/`. `domain/` never reads or writes files, and never imports `ports/` or `application/`.
 - **`application/`** wires `ports/` and `domain/` into a whole task: read the raw exports, resample and merge, write the result, return the numbers a CLI prints. The I/O that `domain/` refuses lives here.
 
 ```
 ports/mt5_file_access/mt5_bar_reader.py   MT5 CSV → `Bar` objects (dt, OHLC, volumes, spread)            [stdlib]
 ports/mt5_file_access/mt5_frame_reader.py MT5 CSV → pandas frame directly, same fields                  [pandas]
 ports/file_system_access/file_system.py   list the source csv files in a folder (or pass one file through) [stdlib]
-domain/bar.py                             the `Bar` entity — one OHLC candle (dt, OHLC, volumes, spread)  [stdlib]
-domain/frames.py                          resample a frame to a coarser timeframe                        [pandas]
+domain/bar_approach/bar.py                the `Bar` entity — one OHLC candle (dt, OHLC, volumes, spread)  [stdlib]
+domain/bar_approach/resample_bars.py      resample an iterable of `Bar` to a coarser grid, streaming    [stdlib]
+domain/pandas_approach/frames.py          clean a frame (`clean_frame`), resample it (`resample_ohlc`)  [pandas]
 application/build_clean_dataset_use_case.py  folder of exports → one clean, deduplicated frame (in memory)
-tools/resample_bars.py                    resample an iterable of `Bar` to a coarser grid, streaming    [stdlib]
-show_csv.py                               CLI that prints an export as an aligned table, raw or resampled
+read_csv_as_frame.py                      CLI that prints an export as an aligned table, raw or resampled [pandas]
+read_csv_as_bars.py                       the same CLI built on `Bar` streams instead of a frame          [stdlib]
 resample_csv.py                           folder/file of M1 exports → merged CSV on a coarser grid + report — stage 0 straight to a file
 ```
 
@@ -100,7 +101,7 @@ Everything after parsing is `domain/` (concepts) and `application/` (use cases) 
 
 ```python
 from ports.mt5_file_access import read_frame
-from domain.frames import resample_ohlc
+from domain.pandas_approach.frames import resample_ohlc
 from application.build_clean_dataset_use_case import build_clean_dataset
 
 m5 = resample_ohlc(read_frame("data/eurusd/1min/EURUSD_2020_01.csv"), "M5")
@@ -122,19 +123,19 @@ python3 resample_csv.py --source data/eurusd/1min --destination data/eurusd/15mi
 python3 resample_csv.py --source data/eurusd/1min/EURUSD_2020_01.csv --destination scratch/jan.csv --timeframe M5
 ```
 
-`show_csv.py`'s `source` is a single file or a folder of exports (`ports.file_system_access.find_files` — a folder is read file-by-file in name order, chronological for this repo's monthly exports). It runs a pandas pipeline: read every file into one frame, clean it up (stable sort + drop duplicate timestamps, `domain.pandas_approach.frames.clean_frame`), optionally shift timezone (`--timezone`, off by default — bars display in raw broker-server time otherwise), optionally resample (`--interval`, via `domain.pandas_approach.frames.resample_ohlc` with plain pandas bucket semantics — see `domain.sample_size.SampleSize` for the `5m`/`4h`/`7d`/`2w`/`3M` syntax), then display or write (`--output`, which always writes the full processed frame regardless of `--rows`/`--all`/`--tail`):
+`read_csv_as_frame.py`'s `source` is a single file or a folder of exports (`ports.file_system_access.find_files` — a folder is read file-by-file in name order, chronological for this repo's monthly exports). It runs a pandas pipeline: read every file into one frame, clean it up (stable sort + drop duplicate timestamps, `domain.pandas_approach.frames.clean_frame`), optionally shift timezone (`--timezone`, off by default — bars display in raw broker-server time otherwise), optionally resample (`--interval`, via `domain.pandas_approach.frames.resample_ohlc` with plain pandas bucket semantics — see `domain.sample_size.SampleSize` for the `5m`/`4h`/`7d`/`2w`/`3M` syntax), then display or write (`--output`, which always writes the full processed frame regardless of `--rows`/`--all`/`--tail`):
 
 ```bash
-python3 show_csv.py data/eurusd/1min/EURUSD_2020_01.csv            # first 20 bars (the source arg is required)
-python3 show_csv.py data/eurusd/1min/EURUSD_2020_01.csv --tail --rows 5
-python3 show_csv.py data/eurusd/1min/EURUSD_2020_01.csv --all | less
-python3 show_csv.py path/to/export.csv --decimals 3
-python3 show_csv.py data/eurusd/1min --interval 5m                 # whole folder, resampled to M5
-python3 show_csv.py data/eurusd/1min --timezone UTC                # broker-server time -> UTC
-python3 show_csv.py data/eurusd/1min --interval 5m --output scratch/jan_m5.csv  # write instead of display
+python3 read_csv_as_frame.py data/eurusd/1min/EURUSD_2020_01.csv   # first 20 bars (the source arg is required)
+python3 read_csv_as_frame.py data/eurusd/1min/EURUSD_2020_01.csv --tail --rows 5
+python3 read_csv_as_frame.py data/eurusd/1min/EURUSD_2020_01.csv --all | less
+python3 read_csv_as_frame.py path/to/export.csv --decimals 3
+python3 read_csv_as_frame.py data/eurusd/1min --interval 5m                 # whole folder, resampled to M5
+python3 read_csv_as_frame.py data/eurusd/1min --timezone UTC                # broker-server time -> UTC
+python3 read_csv_as_frame.py data/eurusd/1min --interval 5m --output scratch/jan_m5.csv  # write instead of display
 ```
 
-`ports/`, `ports/mt5_file_access/`, `ports/file_system_access/`, `domain/` and `application/` are regular packages (each has an `__init__.py`), and the CLIs must stay at the repo root for `ports.*` / `domain.*` / `application.*` to resolve from any working directory.
+`ports/`, `ports/mt5_file_access/`, `ports/file_system_access/`, `domain/`, `domain/bar_approach/`, `domain/pandas_approach/` and `application/` are regular packages (each has an `__init__.py`), and the CLIs must stay at the repo root for `ports.*` / `domain.*` / `application.*` to resolve from any working directory.
 
 ## Testing
 

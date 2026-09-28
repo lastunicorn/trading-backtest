@@ -1,13 +1,13 @@
 """Readers that turn raw MT5 export files into typed objects.
 
-`mt5_bar_reader` stops at parsing: one `Bar` per record (the `domain.bar.Bar`
-entity), nothing cleaned, deduplicated or resampled; its own code is stdlib
-only. `mt5_frame_reader` builds on it with pandas, turning an export straight
-into a DataFrame -- still parsing only, no cross-file dedup, which stays a
-`domain/` decision.
+`mt5_bar_reader` stops at parsing: one `Bar` per record (the
+`domain.bar_approach.bar.Bar` entity), nothing cleaned, deduplicated or
+resampled; its own code is stdlib only. `mt5_frame_reader` builds on it with
+pandas, turning an export straight into a DataFrame -- still parsing only, no
+cross-file dedup, which stays a `domain/` decision.
 
 Re-exported so callers can use the short form (`Bar` for convenience; its
-canonical home is `domain.bar`):
+canonical home is `domain.bar_approach.bar`):
 
     from ports.mt5_file_access import read_bars, iter_bars, Bar, read_frame, write_frame, write_bars
 """
