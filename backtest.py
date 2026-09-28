@@ -13,8 +13,12 @@ resolved against the config file's own folder, not the working directory:
         "strategy": "narrow_asia_fade",
         "source": "../../output/research_output_v24_1/EURUSD_M5_CLEAN_2020_2026.csv",
         "out": "../../output/backtest_narrow_asia_fade",
-        "ambiguity": "assume-sl"
+        "ambiguity": "assume-sl",
+        "strategy_parameters": {"rel_vol_min": 1.8, "study_end": "13:00"}
     }
+
+`strategy_parameters` (optional) overrides the strategy's dataclass fields;
+the rest keep their defaults. Time fields take "HH:MM" strings.
 
 `source` is a pipeline clean CSV (detected by its `datetime` header), a
 folder of MT5 exports, or one export. `dukascopy_years` (instead of `source`)
@@ -53,8 +57,9 @@ import os
 import subprocess
 import sys
 import time
-from dataclasses import asdict, dataclass, is_dataclass
-from datetime import datetime
+import typing
+from dataclasses import asdict, dataclass, field, fields, is_dataclass
+from datetime import datetime, time as clock_time
 from pathlib import Path
 
 from application.load_historical_data_use_case import load_dukascopy, load_source
@@ -119,7 +124,7 @@ def _run(config: BacktestConfig, timeframe: SampleSize, symbol: Symbol) -> Backt
     cost = SpreadCost(commission_pips=config.commission_pips) if config.spread_cost else FixedCost(pips=config.cost_pips)
 
     backtest = Backtest(
-        strategy=STRATEGIES[config.strategy](),
+        strategy=STRATEGIES[config.strategy](**config.strategy_parameters),
         data=data,
         cost_model=cost,
         ambiguity_policy=AmbiguityPolicy(config.ambiguity),
@@ -135,7 +140,9 @@ class BacktestConfig:
 
     Field names are the JSON keys. `source` and `out` are already resolved
     against the config file's folder. Exactly one of `source` and
-    `dukascopy_years` is set.
+    `dukascopy_years` is set. `strategy_parameters` holds the strategy's
+    constructor arguments, already converted to its field types (a JSON
+    "HH:MM" string becomes a `datetime.time`).
     """
 
     strategy: str
@@ -150,6 +157,7 @@ class BacktestConfig:
     ambiguity: str = AmbiguityPolicy.EXCLUDE.value
     resolve_from: str = PositionResolveDelay.NEXT_BAR.value
     splits: bool = True
+    strategy_parameters: dict[str, object] = field(default_factory=dict)
 
 
 # The JSON type each config key must have. bool is kept apart from the numbers
@@ -167,6 +175,7 @@ _CONFIG_KEY_TYPES = {
     "ambiguity": str,
     "resolve_from": str,
     "splits": bool,
+    "strategy_parameters": dict,
 }
 
 
@@ -202,7 +211,7 @@ def load_config(path) -> BacktestConfig:
         raise fail(f"unknown key(s) {', '.join(unknown)}; allowed: {', '.join(_CONFIG_KEY_TYPES)}")
     for key, value in raw.items():
         if not _has_json_type(value, _CONFIG_KEY_TYPES[key]):
-            raise fail(f'"{key}" must be a {_CONFIG_KEY_TYPES[key].__name__}, got {json.dumps(value)}')
+            raise fail(f'"{key}" must be {_JSON_TYPE_NAMES[_CONFIG_KEY_TYPES[key]]}, got {json.dumps(value)}')
 
     for key in ("strategy", "out"):
         if key not in raw:
@@ -226,12 +235,57 @@ def load_config(path) -> BacktestConfig:
     for key in ("cost_pips", "commission_pips"):
         if key in raw:
             values[key] = float(raw[key])
+    if "strategy_parameters" in raw:
+        values["strategy_parameters"] = _strategy_parameters(raw["strategy"], raw["strategy_parameters"], fail)
     return BacktestConfig(**values)
+
+
+def _strategy_parameters(name: str, raw: dict, fail) -> dict[str, object]:
+    """`raw` converted to the field types of strategy `name`, checked by building the strategy once.
+
+    Building it here means an out-of-range value (rejected by the strategy's
+    `__post_init__`) fails before any data is loaded, not after.
+    """
+    strategy_class = STRATEGIES[name]
+    types = typing.get_type_hints(strategy_class)
+    names = [f.name for f in fields(strategy_class) if f.init] if is_dataclass(strategy_class) else []
+
+    unknown = sorted(set(raw) - set(names))
+    if unknown:
+        raise fail(f"{name} has no parameter(s) {', '.join(unknown)}; "
+                   f"its parameters: {', '.join(names) or 'none'}")
+
+    converted = {}
+    for key, value in raw.items():
+        expected = types[key]
+        if expected is clock_time:
+            try:
+                converted[key] = clock_time.fromisoformat(value) if isinstance(value, str) else None
+            except ValueError:
+                converted[key] = None
+            if converted[key] is None:
+                raise fail(f'strategy parameter "{key}" must be a time "HH:MM", got {json.dumps(value)}')
+        elif expected in (int, float, bool, str):
+            if not _has_json_type(value, expected):
+                raise fail(f'strategy parameter "{key}" must be {_JSON_TYPE_NAMES[expected]}, got {json.dumps(value)}')
+            converted[key] = float(value) if expected is float else value
+        else:
+            raise fail(f'strategy parameter "{key}" has type {expected}, which a JSON config cannot set')
+
+    try:
+        strategy_class(**converted)
+    except (TypeError, ValueError) as error:
+        raise fail(f"invalid strategy_parameters for {name}: {error}") from error
+    return converted
 
 
 def _relative_to(config_file: Path, path: str) -> Path:
     """`path` resolved against the config file's folder, with `..` folded away (symlinks untouched)."""
     return Path(os.path.normpath(config_file.parent / path))
+
+
+_JSON_TYPE_NAMES = {str: "a string", float: "a number", int: "a whole number", bool: "true or false",
+                    list: "a list", dict: "a JSON object"}
 
 
 def _has_json_type(value, expected: type) -> bool:

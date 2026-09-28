@@ -6,6 +6,8 @@ Regular RSI divergences that leave the 30/70 band. It enters at the open of the 
 
 ## Parameters
 
+Each one can be set from a config's `strategy_parameters`.
+
 | Parameter | Default | Meaning |
 |---|---|---|
 | `rsi_length` | 14 | Wilder RSI period |

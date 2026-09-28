@@ -6,6 +6,8 @@ The frozen v28 "Candle DNA — Narrow Asia London Fade". It reproduces v28 trade
 
 ## Parameters
 
+Each one can be set from a config's `strategy_parameters`.
+
 | Parameter | Default | Meaning |
 |---|---|---|
 | `asia_start`, `asia_end` | 02:00, 10:00 | Asia window (end exclusive), broker-server time |

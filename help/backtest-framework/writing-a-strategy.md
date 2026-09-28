@@ -143,11 +143,19 @@ STRATEGIES: dict[str, type[TradingStrategy]] = {
 }
 ```
 
-The key is the name a config's `strategy` accepts. The CLI builds the class **with its default parameters**. To run other values, see [From Python](running-a-backtest.md#2-from-python) in *Running a backtest* or add a variant (next section).
+The key is the name a config's `strategy` accepts. The CLI builds the class with its default parameters, overridden by the config's `strategy_parameters` (next section).
 
 ## 4. Variants with different parameters
 
-A config has no strategy-parameter keys; strategy settings belong to the strategy definition. To run a variant from the command line, register a subclass that changes the defaults:
+From the command line, set the fields in the config's `strategy_parameters`. Each dataclass field is a key; the values are checked against the field's type, and the strategy is built once while the config loads, so a `__post_init__` check fails before any data is read:
+
+```json
+"strategy_parameters": {"risk_reward": 2.0, "exit_at": "16:00"}
+```
+
+The config can set fields typed `int`, `float`, `bool`, `str` and `datetime.time` (as `"HH:MM"`). A field of any other type still works from Python but makes the config fail with a clear error; to support it, extend `_strategy_parameters` in `backtest.py`.
+
+When a variant is worth keeping under its own name, register a subclass that changes the defaults instead:
 
 ```python
 @dataclass(frozen=True)

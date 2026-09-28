@@ -46,8 +46,21 @@ python3 backtest.py backtests/narrow_asia_fade        # a folder: reads the back
 | `ambiguity` | no | `"exclude"` | A bar touching both SL and TP: `exclude`, `assume-sl` or `assume-tp`. |
 | `resolve_from` | no | `"next-bar"` | First bar SL/TP are checked on: `next-bar` or `entry-bar`. |
 | `splits` | no | `true` | `false`: report only "all", without the discovery/validation/test breakdown. |
+| `strategy_parameters` | no | `{}` | Overrides for the strategy's own parameters (its dataclass fields, listed on each strategy's page); the rest keep their defaults. Numbers, whole numbers, `true`/`false` and strings as JSON; time-of-day fields as `"HH:MM"` strings. See below. |
 
-The config is checked before any data is read: an unknown key (a typo such as `"ambigutiy"`), a value of the wrong JSON type, a missing required key, or an invalid choice prints `ERROR: <file>: …` and exits with code 1, rather than quietly running on a default. The same happens when the data and the strategy don't fit together: a broker-clock strategy on UTC data, `spread_cost` without a spread column, a missing Dukascopy year, or an unknown timeframe or symbol.
+A variant of a strategy only needs `strategy_parameters`; the report header and `run.json` record the full parameter set the run used:
+
+```json
+{
+	"strategy": "narrow_asia_fade",
+	"source": "../../output/research_output_v24_1/EURUSD_M5_CLEAN_2020_2026.csv",
+	"out": "../../scratch/backtest_narrow_asia_fade_1300",
+	"ambiguity": "assume-sl",
+	"strategy_parameters": {"study_end": "13:00", "rel_vol_min": 1.8}
+}
+```
+
+The config is checked before any data is read: an unknown key (a typo such as `"ambigutiy"`), a value of the wrong JSON type, a missing required key, an invalid choice, or a strategy parameter the strategy doesn't have or rejects (e.g. a negative `risk_reward`) prints `ERROR: <file>: …` and exits with code 1, rather than quietly running on a default. The same happens when the data and the strategy don't fit together: a broker-clock strategy on UTC data, `spread_cost` without a spread column, a missing Dukascopy year, or an unknown timeframe or symbol.
 
 More examples, both in `backtests/`:
 
@@ -77,7 +90,7 @@ More examples, both in `backtests/`:
 
 ## 2. From Python
 
-Use this when you need non-default strategy parameters, several runs in a loop, or the numbers without files:
+Use this for several runs in a loop (parameter sweeps), or the numbers without files:
 
 ```python
 from application.load_historical_data_use_case import load_source

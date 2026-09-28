@@ -1,10 +1,13 @@
 """Tests for `backtest.load_config`."""
 
 import json
+from datetime import time
 
 import pytest
 
 from backtest import BacktestConfig, load_config
+from strategies import STRATEGIES
+from strategies.rsi_divergence import RsiDivergence
 
 
 def _write(folder, config: dict, name: str = "backtest.json"):
@@ -72,9 +75,9 @@ def test_reads_every_setting(tmp_path) -> None:
     ({"strategy": "rsi_divergence", "source": "m5.csv", "out": "o", "ambiguity": "guess"}, '"ambiguity"'),
     ({"strategy": "rsi_divergence", "source": "m5.csv", "out": "o", "resolve_from": "later"}, '"resolve_from"'),
     ({"strategy": "rsi_divergence", "source": "m5.csv", "out": "o", "cost_pip": 1.0}, "unknown key"),
-    ({"strategy": "rsi_divergence", "source": "m5.csv", "out": "o", "cost_pips": "1.7"}, '"cost_pips" must be'),
-    ({"strategy": "rsi_divergence", "source": "m5.csv", "out": "o", "cost_pips": True}, '"cost_pips" must be'),
-    ({"strategy": "rsi_divergence", "source": "m5.csv", "out": "o", "splits": "no"}, '"splits" must be'),
+    ({"strategy": "rsi_divergence", "source": "m5.csv", "out": "o", "cost_pips": "1.7"}, '"cost_pips" must be a number'),
+    ({"strategy": "rsi_divergence", "source": "m5.csv", "out": "o", "cost_pips": True}, '"cost_pips" must be a number'),
+    ({"strategy": "rsi_divergence", "source": "m5.csv", "out": "o", "splits": "no"}, '"splits" must be true or false'),
     ({"strategy": "rsi_divergence", "dukascopy_years": [], "out": "o"}, '"dukascopy_years"'),
     ({"strategy": "rsi_divergence", "dukascopy_years": ["2024"], "out": "o"}, '"dukascopy_years"'),
 ])
@@ -95,3 +98,47 @@ def test_rejects_a_json_array(tmp_path) -> None:
 
     with pytest.raises(ValueError, match="expected a JSON object"):
         load_config(tmp_path)
+
+
+def _with_parameters(tmp_path, strategy: str, parameters: dict):
+    return load_config(_write(tmp_path, {"strategy": strategy, "source": "m5.csv", "out": "o",
+                                         "strategy_parameters": parameters}))
+
+
+def test_strategy_parameters_default_to_none_given(tmp_path) -> None:
+    config = load_config(_write(tmp_path, {"strategy": "rsi_divergence", "source": "m5.csv", "out": "o"}))
+
+    assert config.strategy_parameters == {}
+
+
+def test_strategy_parameters_are_converted_to_the_field_types(tmp_path) -> None:
+    config = _with_parameters(tmp_path, "narrow_asia_fade",
+                              {"study_end": "13:30", "rel_vol_min": 2, "rel_vol_length": 10})
+
+    assert config.strategy_parameters == {"study_end": time(13, 30), "rel_vol_min": 2.0, "rel_vol_length": 10}
+    assert isinstance(config.strategy_parameters["rel_vol_min"], float)
+
+
+def test_strategy_parameters_build_the_strategy(tmp_path) -> None:
+    config = _with_parameters(tmp_path, "rsi_divergence", {"risk_reward": 1.5})
+
+    assert STRATEGIES[config.strategy](**config.strategy_parameters) == RsiDivergence(risk_reward=1.5)
+
+
+@pytest.mark.parametrize("strategy, parameters, message", [
+    ("rsi_divergence", {"risk_reword": 1.5}, "has no parameter.*risk_reword.*its parameters: rsi_length"),
+    ("rsi_divergence", {"rsi_length": 14.5}, '"rsi_length" must be a whole number'),
+    ("rsi_divergence", {"risk_reward": "2"}, '"risk_reward" must be a number'),
+    ("rsi_divergence", {"risk_reward": True}, '"risk_reward" must be a number'),
+    ("narrow_asia_fade", {"study_end": "2pm"}, '"study_end" must be a time'),
+    ("narrow_asia_fade", {"study_end": 14}, '"study_end" must be a time'),
+    ("rsi_divergence", {"risk_reward": -1.0}, "invalid strategy_parameters.*risk_reward must be positive"),
+])
+def test_rejects_invalid_strategy_parameters(tmp_path, strategy: str, parameters: dict, message: str) -> None:
+    with pytest.raises(ValueError, match=message):
+        _with_parameters(tmp_path, strategy, parameters)
+
+
+def test_strategy_parameters_must_be_an_object(tmp_path) -> None:
+    with pytest.raises(ValueError, match='"strategy_parameters" must be a JSON object'):
+        _with_parameters(tmp_path, "rsi_divergence", [1.5])
