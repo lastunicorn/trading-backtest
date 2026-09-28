@@ -36,7 +36,7 @@ from domain.sample_size import SampleSize
 from domain.symbol import Symbol
 from ports import ducascopy
 
-__all__ = ["is_clean_csv", "load_clean_csv", "load_dukascopy", "load_mt5", "load_source"]
+__all__ = ["_is_clean_csv", "load_clean_csv", "load_dukascopy", "load_mt5", "load_source"]
 
 Progress = Callable[[str], None]
 
@@ -55,8 +55,8 @@ def load_mt5(source, timeframe: SampleSize, symbol: Symbol, *, progress: Progres
 def load_clean_csv(path, timeframe: SampleSize, symbol: Symbol) -> HistoricalData:
     """The research pipeline's clean CSV (`datetime,open,high,low,close,...`)."""
     frame = pd.read_csv(path, parse_dates=["datetime"])
-    bars = resample_ohlc(clean_frame(frame), timeframe)
-    return HistoricalData.from_frame(bars, timeframe, symbol, spread_unit=SpreadUnit.POINTS)
+    frame = resample_ohlc(clean_frame(frame), timeframe)
+    return HistoricalData.from_frame(frame, timeframe, symbol, spread_unit=SpreadUnit.POINTS)
 
 
 def load_dukascopy(
@@ -82,21 +82,21 @@ def load_dukascopy(
     if not pieces:
         raise ValueError("no years given")
 
-    bars = clean_frame(pd.concat(pieces, ignore_index=True))
-    return HistoricalData.from_frame(bars, timeframe, symbol, spread_unit=SpreadUnit.PRICE, timezone=ZoneInfo("UTC"))
+    frame = clean_frame(pd.concat(pieces, ignore_index=True))
+    return HistoricalData.from_frame(frame, timeframe, symbol, spread_unit=SpreadUnit.PRICE, timezone=ZoneInfo("UTC"))
 
 
-def is_clean_csv(path) -> bool:
+def load_source(source, timeframe: SampleSize, symbol: Symbol, *, progress: Progress | None = None) -> HistoricalData:
+    """A clean CSV if `source` is one, MT5 exports otherwise."""
+    if _is_clean_csv(source):
+        return load_clean_csv(source, timeframe, symbol)
+    return load_mt5(source, timeframe, symbol, progress=progress)
+
+
+def _is_clean_csv(path) -> bool:
     """Whether `path` is a single pipeline clean CSV -- its header starts with `datetime`."""
     path = Path(path)
     if not path.is_file():
         return False
     with open(path, encoding="utf-8-sig") as handle:
         return handle.readline().lower().startswith("datetime")
-
-
-def load_source(source, timeframe: SampleSize, symbol: Symbol, *, progress: Progress | None = None) -> HistoricalData:
-    """A clean CSV if `source` is one, MT5 exports otherwise."""
-    if is_clean_csv(source):
-        return load_clean_csv(source, timeframe, symbol)
-    return load_mt5(source, timeframe, symbol, progress=progress)
