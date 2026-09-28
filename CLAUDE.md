@@ -167,30 +167,28 @@ domain/pandas_approach/splits.py           Split, split_dates (v28's exact 60/20
 domain/pandas_approach/statistics.py       compute_statistics, statistics_by_split, max_drawdown, max_consecutive_losses
 domain/pandas_approach/backtest.py         Backtest(strategy, data, cost_model, ambiguity_policy, position_resolve_delay, splits).run(); exits (`_simulate`), AmbiguityPolicy, PositionResolveDelay
 application/load_historical_data_use_case.py  load_mt5 / load_clean_csv / load_dukascopy / load_source → HistoricalData
-strategies/__init__.py                     STRATEGIES registry: the names backtest.py --strategy accepts
+strategies/__init__.py                     STRATEGIES registry: the names a backtest.py config's `strategy` accepts
 strategies/narrow_asia_fade.py             v28's frozen rules (NarrowAsiaFade)
 strategies/rsi_divergence.py               RSI divergence reversal (RsiDivergence), entries = rsi_divergence_strategy.py's
-backtest.py                                the CLI, plus run_backtest → BacktestRun; build_run_info, format_report, write_results
+backtest.py                                the CLI (one arg: a JSON config, load_config → BacktestConfig), plus run_backtest → BacktestRun; build_run_info, format_report, write_results
+backtests/<name>/backtest.json             ready-made configs: narrow_asia_fade (v28 parity), rsi_divergence, rsi_divergence_dukascopy
 ```
 
 ```bash
 # v28 parity run: must print 207 trades, 72.0% WR, PF 1.37, +257.5 pips
-python3 backtest.py --strategy narrow_asia_fade --ambiguity assume-sl --resolve-from next-bar \
-    --source output/research_output_v24_1/EURUSD_M5_CLEAN_2020_2026.csv --out output/backtest_narrow_asia_fade
+python3 backtest.py backtests/narrow_asia_fade            # a folder means its backtest.json
 
-python3 backtest.py --strategy rsi_divergence --timeframe 15m --resolve-from entry-bar \
-    --source data/eurusd/1min --out scratch/backtest_rsi_divergence
-python3 backtest.py --strategy rsi_divergence --timeframe 15m --resolve-from entry-bar \
-    --dukascopy-years 2024 2025 --spread-cost --commission-pips 0.2 --out scratch/backtest_rsi_duka
+python3 backtest.py backtests/rsi_divergence/backtest.json
+python3 backtest.py backtests/rsi_divergence_dukascopy
 ```
 
-`--source` is detected: a file with a `datetime` header is a pipeline clean CSV; anything else is MT5 exports (folder or one file). `--out` is required and is overwritten. It writes `positions.csv` (one row per trade), `statistics.txt` (the human report — read it first), `statistics.csv` (one row per split, for diffing runs) and `run.json` (strategy + parameters, data range, simulation settings, git commit, source).
+The only CLI argument is a JSON config (or a folder holding `backtest.json`); its keys are the old flags in snake_case (`strategy`, `source` | `dukascopy_years`, `out`, `timeframe`, `symbol`, `cost_pips`, `spread_cost`, `commission_pips`, `ambiguity`, `resolve_from`, `splits`). **Relative `source`/`out` paths resolve against the config file's folder, not the cwd.** Unknown keys and wrong types are errors, not ignored. `source` is detected: a file with a `datetime` header is a pipeline clean CSV; anything else is MT5 exports (folder or one file). `out` is required and is overwritten. It writes `positions.csv` (one row per trade), `statistics.txt` (the human report — read it first), `statistics.csv` (one row per split, for diffing runs) and `run.json` (strategy + parameters, data range, simulation settings, git commit, source).
 
-**The rules every backtest runs under** (the defaults hold unless the flag changes them):
+**The rules every backtest runs under** (the defaults hold unless the config changes them):
 
 - **Strategies decide entries only.** `generate_positions` returns *open* positions. It must not look past each signal's bar: it sees the whole history, so avoiding look-ahead is the strategy's job.
-- **Hits** are checked on bid OHLC and fill at the level itself, even when a bar gaps through it (optimistic for SL). A bar touching both SL and TP is ambiguous: `--ambiguity exclude` (the default, the research convention) records it as `ambiguous` with no P&L; `assume-sl` (v28's rule) or `assume-tp` settle it.
-- **`--resolve-from`**: `next-bar` (the default, v28's rule) skips the entry bar, which is right for entries at a level *inside* the bar. `entry-bar` is right for entries at a bar's *open* (the RSI strategy).
+- **Hits** are checked on bid OHLC and fill at the level itself, even when a bar gaps through it (optimistic for SL). A bar touching both SL and TP is ambiguous: `"ambiguity": "exclude"` (the default, the research convention) records it as `ambiguous` with no P&L; `assume-sl` (v28's rule) or `assume-tp` settle it.
+- **`resolve_from`**: `next-bar` (the default, v28's rule) skips the entry bar, which is right for entries at a level *inside* the bar. `entry-bar` is right for entries at a bar's *open* (the RSI strategy).
 - **`exit_dt` is the moment the position must be flat.** Bars opening before it are traded; with no hit, it closes `manual-close` at the last such bar's close, with `close_dt = exit_dt`. v28 trades its 14:00 bar, so `NarrowAsiaFade` sets `exit_dt` to 14:05. When the bars run out first, the outcome is `end-of-data`.
 - **Costs are subtracted before any statistic.** A win is `net_pips > 0`, which is not the same as `take-profit-hit`. `SpreadCost` charges a long the spread of its entry bar and a short the spread of its exit bar (the moment each one trades at the ask).
 - **Statistics are reported for all trades and per discovery/validation/test split.** The report ends with "Net positive in every split: yes/no". A trade belongs to the split of the day it opens. The days split over come from `TradingStrategy.split_days` (default: every day with a bar; `NarrowAsiaFade`: the weekdays with a usable Asia range, as v28 did).
@@ -246,5 +244,5 @@ Three ports of that exact rule set exist and **must stay in sync with each other
 - `.gitignore` covers `/data/`, `/output/`, `/*_output/`, `.venv/` and `__pycache__/`: the raw exports, every run directory, and the venv are all local-only. Nothing under `output/` is version-controlled — it is a manual archive.
 - **The broker-server clock is New York + 7h**: GMT+2 in winter, GMT+3 in summer, switching on the **US** daylight-saving dates. FX opens Sunday 17:00 New York, which is Monday 00:00 on the server, so every week in the exports runs Monday 00:00 → Friday 23:55 with no weekend bars. It is also true in all 24 weeks of 2020–2026 where US and EU switch dates disagree, which rules out `Europe/Athens`. No IANA zone matches, so `domain.broker_clock.BROKER_SERVER_TZ` is a `ShiftedZone` (a real zone's wall clock plus a fixed shift). CLI timezone flags accept `broker` for it (`timezone_by_name`). pandas rejects custom `tzinfo`s, so `shift_timezone` converts through the base zone; never hand `BROKER_SERVER_TZ` to `tz_localize` directly. **Before 2026-09-28 the repo treated the server clock as plain `America/New_York`**, so any server→UTC conversion made before then is 7 hours off. That covers the `--timezone` output of `show_csv`/`read_csv_as_*`, `rsi_divergence_strategy.py`'s printed times (it shifted to UTC by default) and `session_breakout_strategy.py`'s session windows. Anything that worked in server-clock hours directly (v25–v28, `NarrowAsiaFade`, the EA) was never affected.
 - Loading bars at a timeframe **finer** than the source silently relabels them: `load_clean_csv(M5 file, SampleSize.Parse("1m"), ...)` returns the M5 bars labelled 1m. Resampling only ever coarsens.
-- `rsi_divergence_strategy.py` (the scan) runs on **M15**, not M5 (`TIMEFRAME`); backtest `rsi_divergence` with `--timeframe 15m` to match it.
+- `rsi_divergence_strategy.py` (the scan) runs on **M15**, not M5 (`TIMEFRAME`); backtest `rsi_divergence` with `"timeframe": "15m"` to match it.
 - `read_csv_as_frame.py --output` is **not** a substitute for `resample_csv.py`, even though both can write a resampled CSV. `resample_csv.py` resamples each source file individually and dedups the *resampled* rows across files afterward, matching the pipeline's stage-0 convention and its month-boundary tie-break; it's also the only one of the two that writes a `.report.txt` provenance record and that survives a single bad source file (per-file errors are logged, not fatal). `read_csv_as_frame.py` concatenates every raw file first, dedups the *raw M1* rows once, then resamples the whole thing — a different tie-break at month boundaries, no report, and one bad file aborts the run. Use `resample_csv.py` for anything that feeds the pipeline; `read_csv_as_frame.py` is for ad hoc inspection.

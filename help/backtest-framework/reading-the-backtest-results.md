@@ -2,7 +2,7 @@
 
 A companion to the [framework overview](README.md). How to produce these files is in [Running a backtest](running-a-backtest.md); before trusting a result, go through the [checklist](README.md#checklist-and-common-mistakes).
 
-`--out` (or `run_backtest`) produces four files.
+A run writes four files into the config's `out` folder (or `run_backtest`'s `out_dir`).
 
 ## `statistics.txt` — read this first
 
@@ -57,7 +57,7 @@ One row per trade, sorted by entry time:
 | `gross_pips`, `cost_pips`, `net_pips` | result before costs, the cost, result after costs |
 | `risk_pips`, `net_r` | entry-to-stop distance, and net pips ÷ risk |
 | `duration_min` | minutes from `open_dt` to `close_dt` |
-| `split` | `discovery`, `validation` or `test` (absent with `--no-splits`) |
+| `split` | `discovery`, `validation` or `test` (absent with `"splits": false`) |
 
 `close_dt` is the open time of the bar where SL/TP was hit (OHLC can't say when inside the bar). For a time stop it is `exit_dt` itself.
 

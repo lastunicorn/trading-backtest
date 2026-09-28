@@ -24,8 +24,7 @@ with `exit_dt` set to the end of the 14:00 bar. v28 resolved exits from the bar
 after entry and settled a bar touching both SL and TP as a stop, so the parity
 run is `AmbiguityPolicy.ASSUME_SL` with `PositionResolveDelay.NEXT_BAR`:
 
-    python3 backtest.py --strategy narrow_asia_fade --ambiguity assume-sl --resolve-from next-bar \\
-        --source output/research_output_v24_1/EURUSD_M5_CLEAN_2020_2026.csv --out output/backtest_narrow_asia_fade
+    python3 backtest.py backtests/narrow_asia_fade   # ambiguity assume-sl, resolve_from next-bar
 
 It reproduces v28's RANGE_MULT 1.00 line: 207 trades, 72.0% WR, PF 1.37,
 +257.5 pips.

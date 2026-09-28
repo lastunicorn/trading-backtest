@@ -48,7 +48,7 @@ source .venv/bin/activate
 
 ## How a backtest decides things
 
-Every backtest runs under these rules. Two of them are settings, so pick those deliberately for each strategy (see [Choosing `--resolve-from` and `--ambiguity`](running-a-backtest.md#3-choosing---resolve-from-and---ambiguity)).
+Every backtest runs under these rules. Two of them are settings, so pick those deliberately for each strategy (see [Choosing `resolve_from` and `ambiguity`](running-a-backtest.md#3-choosing-resolve_from-and-ambiguity)).
 
 **Prices are bid.** The bars hold bid OHLC. Stop-loss and take-profit hits are checked against those prices.
 
@@ -81,11 +81,11 @@ Every backtest runs under these rules. Two of them are settings, so pick those d
 Before trusting a result:
 
 - [ ] **No look-ahead.** Each entry uses only bars up to its own.
-- [ ] **The right `--resolve-from`** for how the strategy enters ([Choosing `--resolve-from` and `--ambiguity`](running-a-backtest.md#3-choosing---resolve-from-and---ambiguity)).
+- [ ] **The right `resolve_from`** for how the strategy enters ([Choosing `resolve_from` and `ambiguity`](running-a-backtest.md#3-choosing-resolve_from-and-ambiguity)).
 - [ ] **Costs included.** Never analyse `gross_pips` as if it were the result.
 - [ ] **All three splits positive.** One good split is noise. Parameters were chosen on discovery only.
 - [ ] **Enough trades per split** for the numbers to mean something.
-- [ ] **`excluded_ambiguous` is small.** If not, compare `--ambiguity assume-sl` against `assume-tp`.
+- [ ] **`excluded_ambiguous` is small.** If not, compare `"ambiguity": "assume-sl"` against `"assume-tp"`.
 - [ ] **`run.json` kept with the results**, and the working tree committed (`"dirty": false`).
 
 Common mistakes:
@@ -93,18 +93,19 @@ Common mistakes:
 | Symptom | Cause |
 |---|---|
 | `ERROR: … windows are broker-server times; the data is on UTC` | a broker-clock strategy on Dukascopy data; convert the data to the broker clock with `shift_timezone`, or use MT5 data |
-| `ERROR: SpreadCost needs a 'spread' column` | `--spread-cost` on the clean CSV, which has no spread; use `--cost-pips`, or MT5/Dukascopy data |
+| `ERROR: SpreadCost needs a 'spread' column` | `"spread_cost": true` on the clean CSV, which has no spread; use `cost_pips`, or MT5/Dukascopy data |
+| `ERROR: backtest.json: unknown key(s) …` | a misspelt config key; the message lists the allowed ones |
 | `ValueError: long position needs sl < open_price < tp` | the strategy built a position with levels on the wrong side; skip such signals |
 | `'datetime' must be strictly increasing` | the frame needs `clean_frame` before `HistoricalData` |
 | far fewer trades than expected | a fixture or real bar touching a level counts as a hit/break; check the ≥ / ≤ edges |
 | results with times 7 hours off | the data was treated as New York time; the broker clock is New York + 7h (`BROKER_SERVER_TZ`) |
-| numbers look wrong on a finer `--timeframe` | resampling only coarsens: asking for `1m` from an M5 file returns M5 bars labelled 1m |
+| numbers look wrong on a finer `timeframe` | resampling only coarsens: asking for `1m` from an M5 file returns M5 bars labelled 1m |
 
 ---
 
 ## Further reading
 
-- [Running a backtest](running-a-backtest.md): every `backtest.py` parameter, running from Python (custom parameters, sweeps), choosing `--resolve-from` and `--ambiguity`, data sources and their clocks. **Start here.**
+- [Running a backtest](running-a-backtest.md): every `backtest.py` config key, running from Python (custom parameters, sweeps), choosing `resolve_from` and `ambiguity`, data sources and their clocks. **Start here.**
 - [Reading the backtest results](reading-the-backtest-results.md): the four files a run writes, every statistic and every column.
 - [Writing a new strategy](writing-a-strategy.md): the strategy contract, a worked example, registering it for the CLI, parameter variants, tests.
 - [API reference](api-reference.md): every public name, module by module.

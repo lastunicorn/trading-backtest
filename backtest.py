@@ -1,16 +1,27 @@
 #!/usr/bin/env python3
 """Backtest a registered strategy and write its results into an output directory.
 
-    python3 backtest.py --strategy NAME --source output/research_output_v24_1/EURUSD_M5_CLEAN_2020_2026.csv --out output/backtest_NAME
-    python3 backtest.py --strategy NAME --source data/eurusd/1min --timeframe 15m --out scratch/bt
-    python3 backtest.py --strategy NAME --dukascopy-years 2024 2025 --spread-cost --out scratch/bt_duka
+    python3 backtest.py backtests/narrow_asia_fade/backtest.json
+    python3 backtest.py backtests/narrow_asia_fade          # a folder: reads its backtest.json
 
-`--source` is a pipeline clean CSV (detected by its `datetime` header), a
-folder of MT5 exports, or one export. `--dukascopy-years` reads Dukascopy
-bid/ask pairs from the folder in `ports/ducascopy/config.py` instead; those
-bars are UTC, not broker-server time.
+The only argument is a JSON config file, or a folder holding one named
+`backtest.json`. Every setting lives in the config (see `load_config` and
+help/backtest-framework/running-a-backtest.md); relative paths in it are
+resolved against the config file's own folder, not the working directory:
 
-Writes four files into `--out`, overwriting earlier results there, and prints
+    {
+        "strategy": "narrow_asia_fade",
+        "source": "../../output/research_output_v24_1/EURUSD_M5_CLEAN_2020_2026.csv",
+        "out": "../../output/backtest_narrow_asia_fade",
+        "ambiguity": "assume-sl"
+    }
+
+`source` is a pipeline clean CSV (detected by its `datetime` header), a
+folder of MT5 exports, or one export. `dukascopy_years` (instead of `source`)
+reads Dukascopy bid/ask pairs from the folder in `ports/ducascopy/config.py`;
+those bars are UTC, not broker-server time.
+
+Writes four files into `out`, overwriting earlier results there, and prints
 the statistics report. Strategies come from `strategies.STRATEGIES`.
 
     positions.csv    one row per trade: entry, levels, how it closed, P&L, split
@@ -38,6 +49,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import subprocess
 import sys
 import time
@@ -56,19 +68,23 @@ from strategies import STRATEGIES
 _REPO_ROOT = Path(__file__).resolve().parent
 
 
+CONFIG_FILE_NAME = "backtest.json"
+
+
 def main() -> int:
     started = time.perf_counter()
     args = _parse_args()
 
     try:
-        timeframe = SampleSize.Parse(args.timeframe)
-        symbol = by_ticker(args.symbol)
-    except ValueError as error:
+        config = load_config(args.config)
+        timeframe = SampleSize.Parse(config.timeframe)
+        symbol = by_ticker(config.symbol)
+    except (ValueError, FileNotFoundError) as error:
         print(f"ERROR: {error}", file=sys.stderr)
         return 1
 
     try:
-        run = _run(args, timeframe, symbol)
+        run = _run(config, timeframe, symbol)
     except (ValueError, FileNotFoundError) as error:
         # Data and strategy that don't fit together (wrong clock, no spread
         # column, missing Dukascopy year): say so plainly, not as a traceback.
@@ -86,95 +102,149 @@ def main() -> int:
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-
-    parser.add_argument("--strategy", required=True, choices=sorted(STRATEGIES),
-        help="registered strategy name (strategies.STRATEGIES)")
-
-    where = parser.add_mutually_exclusive_group(required=True)
-
-    where.add_argument(
-        "--source",
-        help="pipeline clean CSV, folder of MT5 exports, or one MT5 export")
-    
-    where.add_argument(
-        "--dukascopy-years",
-        type=int,
-        nargs="+",
-        metavar="YEAR",
-        help="read Dukascopy bid/ask pairs for these years instead of --source")
-
     parser.add_argument(
-        "--out",
-        required=True,
-        help="output directory for the result files (overwritten)")
-
-    parser.add_argument(
-        "--timeframe",
-        default="5m",
-        help="bar size to backtest on, e.g. 5m, 15m, 1h (default: 5m)")
-
-    parser.add_argument(
-        "--symbol",
-        default="EURUSD",
-        help="symbol ticker, for pip size and price precision (default: EURUSD)")
-
-    parser.add_argument(
-        "--cost-pips",
-        type=float,
-        default=1.7,
-        help="fixed round-trip cost per trade in pips (default: 1.7, the pipeline's COST_PIPS)")
-
-    parser.add_argument(
-        "--spread-cost",
-        action="store_true",
-        help="charge each bar's spread instead of --cost-pips (needs a spread column)")
-
-    parser.add_argument(
-        "--commission-pips",
-        type=float,
-        default=0.0,
-        help="with --spread-cost: flat commission added per trade (default: 0)")
-
-    parser.add_argument(
-        "--ambiguity",
-        default=AmbiguityPolicy.EXCLUDE.value,
-        choices=[policy.value for policy in AmbiguityPolicy],
-        help="a bar touching both SL and TP: exclude it, or assume one level (default: exclude)")
-
-    parser.add_argument(
-        "--resolve-from",
-        default=PositionResolveDelay.NEXT_BAR.value,
-        choices=[start.value for start in PositionResolveDelay],
-        help="first bar SL/TP are checked on (default: next-bar)")
-
-    parser.add_argument(
-        "--no-splits",
-        action="store_true",
-        help="skip the discovery/validation/test breakdown")
-
+        "config",
+        help=f"backtest config JSON file, or a folder holding one named {CONFIG_FILE_NAME}")
     return parser.parse_args()
 
 
-def _run(args: argparse.Namespace, timeframe: SampleSize, symbol: Symbol) -> BacktestRun:
-    if args.source is not None:
-        source = args.source
-        data = load_source(args.source, timeframe, symbol, progress=print)
+def _run(config: BacktestConfig, timeframe: SampleSize, symbol: Symbol) -> BacktestRun:
+    if config.source is not None:
+        source = config.source
+        data = load_source(config.source, timeframe, symbol, progress=print)
     else:
-        source = f"Dukascopy {', '.join(map(str, args.dukascopy_years))}"
-        data = load_dukascopy(args.dukascopy_years, timeframe, symbol, progress=print)
+        source = f"Dukascopy {', '.join(map(str, config.dukascopy_years))}"
+        data = load_dukascopy(list(config.dukascopy_years), timeframe, symbol, progress=print)
 
-    cost = SpreadCost(commission_pips=args.commission_pips) if args.spread_cost else FixedCost(pips=args.cost_pips)
+    cost = SpreadCost(commission_pips=config.commission_pips) if config.spread_cost else FixedCost(pips=config.cost_pips)
 
     backtest = Backtest(
-        strategy=STRATEGIES[args.strategy](),
+        strategy=STRATEGIES[config.strategy](),
         data=data,
         cost_model=cost,
-        ambiguity_policy=AmbiguityPolicy(args.ambiguity),
-        position_resolve_delay=PositionResolveDelay(args.resolve_from),
-        splits=not args.no_splits,
+        ambiguity_policy=AmbiguityPolicy(config.ambiguity),
+        position_resolve_delay=PositionResolveDelay(config.resolve_from),
+        splits=config.splits,
     )
-    return run_backtest(backtest, args.out, source=str(source))
+    return run_backtest(backtest, config.out, source=str(source))
 
+
+@dataclass(frozen=True)
+class BacktestConfig:
+    """The settings of one CLI run, as read from its JSON config by `load_config`.
+
+    Field names are the JSON keys. `source` and `out` are already resolved
+    against the config file's folder. Exactly one of `source` and
+    `dukascopy_years` is set.
+    """
+
+    strategy: str
+    out: Path
+    source: Path | None = None
+    dukascopy_years: tuple[int, ...] | None = None
+    timeframe: str = "5m"
+    symbol: str = "EURUSD"
+    cost_pips: float = 1.7
+    spread_cost: bool = False
+    commission_pips: float = 0.0
+    ambiguity: str = AmbiguityPolicy.EXCLUDE.value
+    resolve_from: str = PositionResolveDelay.NEXT_BAR.value
+    splits: bool = True
+
+
+# The JSON type each config key must have. bool is kept apart from the numbers
+# on purpose: `"cost_pips": true` is a mistake, not 1 pip.
+_CONFIG_KEY_TYPES = {
+    "strategy": str,
+    "source": str,
+    "dukascopy_years": list,
+    "out": str,
+    "timeframe": str,
+    "symbol": str,
+    "cost_pips": float,
+    "spread_cost": bool,
+    "commission_pips": float,
+    "ambiguity": str,
+    "resolve_from": str,
+    "splits": bool,
+}
+
+
+def find_config_file(path) -> Path:
+    """`path` itself if it is a file, `path/backtest.json` if it is a folder."""
+    path = Path(path)
+    if path.is_dir():
+        path = path / CONFIG_FILE_NAME
+    if not path.is_file():
+        raise FileNotFoundError(f"no backtest config at {path}")
+    return path
+
+
+def load_config(path) -> BacktestConfig:
+    """Read and validate a backtest config: a JSON file, or a folder holding `backtest.json`.
+
+    Unknown keys, wrong types and invalid choices raise `ValueError` naming the
+    file, so a typo fails the run instead of silently falling back to a default.
+    """
+    file = find_config_file(path)
+    try:
+        raw = json.loads(file.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as error:
+        raise ValueError(f"{file}: not valid JSON: {error}") from error
+    if not isinstance(raw, dict):
+        raise ValueError(f"{file}: expected a JSON object, got {type(raw).__name__}")
+
+    def fail(message: str) -> ValueError:
+        return ValueError(f"{file}: {message}")
+
+    unknown = sorted(set(raw) - set(_CONFIG_KEY_TYPES))
+    if unknown:
+        raise fail(f"unknown key(s) {', '.join(unknown)}; allowed: {', '.join(_CONFIG_KEY_TYPES)}")
+    for key, value in raw.items():
+        if not _has_json_type(value, _CONFIG_KEY_TYPES[key]):
+            raise fail(f'"{key}" must be a {_CONFIG_KEY_TYPES[key].__name__}, got {json.dumps(value)}')
+
+    for key in ("strategy", "out"):
+        if key not in raw:
+            raise fail(f'"{key}" is required')
+    if ("source" in raw) == ("dukascopy_years" in raw):
+        raise fail('give exactly one of "source" and "dukascopy_years"')
+
+    _check_choice(raw, "strategy", sorted(STRATEGIES), fail)
+    _check_choice(raw, "ambiguity", [policy.value for policy in AmbiguityPolicy], fail)
+    _check_choice(raw, "resolve_from", [start.value for start in PositionResolveDelay], fail)
+
+    values = dict(raw)
+    values["out"] = _relative_to(file, raw["out"])
+    if "source" in raw:
+        values["source"] = _relative_to(file, raw["source"])
+    if "dukascopy_years" in raw:
+        years = raw["dukascopy_years"]
+        if not years or not all(_has_json_type(year, int) for year in years):
+            raise fail(f'"dukascopy_years" must be a non-empty list of years, got {json.dumps(years)}')
+        values["dukascopy_years"] = tuple(years)
+    for key in ("cost_pips", "commission_pips"):
+        if key in raw:
+            values[key] = float(raw[key])
+    return BacktestConfig(**values)
+
+
+def _relative_to(config_file: Path, path: str) -> Path:
+    """`path` resolved against the config file's folder, with `..` folded away (symlinks untouched)."""
+    return Path(os.path.normpath(config_file.parent / path))
+
+
+def _has_json_type(value, expected: type) -> bool:
+    if isinstance(value, bool):
+        return expected is bool
+    if expected is float:
+        return isinstance(value, (int, float))
+    return isinstance(value, expected)
+
+
+def _check_choice(raw: dict, key: str, choices: list[str], fail) -> None:
+    if key in raw and raw[key] not in choices:
+        raise fail(f'"{key}" is {json.dumps(raw[key])}; choose one of {", ".join(choices)}')
 
 
 @dataclass(frozen=True)

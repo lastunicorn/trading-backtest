@@ -1,6 +1,6 @@
 # RSI Divergence
 
-`--strategy rsi_divergence` · class `strategies.rsi_divergence.RsiDivergence`
+`"strategy": "rsi_divergence"` · class `strategies.rsi_divergence.RsiDivergence`
 
 Regular RSI divergences that leave the 30/70 band. It enters at the open of the bar after the pivot is confirmed, with the stop beyond the pivot's price extreme and the target at `risk_reward` × risk. Built on M15, timezone-agnostic.
 
@@ -17,11 +17,10 @@ Regular RSI divergences that leave the 30/70 band. It enters at the open of the 
 
 ## Running it
 
-Run with `--timeframe 15m --resolve-from entry-bar`:
+Run with `"timeframe": "15m"` and `"resolve_from": "entry-bar"`. `backtests/rsi_divergence/backtest.json` does that on the raw M1 exports, and `backtests/rsi_divergence_dukascopy/` on Dukascopy data with spread costs:
 
 ```bash
-python3 backtest.py --strategy rsi_divergence --timeframe 15m --resolve-from entry-bar \
-    --source data/eurusd/1min --out scratch/backtest_rsi_divergence
+python3 backtest.py backtests/rsi_divergence
 ```
 
 See also: [Running a backtest](running-a-backtest.md) · [framework overview](README.md)

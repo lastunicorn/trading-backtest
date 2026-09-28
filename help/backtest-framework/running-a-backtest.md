@@ -6,45 +6,74 @@ A companion to the [framework overview](README.md). The rules every run follows 
 
 1. [From the command line](#1-from-the-command-line)
 2. [From Python](#2-from-python)
-3. [Choosing `--resolve-from` and `--ambiguity`](#3-choosing---resolve-from-and---ambiguity)
+3. [Choosing `resolve_from` and `ambiguity`](#3-choosing-resolve_from-and-ambiguity)
 4. [Data sources and clocks](#4-data-sources-and-clocks)
 
 ---
 
 ## 1. From the command line
 
+Every setting lives in a JSON config file; the command takes only its path:
+
 ```bash
-python3 backtest.py --strategy NAME (--source PATH | --dukascopy-years YEAR [YEAR ...]) --out DIR [options]
+python3 backtest.py backtests/narrow_asia_fade/backtest.json
+python3 backtest.py backtests/narrow_asia_fade        # a folder: reads the backtest.json inside it
 ```
 
-| Parameter | Required | Default | Meaning |
+```json
+{
+	"strategy": "narrow_asia_fade",
+	"source": "../../output/research_output_v24_1/EURUSD_M5_CLEAN_2020_2026.csv",
+	"out": "../../output/backtest_narrow_asia_fade",
+	"ambiguity": "assume-sl",
+	"resolve_from": "next-bar"
+}
+```
+
+**Relative paths (`source`, `out`) are resolved against the config file's folder**, not the directory you run from, so a config gives the same run wherever it is launched. Ready-made configs live in `backtests/<name>/backtest.json`.
+
+| Key | Required | Default | Meaning |
 |---|---|---|---|
-| `--strategy NAME` | yes | – | A key of `strategies.STRATEGIES`, e.g. `narrow_asia_fade`, `rsi_divergence`. |
-| `--source PATH` | one of these two | – | A pipeline clean CSV (recognised by its `datetime` header), a folder of MT5 exports, or one MT5 export. Bars are on the broker-server clock. |
-| `--dukascopy-years YEAR …` | one of these two | – | Read Dukascopy bid/ask M1 pairs for these years from the folder set in `ports/ducascopy/config.py`. Bars are in **UTC**. |
-| `--out DIR` | yes | – | Output directory. Created if missing; existing result files are **overwritten**. |
-| `--timeframe` | no | `5m` | Bar size to test on: `5m`, `15m`, `1h`, `4h`, `1d`… (`m` minutes, `h` hours, `d` days, `w` weeks, `M` months). The source is resampled to it. It must not be finer than the source (see [Checklist and common mistakes](README.md#checklist-and-common-mistakes)). |
-| `--symbol` | no | `EURUSD` | Ticker, for pip size and price precision: `EURUSD`, `GBPUSD`, `AUDUSD`, `NZDUSD`, `USDCAD`, `USDCHF`, `USDJPY`, `XAUUSD`, `XAGUSD`. |
-| `--cost-pips` | no | `1.7` | Fixed round-trip cost per trade, in pips (`FixedCost`). |
-| `--spread-cost` | no | off | Charge each trade the bar's spread instead of `--cost-pips` (`SpreadCost`). Needs data with a `spread` column: MT5 raw exports or Dukascopy, not the clean CSV. |
-| `--commission-pips` | no | `0` | With `--spread-cost`: a flat commission added per trade. |
-| `--ambiguity` | no | `exclude` | A bar touching both SL and TP: `exclude`, `assume-sl` or `assume-tp`. |
-| `--resolve-from` | no | `next-bar` | First bar SL/TP are checked on: `next-bar` or `entry-bar`. |
-| `--no-splits` | no | off | Report only "all", without the discovery/validation/test breakdown. |
+| `strategy` | yes | – | A key of `strategies.STRATEGIES`, e.g. `"narrow_asia_fade"`, `"rsi_divergence"`. |
+| `source` | one of these two | – | A pipeline clean CSV (recognised by its `datetime` header), a folder of MT5 exports, or one MT5 export. Bars are on the broker-server clock. |
+| `dukascopy_years` | one of these two | – | A list of years, e.g. `[2024, 2025]`: read Dukascopy bid/ask M1 pairs for them from the folder set in `ports/ducascopy/config.py`. Bars are in **UTC**. |
+| `out` | yes | – | Output directory. Created if missing; existing result files are **overwritten**. |
+| `timeframe` | no | `"5m"` | Bar size to test on: `5m`, `15m`, `1h`, `4h`, `1d`… (`m` minutes, `h` hours, `d` days, `w` weeks, `M` months). The source is resampled to it. It must not be finer than the source (see [Checklist and common mistakes](README.md#checklist-and-common-mistakes)). |
+| `symbol` | no | `"EURUSD"` | Ticker, for pip size and price precision: `EURUSD`, `GBPUSD`, `AUDUSD`, `NZDUSD`, `USDCAD`, `USDCHF`, `USDJPY`, `XAUUSD`, `XAGUSD`. |
+| `cost_pips` | no | `1.7` | Fixed round-trip cost per trade, in pips (`FixedCost`). |
+| `spread_cost` | no | `false` | `true`: charge each trade the bar's spread instead of `cost_pips` (`SpreadCost`). Needs data with a `spread` column: MT5 raw exports or Dukascopy, not the clean CSV. |
+| `commission_pips` | no | `0` | With `spread_cost`: a flat commission added per trade. |
+| `ambiguity` | no | `"exclude"` | A bar touching both SL and TP: `exclude`, `assume-sl` or `assume-tp`. |
+| `resolve_from` | no | `"next-bar"` | First bar SL/TP are checked on: `next-bar` or `entry-bar`. |
+| `splits` | no | `true` | `false`: report only "all", without the discovery/validation/test breakdown. |
 
-If the data and the strategy don't fit together, the CLI prints `ERROR: …` and exits with code 1. Examples: a broker-clock strategy on UTC data, `--spread-cost` without a spread column, a missing Dukascopy year, or an unknown timeframe or symbol.
+The config is checked before any data is read: an unknown key (a typo such as `"ambigutiy"`), a value of the wrong JSON type, a missing required key, or an invalid choice prints `ERROR: <file>: …` and exits with code 1, rather than quietly running on a default. The same happens when the data and the strategy don't fit together: a broker-clock strategy on UTC data, `spread_cost` without a spread column, a missing Dukascopy year, or an unknown timeframe or symbol.
 
-More examples:
+More examples, both in `backtests/`:
 
-```bash
-# RSI divergence on M15 bars rebuilt from raw M1 exports; entries are at a bar's open
-python3 backtest.py --strategy rsi_divergence --timeframe 15m --resolve-from entry-bar \
-    --source data/eurusd/1min --out scratch/backtest_rsi
+```json
+// backtests/rsi_divergence/backtest.json: M15 bars rebuilt from raw M1 exports; entries are at a bar's open
+{
+	"strategy": "rsi_divergence",
+	"source": "../../data/eurusd/1min",
+	"out": "../../scratch/backtest_rsi_divergence",
+	"timeframe": "15m",
+	"resolve_from": "entry-bar"
+}
 
-# The same on Dukascopy data, charging the real spread plus a commission
-python3 backtest.py --strategy rsi_divergence --timeframe 15m --resolve-from entry-bar \
-    --dukascopy-years 2024 2025 --spread-cost --commission-pips 0.2 --out scratch/backtest_rsi_duka
+// backtests/rsi_divergence_dukascopy/backtest.json: the same on Dukascopy data, charging the real spread plus a commission
+{
+	"strategy": "rsi_divergence",
+	"dukascopy_years": [2024, 2025],
+	"out": "../../scratch/backtest_rsi_duka",
+	"timeframe": "15m",
+	"resolve_from": "entry-bar",
+	"spread_cost": true,
+	"commission_pips": 0.2
+}
 ```
+
+(JSON itself has no comments; they are only labels here.)
 
 ## 2. From Python
 
@@ -88,14 +117,14 @@ for rr in (1.0, 1.5, 2.0):
 
 **Choose parameters on the discovery split only.** Validation and test are there to confirm a choice, not to make it. That is the repo's methodology.
 
-## 3. Choosing `--resolve-from` and `--ambiguity`
+## 3. Choosing `resolve_from` and `ambiguity`
 
-| Your entry happens… | `--resolve-from` | Why |
+| Your entry happens… | `resolve_from` | Why |
 |---|---|---|
 | at a level inside a bar (breakout, re-cross, limit or stop order) | `next-bar` | the bar's range may have happened before the fill |
 | at a bar's open (signal confirmed on the previous bar) | `entry-bar` | the whole bar happened after the fill |
 
-For `--ambiguity`, keep `exclude` unless you are reproducing a study that used another rule, as v28 used `assume-sl`. Then compare the two. If they differ a lot, your stop and target are close enough together that bar size matters; check the `excluded_ambiguous` count.
+For `ambiguity`, keep `exclude` unless you are reproducing a study that used another rule, as v28 used `assume-sl`. Then compare the two. If they differ a lot, your stop and target are close enough together that bar size matters; check the `excluded_ambiguous` count.
 
 ## 4. Data sources and clocks
 

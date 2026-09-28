@@ -114,7 +114,7 @@ class OpeningRangeBreakout(TradingStrategy):
 Things this example gets right, and every strategy should:
 
 - **No look-ahead.** The opening range uses only bars before `range_end`, and the entry is the first bar that breaks it.
-- **Entry at the level.** The fill is inside the breaking bar, so this strategy should run with `--resolve-from next-bar` (the default).
+- **Entry at the level.** The fill is inside the breaking bar, so this strategy should run with `"resolve_from": "next-bar"` (the default).
 - **Valid levels.** `Position` checks that `sl < open_price < tp` for a long and the reverse for a short, and raises otherwise. Skip a signal whose levels would be invalid rather than letting it raise.
 - **A time stop.** `exit_dt` flattens the trade at 18:00 instead of leaving it open for days.
 - **A `tag`.** It becomes a column in `positions.csv` that you can group results by later.
@@ -143,11 +143,11 @@ STRATEGIES: dict[str, type[TradingStrategy]] = {
 }
 ```
 
-The key is the name `--strategy` accepts. The CLI builds the class **with its default parameters**. To run other values, see [From Python](running-a-backtest.md#2-from-python) in *Running a backtest* or add a variant (next section).
+The key is the name a config's `strategy` accepts. The CLI builds the class **with its default parameters**. To run other values, see [From Python](running-a-backtest.md#2-from-python) in *Running a backtest* or add a variant (next section).
 
 ## 4. Variants with different parameters
 
-The CLI has no per-parameter flags; strategy settings belong to the strategy definition. To run a variant from the command line, register a subclass that changes the defaults:
+A config has no strategy-parameter keys; strategy settings belong to the strategy definition. To run a variant from the command line, register a subclass that changes the defaults:
 
 ```python
 @dataclass(frozen=True)
@@ -214,9 +214,18 @@ Run everything with `pytest` from the repo root.
 
 ## 6. Run it
 
+Put a config in `backtests/opening_range_breakout/backtest.json`:
+
+```json
+{
+	"strategy": "opening_range_breakout",
+	"source": "../../output/research_output_v24_1/EURUSD_M5_CLEAN_2020_2026.csv",
+	"out": "../../scratch/backtest_orb"
+}
+```
+
 ```bash
-python3 backtest.py --strategy opening_range_breakout \
-    --source output/research_output_v24_1/EURUSD_M5_CLEAN_2020_2026.csv --out scratch/backtest_orb
+python3 backtest.py backtests/opening_range_breakout
 ```
 
 For this example that gives 1,449 trades, a 49.3% win rate and profit factor 0.82: not profitable, but a working end-to-end run.

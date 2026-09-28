@@ -111,7 +111,7 @@ pandas rejects custom `tzinfo` objects, so don't pass `BROKER_SERVER_TZ` to `tz_
 
 ### `strategies`
 
-**`STRATEGIES`**: `dict[str, type[TradingStrategy]]`, the names `backtest.py --strategy` accepts.
+**`STRATEGIES`**: `dict[str, type[TradingStrategy]]`, the names a `backtest.py` config's `strategy` key accepts.
 
 ## 4. Costs, results, the backtest
 
