@@ -84,27 +84,6 @@ def main() -> int:
     return 0
 
 
-def _run(args: argparse.Namespace, timeframe: SampleSize, symbol: Symbol) -> BacktestRun:
-    if args.source is not None:
-        source = args.source
-        data = load_source(args.source, timeframe, symbol, progress=print)
-    else:
-        source = f"Dukascopy {', '.join(map(str, args.dukascopy_years))}"
-        data = load_dukascopy(args.dukascopy_years, timeframe, symbol, progress=print)
-
-    cost = SpreadCost(commission_pips=args.commission_pips) if args.spread_cost else FixedCost(pips=args.cost_pips)
-
-    backtest = Backtest(
-        strategy=STRATEGIES[args.strategy](),
-        data=data,
-        cost_model=cost,
-        ambiguity_policy=AmbiguityPolicy(args.ambiguity),
-        position_resolve_delay=PositionResolveDelay(args.resolve_from),
-        splits=not args.no_splits,
-    )
-    return run_backtest(backtest, args.out, source=str(source))
-
-
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
 
@@ -147,6 +126,27 @@ def _parse_args() -> argparse.Namespace:
         help="skip the discovery/validation/test breakdown")
 
     return parser.parse_args()
+
+
+def _run(args: argparse.Namespace, timeframe: SampleSize, symbol: Symbol) -> BacktestRun:
+    if args.source is not None:
+        source = args.source
+        data = load_source(args.source, timeframe, symbol, progress=print)
+    else:
+        source = f"Dukascopy {', '.join(map(str, args.dukascopy_years))}"
+        data = load_dukascopy(args.dukascopy_years, timeframe, symbol, progress=print)
+
+    cost = SpreadCost(commission_pips=args.commission_pips) if args.spread_cost else FixedCost(pips=args.cost_pips)
+
+    backtest = Backtest(
+        strategy=STRATEGIES[args.strategy](),
+        data=data,
+        cost_model=cost,
+        ambiguity_policy=AmbiguityPolicy(args.ambiguity),
+        position_resolve_delay=PositionResolveDelay(args.resolve_from),
+        splits=not args.no_splits,
+    )
+    return run_backtest(backtest, args.out, source=str(source))
 
 
 
