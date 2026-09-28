@@ -143,7 +143,7 @@ python3 read_csv_as_frame.py data/eurusd/1min --interval 5m --output scratch/jan
 
 ## Backtest framework
 
-A reusable way to backtest any strategy on the same bars and under the same rules, instead of each script re-implementing SL/TP resolution, costs and statistics. **User documentation — API, writing and running a strategy, every CLI parameter, output columns — is in `backtest-framework-guide.md`; keep it in sync when the framework's public API or CLI changes.** The requirements are in `backtest-framework.md` and the design rationale is in `backtest-framework-plan.md`. Everything is pandas (`domain/pandas_approach/`).
+A reusable way to backtest any strategy on the same bars and under the same rules, instead of each script re-implementing SL/TP resolution, costs and statistics. **User documentation is in `help/backtest-framework/`: `README.md` (how the framework works, the simulation rules, the checklist) links to `running-a-backtest.md` (every CLI parameter, the Python API, data sources), `reading-the-backtest-results.md` (output files, every statistic and column), `writing-a-strategy.md`, `api-reference.md`, and one `strategy-<name>.md` per strategy. Keep them in sync when the framework's public API or CLI changes.** The requirements are in `backtest-framework.md` and the design rationale is in `backtest-framework-plan.md`. Everything is pandas (`domain/pandas_approach/`).
 
 ```
 HistoricalData ─► TradingStrategy.generate_positions() ─► open Positions (entry, SL, TP, optional exit_dt)
