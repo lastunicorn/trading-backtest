@@ -1,12 +1,14 @@
-"""Tests for `application.backtest.BacktestResult.report`."""
+"""Tests for `application.run_backtest_use_case.format_report`."""
 
-from application.backtest import Backtest
+from application.run_backtest_use_case import build_run_info, format_report
+from domain.pandas_approach.backtest import Backtest
+from tests.domain.pandas_approach.backtest._fakes import ScriptedStrategy, data
 
-from ._fakes import ScriptedStrategy, data
 
-
-def _report(entry_days, results, **kwargs) -> str:
-    return Backtest(ScriptedStrategy(entry_days), data(10, results), **kwargs).run().report()
+def _report(entry_days, results, *, source=None, **kwargs) -> str:
+    backtest = Backtest(ScriptedStrategy(entry_days), data(10, results), **kwargs)
+    result = backtest.run()
+    return format_report(result, build_run_info(backtest, result, source=source))
 
 
 def _row(report: str, metric: str) -> list[str]:
@@ -52,11 +54,8 @@ def test_verdict_requires_net_profit_in_every_split() -> None:
 
 
 def test_source_line_appears_only_when_recorded() -> None:
-    result = Backtest(ScriptedStrategy([0]), data(10, {})).run()
-    assert "Source:" not in result.report()
-
-    result.run_info["source"] = "clean.csv"
-    assert "Source:      clean.csv" in result.report()
+    assert "Source:" not in _report([0], {})
+    assert "Source:      clean.csv" in _report([0], {}, source="clean.csv")
 
 
 def test_without_splits_there_is_no_verdict() -> None:

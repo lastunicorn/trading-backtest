@@ -1,8 +1,8 @@
-"""Tests for `application.backtest.Backtest.run`."""
+"""Tests for `domain.pandas_approach.backtest.Backtest.run`."""
 
 import pytest
 
-from application.backtest import Backtest
+from domain.pandas_approach.backtest import Backtest
 from domain.pandas_approach.cost_model import FixedCost
 from domain.pandas_approach.position import FRAME_COLUMNS
 from domain.pandas_approach.simulation import AmbiguityPolicy, ResolveFrom
@@ -46,18 +46,27 @@ def test_cost_model_is_applied() -> None:
     assert result.trades["net_pips"].tolist() == pytest.approx([19.5])
 
 
-def test_simulation_settings_are_passed_through() -> None:
+def test_ambiguity_policy_is_passed_through() -> None:
     both = data(10, {})
     # Make day 0's 10:05 bar touch both levels.
     both.data.loc[1, ["high", "low"]] = [1.1025, 1.0975]
 
     excluded = Backtest(ScriptedStrategy([0]), both).run()
     assumed = Backtest(ScriptedStrategy([0]), both, ambiguity=AmbiguityPolicy.ASSUME_SL).run()
-    from_entry = Backtest(ScriptedStrategy([0]), both, resolve_from=ResolveFrom.ENTRY_BAR).run()
 
     assert excluded.trades["outcome"].tolist() == ["ambiguous"]
     assert assumed.trades["outcome"].tolist() == ["stop-loss-hit"]
-    assert from_entry.run_info["simulation"]["resolve_from"] == "entry-bar"
+
+
+def test_resolve_from_is_passed_through() -> None:
+    entry_bar_hits_tp = data(10, {})
+    entry_bar_hits_tp.data.loc[0, "high"] = 1.1025
+
+    next_bar = Backtest(ScriptedStrategy([0]), entry_bar_hits_tp).run()
+    entry_bar = Backtest(ScriptedStrategy([0]), entry_bar_hits_tp, resolve_from=ResolveFrom.ENTRY_BAR).run()
+
+    assert next_bar.trades["outcome"].tolist() == ["end-of-data"]
+    assert entry_bar.trades["outcome"].tolist() == ["take-profit-hit"]
 
 
 def test_without_splits_there_is_no_split_column_and_only_all() -> None:
@@ -81,32 +90,3 @@ def test_no_positions_gives_empty_trades_and_zero_counts() -> None:
 
     assert result.trades.empty
     assert result.statistics.loc["all", "trades"] == 0
-
-
-def test_run_info_records_strategy_data_and_simulation() -> None:
-    result = Backtest(ScriptedStrategy([0, 1]), data(10, {}), cost=FixedCost(pips=1.2)).run()
-
-    info = result.run_info
-    assert info["strategy"]["name"] == "ScriptedStrategy"
-    assert info["strategy"]["parameters"] == {"entry_days": [0, 1]}
-    assert info["strategy"]["class"].endswith("_fakes.ScriptedStrategy")
-    assert info["data"] == {
-        "symbol": "EURUSD",
-        "timeframe": "5m",
-        "timezone": "America/New_York",
-        "first_bar": "2026-01-05T10:00:00",
-        "last_bar": "2026-01-14T10:25:00",
-        "bars": 60,
-    }
-    assert info["simulation"] == {
-        "cost_model": {"class": "FixedCost", "pips": 1.2},
-        "ambiguity": "exclude",
-        "resolve_from": "next-bar",
-        "splits": True,
-    }
-    assert info["trades"] == 2
-    assert set(info["git"]) == {"commit", "dirty"}
-
-
-def test_result_carries_the_symbol_price_precision() -> None:
-    assert Backtest(ScriptedStrategy([0]), data(10, {})).run().price_decimals == 5

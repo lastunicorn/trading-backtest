@@ -11,8 +11,8 @@ bid/ask pairs from the folder in `ports/ducascopy/config.py` instead; those
 bars are UTC, not broker-server time.
 
 Writes positions.csv, statistics.txt, statistics.csv and run.json into `--out`
-(see `application.backtest`), overwriting earlier results there, and prints
-the statistics report. Strategies come from `strategies.STRATEGIES`.
+(see `application.run_backtest_use_case`), overwriting earlier results there,
+and prints the statistics report. Strategies come from `strategies.STRATEGIES`.
 
 Tooling, not a research stage: versionless and freely editable.
 """
@@ -23,8 +23,9 @@ import argparse
 import sys
 import time
 
-from application.backtest import Backtest
 from application.load_historical_data_use_case import load_dukascopy, load_source
+from application.run_backtest_use_case import run_backtest
+from domain.pandas_approach.backtest import Backtest
 from domain.pandas_approach.cost_model import FixedCost, SpreadCost
 from domain.pandas_approach.simulation import AmbiguityPolicy, ResolveFrom
 from domain.sample_size import SampleSize
@@ -60,12 +61,11 @@ def main() -> int:
         resolve_from=ResolveFrom(args.resolve_from),
         splits=not args.no_splits,
     )
-    result = backtest.run()
-    result.run_info["source"] = str(source)
+    run = run_backtest(backtest, args.out, source=str(source))
 
     print()
-    print(result.report())
-    for path in result.write(args.out):
+    print(run.report)
+    for path in run.paths:
         print(f"Wrote {path}")
 
     print(f"\nExecution time: {time.perf_counter() - started:.2f}s")

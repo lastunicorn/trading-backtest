@@ -1,4 +1,4 @@
-"""A scripted strategy and flat-ish bars for the `application.backtest` tests.
+"""A scripted strategy and flat-ish bars for the backtest tests.
 
 Bars are M5, one trading day each at 10:00-10:25 for `days` consecutive days.
 The strategy opens a long at 10:00 on each listed day (SL -20 pips, TP +20
