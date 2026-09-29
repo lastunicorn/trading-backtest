@@ -55,7 +55,7 @@ from domain.pandas_approach.statistics import statistics_by_split
 from domain.pandas_approach.trade_results import trade_results
 from domain.pandas_approach.trading_strategy import TradingStrategy
 
-__all__ = ["AmbiguityPolicy", "Backtest", "BacktestResult", "PositionResolveDelay"]
+__all__ = ["AmbiguityPolicy", "Backtest", "BacktestResult", "PositionCloseDelay"]
 
 
 class AmbiguityPolicy(Enum):
@@ -66,7 +66,7 @@ class AmbiguityPolicy(Enum):
     ASSUME_TP = "assume-tp"
 
 
-class PositionResolveDelay(Enum):
+class PositionCloseDelay(Enum):
     """The first bar SL/TP are checked on."""
 
     NEXT_BAR = "next-bar"
@@ -93,7 +93,7 @@ class Backtest:
     data: HistoricalData
     cost_model: CostModel = field(default_factory=FixedCost)
     ambiguity_policy: AmbiguityPolicy = AmbiguityPolicy.EXCLUDE
-    position_resolve_delay: PositionResolveDelay = PositionResolveDelay.NEXT_BAR
+    position_resolve_delay: PositionCloseDelay = PositionCloseDelay.NEXT_BAR
     # Report per discovery/validation/test split as well as overall.
     splits: bool = True
 
@@ -137,7 +137,7 @@ class Backtest:
             if entry_bar < 0:
                 raise ValueError(f"position opens at {position.open_dt}, before the first bar {self.data.start_dt}")
 
-            first = entry_bar + 1 if self.position_resolve_delay == PositionResolveDelay.NEXT_BAR else entry_bar
+            first = entry_bar + 1 if self.position_resolve_delay == PositionCloseDelay.NEXT_BAR else entry_bar
 
             # One past the last bar the position may trade on.
             if position.exit_dt is None:

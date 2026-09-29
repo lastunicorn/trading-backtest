@@ -13,7 +13,7 @@ import pytest
 
 from application.load_historical_data_use_case import load_clean_csv
 from domain.broker_clock import BROKER_SERVER_TZ
-from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest, PositionResolveDelay
+from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest, PositionCloseDelay
 from domain.sample_size import SampleSize
 from domain.symbol import EurUsd
 from strategies.narrow_asia_fade import NarrowAsiaFade
@@ -25,7 +25,7 @@ DATASET = Path(__file__).resolve().parents[3] / "output/research_output_v24_1/EU
 def test_reproduces_v28_range_mult_1_00() -> None:
     data = load_clean_csv(DATASET, SampleSize.Parse("5m"), EurUsd(), timezone=BROKER_SERVER_TZ)
     backtest = Backtest(
-        NarrowAsiaFade(), data, ambiguity_policy=AmbiguityPolicy.ASSUME_SL, position_resolve_delay=PositionResolveDelay.NEXT_BAR,
+        NarrowAsiaFade(), data, ambiguity_policy=AmbiguityPolicy.ASSUME_SL, position_resolve_delay=PositionCloseDelay.NEXT_BAR,
     )
 
     stats = backtest.run().statistics.loc["all"]

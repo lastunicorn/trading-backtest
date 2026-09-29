@@ -1,8 +1,8 @@
-"""Tests for `backtest.find_config_file`."""
+"""Tests for `ports.backtest_config_access.backtest_config_reader.find_config_file`."""
 
 import pytest
 
-from backtest import find_config_file
+from ports.backtest_config_access import find_config_file
 
 
 def test_a_file_is_used_as_given(tmp_path) -> None:

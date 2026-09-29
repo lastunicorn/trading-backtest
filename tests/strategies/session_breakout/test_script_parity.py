@@ -18,7 +18,7 @@ from domain.bar_approach.bar import Bar
 from domain.bar_approach.position import Outcome
 from domain.bar_approach.shift_bars import shift_bars
 from domain.broker_clock import BROKER_SERVER_TZ
-from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest, PositionResolveDelay
+from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest, PositionCloseDelay
 from domain.pandas_approach.cost_model import FixedCost
 from domain.pandas_approach.historical_data import HistoricalData
 from domain.pandas_approach.position import PositionOutcome
@@ -83,7 +83,7 @@ def _port_trades(frame: pd.DataFrame, max_range_pips: float, risk_reward: float)
         data,
         cost_model=FixedCost(pips=0.0),
         ambiguity_policy=AmbiguityPolicy.EXCLUDE,
-        position_resolve_delay=PositionResolveDelay.ENTRY_BAR,
+        position_resolve_delay=PositionCloseDelay.ENTRY_BAR,
     )
     trades = backtest.run().trades.copy()
 

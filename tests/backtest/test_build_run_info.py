@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 
 from backtest import build_run_info
 from domain.broker_clock import BROKER_SERVER_TZ
-from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest, PositionResolveDelay
+from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest, PositionCloseDelay
 from domain.pandas_approach.cost_model import FixedCost
 from strategies.rsi_divergence import RsiDivergence
 from tests.domain.pandas_approach.backtest._fakes import ScriptedStrategy, data
@@ -46,7 +46,7 @@ def test_records_the_data() -> None:
 def test_records_the_simulation_settings() -> None:
     backtest = Backtest(
         ScriptedStrategy([0]), data(10, {}), cost_model=FixedCost(pips=1.2),
-        ambiguity_policy=AmbiguityPolicy.ASSUME_SL, position_resolve_delay=PositionResolveDelay.ENTRY_BAR, splits=False,
+        ambiguity_policy=AmbiguityPolicy.ASSUME_SL, position_resolve_delay=PositionCloseDelay.ENTRY_BAR, splits=False,
     )
 
     assert _info(backtest)["simulation"] == {

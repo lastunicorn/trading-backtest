@@ -5,8 +5,9 @@
     python3 backtest.py backtests/narrow_asia_fade          # a folder: reads its backtest.json
 
 The only argument is a JSON config file, or a folder holding one named
-`backtest.json`. Every setting lives in the config (see `load_config` and
-help/backtest-framework/running-a-backtest.md); relative paths in it are
+`backtest.json`. Every setting lives in the config (read by
+`application.load_backtest_config_use_case.load_backtest_config`; see
+help/backtest-framework/backtest-config.md); relative paths in it are
 resolved against the config file's own folder, not the working directory:
 
     {
@@ -67,31 +68,24 @@ from __future__ import annotations
 import argparse
 import json
 import math
-import os
 import subprocess
 import sys
 import time
-import types
-import typing
-from dataclasses import asdict, dataclass, field, fields, is_dataclass
+from dataclasses import asdict, dataclass, is_dataclass
 from datetime import datetime, time as clock_time
 from pathlib import Path
-from zoneinfo import ZoneInfoNotFoundError
 
+from application.load_backtest_config_use_case import cost_model, load_backtest_config
 from application.load_historical_data_use_case import SourceFormat, load_source
 from domain.broker_clock import timezone_by_name, timezone_name
-from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest, BacktestResult, PositionResolveDelay
-from domain.pandas_approach.cost_model import CostModel, FixedCost, SpreadCost
+from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest, BacktestResult, PositionCloseDelay
 from domain.pandas_approach.splits import Split
 from domain.sample_size import SampleSize
 from domain.symbol import Symbol, by_ticker
-from domain.time_window import ZonedTime
+from ports.backtest_config_access import CONFIG_FILE_NAME, BacktestConfig
 from strategies import STRATEGIES
 
 _REPO_ROOT = Path(__file__).resolve().parent
-
-
-CONFIG_FILE_NAME = "backtest.json"
 
 
 def main() -> int:
@@ -99,7 +93,7 @@ def main() -> int:
     args = _parse_args()
 
     try:
-        config = load_config(args.config)
+        config = load_backtest_config(args.config)
         timeframe = SampleSize.Parse(config.timeframe)
         symbol = by_ticker(config.data.symbol)
     except (ValueError, FileNotFoundError) as error:
@@ -139,283 +133,12 @@ def _run(config: BacktestConfig, timeframe: SampleSize, symbol: Symbol) -> Backt
     backtest = Backtest(
         strategy=STRATEGIES[config.strategy](**config.strategy_parameters),
         data=data,
-        cost_model=config.cost.model(),
+        cost_model=cost_model(config.cost),
         ambiguity_policy=AmbiguityPolicy(config.ambiguity),
-        position_resolve_delay=PositionResolveDelay(config.resolve_from),
+        position_resolve_delay=PositionCloseDelay(config.resolve_from),
         splits=config.splits,
     )
     return run_backtest(backtest, config.out, source=f"{config.data.source} ({source_format.value})")
-
-
-@dataclass(frozen=True)
-class DataConfig:
-    """The config's `data` object: where the bars come from and what they are.
-
-    `source` is already resolved against the config file's folder. `format` is
-    a `SourceFormat` value. `timeframe` is the bar size of the source as
-    stored, not the one backtested on. `timezone` is the clock its timestamps
-    are on, as `timezone_by_name` reads it ("broker" or an IANA name).
-    """
-
-    source: Path
-    format: str
-    symbol: str
-    timeframe: str = "1m"
-    timezone: str = "UTC"
-
-
-@dataclass(frozen=True)
-class CostConfig:
-    """The config's `cost` object: what each trade pays, in pips.
-
-    `commission_pips` is charged on every trade. With `spread`, each trade also
-    pays the spread of the bar where it crosses to the ask (`SpreadCost`);
-    without it, the commission is the whole cost (`FixedCost`). The default is
-    no cost at all.
-    """
-
-    spread: bool = False
-    commission_pips: float = 0.0
-
-    def model(self) -> CostModel:
-        if self.spread:
-            return SpreadCost(commission_pips=self.commission_pips)
-        return FixedCost(pips=self.commission_pips)
-
-
-@dataclass(frozen=True)
-class BacktestConfig:
-    """The settings of one CLI run, as read from its JSON config by `load_config`.
-
-    Field names are the JSON keys. `out` is already resolved against the
-    config file's folder. `timeframe` is the bar size to backtest on;
-    `data.timeframe` divides it. `strategy_parameters` holds the strategy's
-    constructor arguments, already converted to its field types (a JSON
-    "HH:MM" string becomes a `datetime.time`, "HH:MM <zone>" a timezone-aware one).
-    """
-
-    strategy: str
-    data: DataConfig
-    out: Path
-    timeframe: str = "5m"
-    cost: CostConfig = field(default_factory=CostConfig)
-    ambiguity: str = AmbiguityPolicy.EXCLUDE.value
-    resolve_from: str = PositionResolveDelay.NEXT_BAR.value
-    splits: bool = True
-    strategy_parameters: dict[str, object] = field(default_factory=dict)
-
-
-# The JSON type each config key must have. bool is kept apart from the numbers
-# on purpose: `"commission_pips": true` is a mistake, not 1 pip.
-_CONFIG_KEY_TYPES = {
-    "strategy": str,
-    "data": dict,
-    "out": str,
-    "timeframe": str,
-    "cost": dict,
-    "ambiguity": str,
-    "resolve_from": str,
-    "splits": bool,
-    "strategy_parameters": dict,
-}
-
-_DATA_KEY_TYPES = {
-    "source": str,
-    "format": str,
-    "symbol": str,
-    "timeframe": str,
-    "timezone": str,
-}
-
-_COST_KEY_TYPES = {
-    "spread": bool,
-    "commission_pips": float,
-}
-
-
-def find_config_file(path) -> Path:
-    """`path` itself if it is a file, `path/backtest.json` if it is a folder."""
-    path = Path(path)
-    if path.is_dir():
-        path = path / CONFIG_FILE_NAME
-    if not path.is_file():
-        raise FileNotFoundError(f"no backtest config at {path}")
-    return path
-
-
-def load_config(path) -> BacktestConfig:
-    """Read and validate a backtest config: a JSON file, or a folder holding `backtest.json`.
-
-    Unknown keys, wrong types and invalid choices raise `ValueError` naming the
-    file, so a typo fails the run instead of silently falling back to a default.
-    """
-    file = find_config_file(path)
-    try:
-        raw = json.loads(file.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as error:
-        raise ValueError(f"{file}: not valid JSON: {error}") from error
-    if not isinstance(raw, dict):
-        raise ValueError(f"{file}: expected a JSON object, got {type(raw).__name__}")
-
-    def fail(message: str) -> ValueError:
-        return ValueError(f"{file}: {message}")
-
-    _check_keys(raw, _CONFIG_KEY_TYPES, "", fail)
-    for key in ("strategy", "data", "out"):
-        if key not in raw:
-            raise fail(f'"{key}" is required')
-
-    _check_choice(raw, "strategy", sorted(STRATEGIES), fail)
-    _check_choice(raw, "ambiguity", [policy.value for policy in AmbiguityPolicy], fail)
-    _check_choice(raw, "resolve_from", [start.value for start in PositionResolveDelay], fail)
-
-    values = dict(raw)
-    values["data"] = _data_config(file, raw["data"], fail)
-    values["out"] = _relative_to(file, raw["out"])
-    timeframe = _parse_timeframe(raw.get("timeframe", BacktestConfig.timeframe), "timeframe", fail)
-    if not timeframe.can_be_resampled_from(_parse_timeframe(values["data"].timeframe, "data.timeframe", fail)):
-        raise fail(f'"timeframe" {timeframe} is not a whole multiple of the source\'s '
-                   f'"data.timeframe" {values["data"].timeframe}; resampling only coarsens')
-    if "cost" in raw:
-        values["cost"] = _cost_config(raw["cost"], fail)
-    if "strategy_parameters" in raw:
-        values["strategy_parameters"] = _strategy_parameters(raw["strategy"], raw["strategy_parameters"], fail)
-    return BacktestConfig(**values)
-
-
-def _data_config(file: Path, raw: dict, fail) -> DataConfig:
-    """The `data` object, checked, with `source` resolved against the config file's folder."""
-    _check_keys(raw, _DATA_KEY_TYPES, "data.", fail)
-    for key in ("source", "format", "symbol"):
-        if key not in raw:
-            raise fail(f'"data.{key}" is required')
-    _check_choice(raw, "format", [source_format.value for source_format in SourceFormat], fail, prefix="data.")
-
-    values = dict(raw)
-    try:
-        by_ticker(raw["symbol"])
-    except ValueError as error:
-        raise fail(f'"data.symbol": {error}') from error
-    values["source"] = _relative_to(file, raw["source"])
-    if "timezone" in raw:
-        try:
-            timezone_by_name(raw["timezone"])
-        except (KeyError, ValueError) as error:  # ZoneInfoNotFoundError is a KeyError
-            raise fail(f'"data.timezone" is {json.dumps(raw["timezone"])}: not "broker" or an IANA time zone '
-                       f'name such as "UTC" or "America/New_York"') from error
-    return DataConfig(**values)
-
-
-def _cost_config(raw: dict, fail) -> CostConfig:
-    """The `cost` object, checked, with `commission_pips` as a float."""
-    _check_keys(raw, _COST_KEY_TYPES, "cost.", fail)
-    values = dict(raw)
-    if "commission_pips" in raw:
-        values["commission_pips"] = float(raw["commission_pips"])
-        if values["commission_pips"] < 0:
-            raise fail(f'"cost.commission_pips" cannot be negative, got {raw["commission_pips"]}')
-    return CostConfig(**values)
-
-
-def _parse_timeframe(value: str, key: str, fail) -> SampleSize:
-    try:
-        return SampleSize.Parse(value)
-    except ValueError as error:
-        raise fail(f'"{key}": {error}') from error
-
-
-def _strategy_parameters(name: str, raw: dict, fail) -> dict[str, object]:
-    """`raw` converted to the field types of strategy `name`, checked by building the strategy once.
-
-    Building it here means an out-of-range value (rejected by the strategy's
-    `__post_init__`) fails before any data is loaded, not after.
-    """
-    strategy_class = STRATEGIES[name]
-    types = typing.get_type_hints(strategy_class, include_extras=True)
-    names = [f.name for f in fields(strategy_class) if f.init] if is_dataclass(strategy_class) else []
-
-    unknown = sorted(set(raw) - set(names))
-    if unknown:
-        raise fail(f"{name} has no parameter(s) {', '.join(unknown)}; "
-                   f"its parameters: {', '.join(names) or 'none'}")
-
-    converted = {key: _strategy_parameter(key, value, types[key], fail) for key, value in raw.items()}
-
-    try:
-        strategy_class(**converted)
-    except (TypeError, ValueError) as error:
-        raise fail(f"invalid strategy_parameters for {name}: {error}") from error
-    return converted
-
-
-def _strategy_parameter(key: str, value, expected, fail):
-    """One strategy parameter converted to its field's type `expected`; a `X | None` field also takes null."""
-    arguments = [a for a in typing.get_args(expected) if a is not type(None)]
-    if typing.get_origin(expected) in (typing.Union, types.UnionType) and len(arguments) == 1:
-        if value is None:
-            return None
-        expected = arguments[0]
-
-    if expected == ZonedTime:
-        return _parse_time(key, value, zoned=True, fail=fail)
-    if expected is clock_time:
-        return _parse_time(key, value, zoned=False, fail=fail)
-    if expected in (int, float, bool, str):
-        if not _has_json_type(value, expected):
-            raise fail(f'strategy parameter "{key}" must be {_JSON_TYPE_NAMES[expected]}, got {json.dumps(value)}')
-        return float(value) if expected is float else value
-    raise fail(f'strategy parameter "{key}" has type {expected}, which a JSON config cannot set')
-
-
-def _parse_time(key: str, value, *, zoned: bool, fail) -> clock_time:
-    """ "HH:MM" -> a naive time on the data's clock; with `zoned`, "HH:MM <zone>" -> a timezone-aware one.
-
-    The zone is anything `timezone_by_name` reads: "broker" or an IANA name.
-    """
-    form = '"HH:MM <zone>" (e.g. "08:00 Europe/London" or "10:00 broker")' if zoned else '"HH:MM"'
-    parts = value.split() if isinstance(value, str) else []
-    try:
-        if len(parts) != (2 if zoned else 1):
-            raise ValueError
-        parsed = clock_time.fromisoformat(parts[0])
-        if parsed.tzinfo is not None:
-            raise ValueError
-        return parsed.replace(tzinfo=timezone_by_name(parts[1])) if zoned else parsed
-    except (ValueError, ZoneInfoNotFoundError):
-        raise fail(f'strategy parameter "{key}" must be a time {form}, got {json.dumps(value)}') from None
-
-
-def _relative_to(config_file: Path, path: str) -> Path:
-    """`path` resolved against the config file's folder, with `..` folded away (symlinks untouched)."""
-    return Path(os.path.normpath(config_file.parent / path))
-
-
-_JSON_TYPE_NAMES = {str: "a string", float: "a number", int: "a whole number", bool: "true or false",
-                    list: "a list", dict: "a JSON object"}
-
-
-def _has_json_type(value, expected: type) -> bool:
-    if isinstance(value, bool):
-        return expected is bool
-    if expected is float:
-        return isinstance(value, (int, float))
-    return isinstance(value, expected)
-
-
-def _check_keys(raw: dict, key_types: dict[str, type], prefix: str, fail) -> None:
-    """Reject keys not in `key_types` and values of the wrong JSON type; `prefix` names the nesting ("data.")."""
-    unknown = sorted(set(raw) - set(key_types))
-    if unknown:
-        raise fail(f"unknown key(s) {', '.join(prefix + key for key in unknown)}; "
-                   f"allowed: {', '.join(prefix + key for key in key_types)}")
-    for key, value in raw.items():
-        if not _has_json_type(value, key_types[key]):
-            raise fail(f'"{prefix}{key}" must be {_JSON_TYPE_NAMES[key_types[key]]}, got {json.dumps(value)}')
-
-
-def _check_choice(raw: dict, key: str, choices: list[str], fail, *, prefix: str = "") -> None:
-    if key in raw and raw[key] not in choices:
-        raise fail(f'"{prefix}{key}" is {json.dumps(raw[key])}; choose one of {", ".join(choices)}')
 
 
 @dataclass(frozen=True)

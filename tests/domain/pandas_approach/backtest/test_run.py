@@ -5,7 +5,7 @@ import math
 import pandas as pd
 import pytest
 
-from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest, PositionResolveDelay
+from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest, PositionCloseDelay
 from domain.pandas_approach.cost_model import FixedCost
 from domain.pandas_approach.position import FRAME_COLUMNS, PositionOutcome
 from domain.pandas_approach.trade_results import RESULT_COLUMNS
@@ -65,7 +65,7 @@ def test_position_resolve_delay_is_passed_through() -> None:
     entry_bar_hits_tp.data.loc[0, "high"] = 1.1025
 
     next_bar = Backtest(ScriptedStrategy([0]), entry_bar_hits_tp).run()
-    entry_bar = Backtest(ScriptedStrategy([0]), entry_bar_hits_tp, position_resolve_delay=PositionResolveDelay.ENTRY_BAR).run()
+    entry_bar = Backtest(ScriptedStrategy([0]), entry_bar_hits_tp, position_resolve_delay=PositionCloseDelay.ENTRY_BAR).run()
 
     assert next_bar.trades["outcome"].tolist() == ["end-of-data"]
     assert entry_bar.trades["outcome"].tolist() == ["take-profit-hit"]
@@ -169,14 +169,14 @@ def test_gap_through_the_stop_fills_at_the_stop_level() -> None:
 # where checking starts
 
 def test_next_bar_ignores_a_hit_on_the_entry_bar() -> None:
-    trade = _one([HITS_TP_LONG, QUIET, HITS_SL_LONG], long_position(), position_resolve_delay=PositionResolveDelay.NEXT_BAR)
+    trade = _one([HITS_TP_LONG, QUIET, HITS_SL_LONG], long_position(), position_resolve_delay=PositionCloseDelay.NEXT_BAR)
 
     assert trade.outcome == PositionOutcome.STOP_LOSS_HIT.value
     assert trade.close_dt == at(2)
 
 
 def test_entry_bar_counts_a_hit_on_the_entry_bar() -> None:
-    trade = _one([HITS_TP_LONG, QUIET, HITS_SL_LONG], long_position(), position_resolve_delay=PositionResolveDelay.ENTRY_BAR)
+    trade = _one([HITS_TP_LONG, QUIET, HITS_SL_LONG], long_position(), position_resolve_delay=PositionCloseDelay.ENTRY_BAR)
 
     assert trade.outcome == PositionOutcome.TAKE_PROFIT_HIT.value
     assert trade.close_dt == at(0)

@@ -80,6 +80,7 @@ The split between the packages is the point of the layout:
 ports/mt5_file_access/mt5_bar_reader.py   MT5 CSV → `Bar` objects (dt, OHLC, volumes, spread)            [stdlib]
 ports/mt5_file_access/mt5_frame_reader.py MT5 CSV → pandas frame directly, same fields                  [pandas]
 ports/file_system_access/file_system.py   list the source csv files in a folder (or pass one file through) [stdlib]
+ports/backtest_config_access/backtest_config_reader.py  backtest.py's JSON config → `BacktestConfig` (`read_config`): shape only — keys, JSON types, relative paths [stdlib]
 ports/ducascopy/ducascopy_frame_reader.py Dukascopy bid/ask M1 pairs → pandas frame (OHLC from bid, spread = ask - bid); `read_frame(year)` from config.DATA_DIR, `read_path(folder or file)` [pandas]
 domain/broker_clock.py                    BROKER_SERVER_TZ (New York + 7h), ShiftedZone, timezone_by_name ("broker" or IANA) / timezone_name [stdlib]
 domain/time_window.py                     TimeWindow: daily [start, end) of timezone-aware times, each optional; ZonedTime annotation [stdlib]
@@ -172,7 +173,8 @@ strategies/__init__.py                     STRATEGIES registry: the names a back
 strategies/narrow_asia_fade.py             v28's frozen rules (NarrowAsiaFade)
 strategies/rsi_divergence.py               RSI divergence reversal (RsiDivergence), entries = rsi_divergence_strategy.py's
 strategies/session_breakout.py             Tokyo/Asian session breakout (SessionBreakout), session_breakout_strategy.py's rules
-backtest.py                                the CLI (one arg: a JSON config, load_config → BacktestConfig), plus run_backtest → BacktestRun; build_run_info, format_report, write_results
+application/load_backtest_config_use_case.py  load_backtest_config: read_config + value checks (strategy, symbol, zone, timeframes) + strategy_parameters → field types; cost_model(CostConfig)
+backtest.py                                the CLI (one arg: a JSON config, loaded by load_backtest_config → BacktestConfig), plus run_backtest → BacktestRun; build_run_info, format_report, write_results
 backtests/<name>/backtest.json             ready-made configs: narrow_asia_fade (v28 parity), rsi_divergence, rsi_divergence_dukascopy, session_breakout (script parity)
 ```
 
