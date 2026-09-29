@@ -41,6 +41,25 @@ __all__ = ["_is_clean_csv", "load_clean_csv", "load_dukascopy", "load_mt5", "loa
 Progress = Callable[[str], None]
 
 
+def load_source(source, timeframe: SampleSize, symbol: Symbol, *, progress: Progress | None = None) -> HistoricalData:
+    """A clean CSV if `source` is one, MT5 exports otherwise."""
+    if _is_clean_csv(source):
+        return load_clean_csv(source, timeframe, symbol)
+    
+    return load_mt5(source, timeframe, symbol, progress=progress)
+
+
+def _is_clean_csv(path) -> bool:
+    """Whether `path` is a single pipeline clean CSV -- its header starts with `datetime`."""
+    path = Path(path)
+    
+    if not path.is_file():
+        return False
+    
+    with open(path, encoding="utf-8-sig") as handle:
+        return handle.readline().lower().startswith("datetime")
+
+
 def load_mt5(source, timeframe: SampleSize, symbol: Symbol, *, progress: Progress | None = None) -> HistoricalData:
     """A folder of MT5 exports, or one export, merged and resampled.
 
@@ -84,19 +103,3 @@ def load_dukascopy(
 
     frame = clean_frame(pd.concat(pieces, ignore_index=True))
     return HistoricalData.from_frame(frame, timeframe, symbol, spread_unit=SpreadUnit.PRICE, timezone=ZoneInfo("UTC"))
-
-
-def load_source(source, timeframe: SampleSize, symbol: Symbol, *, progress: Progress | None = None) -> HistoricalData:
-    """A clean CSV if `source` is one, MT5 exports otherwise."""
-    if _is_clean_csv(source):
-        return load_clean_csv(source, timeframe, symbol)
-    return load_mt5(source, timeframe, symbol, progress=progress)
-
-
-def _is_clean_csv(path) -> bool:
-    """Whether `path` is a single pipeline clean CSV -- its header starts with `datetime`."""
-    path = Path(path)
-    if not path.is_file():
-        return False
-    with open(path, encoding="utf-8-sig") as handle:
-        return handle.readline().lower().startswith("datetime")

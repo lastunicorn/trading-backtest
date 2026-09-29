@@ -74,11 +74,6 @@ WIDTH = 90
 # rather than an assumption specific to this data.
 DEFAULT_SOURCE_TZ = ZoneInfo("UTC")
 
-# Filename fragments to skip when scanning for source exports, matched
-# case-insensitively on any part of the name. Empty by default: the CLI's
-# source and destination folders differ, so a re-run never sees its own output.
-DEFAULT_SKIP_NAME_PARTS: tuple[str, ...] = ()
-
 # The data-quality report is written beside the CSV, sharing its name with the
 # extension swapped for this: `output_M5.csv` -> `output_M5.report.txt`.
 REPORT_SUFFIX = ".report.txt"
@@ -199,7 +194,7 @@ def resample(
     timeframe: str = "M5",
     source_tz: tzinfo | None = None,
     destination_tz: tzinfo | None = None,
-    skip_parts: Sequence[str] = DEFAULT_SKIP_NAME_PARTS,
+    skip_parts: Sequence[str] = (),
     progress: Progress | None = None,
 ) -> ResampleReport:
     """Resample the source M1 csv(s) to `timeframe` bars, merge them, and write
@@ -222,6 +217,11 @@ def resample(
     named for it (`REPORT_SUFFIX`: `output_M5.csv` -> `output_M5.report.txt`) is
     written beside it (see `format_quality_report`). The returned
     `ResampleReport` carries the summary numbers and both paths, not the bars.
+
+    skip_parts -- filename fragments that mark a file in a source folder as
+    generated output rather than a raw export (see `find_files`). Empty by
+    default: the CLI's source and destination folders differ, so a re-run never
+    sees its own output.
 
     progress -- called with one human-readable line per file; pass `print` for a
     CLI, leave it None for silent use.

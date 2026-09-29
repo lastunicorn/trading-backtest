@@ -30,26 +30,11 @@ from ports.file_system_access import find_files
 from ports.mt5_file_access import read_frame
 
 __all__ = [
-    "DEFAULT_SKIP_NAME_PARTS",
     "CleanDataset",
     "FileStat",
     "LoadError",
     "build_clean_dataset",
 ]
-
-# Filename fragments that mark a file as something this loader produced (or an
-# older tool did), rather than a raw broker export. Matched case-insensitively
-# on any part of the name, so a re-run never eats its own output.
-DEFAULT_SKIP_NAME_PARTS = (
-    "EURUSD_M5_2020_2026",
-    "EURUSD_M5_FINAL",
-    "EURUSD_M5_LOCAL",
-    "EURUSD_M5_CLEAN",
-    "combined",
-    "combine",
-    "research_output",
-    "v24_",
-)
 
 Progress = Callable[[str], None]
 
@@ -91,37 +76,23 @@ class CleanDataset:
     timeframe: str | SampleSize = "M5"
 
     @property
-    def first(self) -> datetime:
+    def start_dt(self) -> datetime:
         return self.frame["datetime"].min()
 
     @property
-    def last(self) -> datetime:
+    def end_dt(self) -> datetime:
         return self.frame["datetime"].max()
 
     @property
-    def skipped_lines(self) -> int:
+    def skipped_lines_count(self) -> int:
         return sum(stat.skipped_lines_count for stat in self.stats)
-
-
-def _combine_pieces(pieces: list[pd.DataFrame], say: Progress) -> tuple[pd.DataFrame, int]:
-    say("Combining converted pieces...")
-    combined = pd.concat(pieces, ignore_index=True)
-
-    count_before = len(combined)
-    combined = clean_frame(combined)
-
-    count_after = len(combined)
-    removed_count = count_before - count_after
-
-    say(f"Removed {removed_count:,} duplicate timestamps.")
-    return combined, removed_count
 
 
 def build_clean_dataset(
     input_directory,
     *,
     timeframe: str | SampleSize = "M5",
-    skip_parts: Sequence[str] = DEFAULT_SKIP_NAME_PARTS,
+    skip_parts: Sequence[str] = (),
     progress: Progress | None = None,
 ) -> CleanDataset:
     """Convert every csv in `input_directory` to `timeframe` bars and merge them.
@@ -130,6 +101,10 @@ def build_clean_dataset(
     peak memory is one month rather than the whole history. A file that fails to
     parse is recorded in `errors` and skipped -- one bad export never aborts the
     build. Where two files cover the same timestamp the later-sorted one wins.
+
+    skip_parts -- filename fragments that mark a file in the folder as generated
+    output rather than a raw export (see `find_files`). Empty by default: a
+    caller whose folder mixes the two passes its own list.
 
     progress -- called with one human-readable line per file; pass `print` for a
     CLI, leave it None for library use.
@@ -180,3 +155,17 @@ def build_clean_dataset(
     combined, dropped_count = _combine_pieces(pieces, say)
 
     return CleanDataset(combined, stats, errors, dropped_count, timeframe)
+
+
+def _combine_pieces(pieces: list[pd.DataFrame], say: Progress) -> tuple[pd.DataFrame, int]:
+    say("Combining converted pieces...")
+    combined = pd.concat(pieces, ignore_index=True)
+
+    count_before = len(combined)
+    combined = clean_frame(combined)
+
+    count_after = len(combined)
+    removed_count = count_before - count_after
+
+    say(f"Removed {removed_count:,} duplicate timestamps.")
+    return combined, removed_count

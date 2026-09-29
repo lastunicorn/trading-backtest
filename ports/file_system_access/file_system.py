@@ -1,12 +1,11 @@
 from pathlib import Path
 from typing import Sequence
 
-DEFAULT_SKIP_NAME_PARTS = []
 
 def find_files(
     path,
     pattern: str = "*.csv",
-    skip_parts: Sequence[str] = DEFAULT_SKIP_NAME_PARTS,
+    skip_parts: Sequence[str] = (),
     recursive: bool = False,
 ) -> list[Path]:
     """The source files at `path`, sorted by name, generated files excluded.

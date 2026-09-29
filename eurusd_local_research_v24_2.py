@@ -49,6 +49,21 @@ DEFAULT_FOLDER = "data/eurusd/1min"
 OUTDIR_NAME = "research_output_v24_2"
 M5_NAME = "EURUSD_M5_CLEAN_2020_2026.csv"
 
+# Filename fragments that mark a file in --folder as something this script
+# produced (or an older tool did), rather than a raw broker export. Matched
+# case-insensitively on any part of the name, so a re-run never eats its own
+# output. The same list v24.1 used, which is what keeps the two in parity.
+SKIP_NAME_PARTS = (
+    "EURUSD_M5_2020_2026",
+    "EURUSD_M5_FINAL",
+    "EURUSD_M5_LOCAL",
+    "EURUSD_M5_CLEAN",
+    "combined",
+    "combine",
+    "research_output",
+    "v24_",
+)
+
 RANGE_MINUTES = [30, 45, 60, 75, 90, 120]
 ENTRY_DELAYS = [0, 5, 10, 15, 30]
 STOP_FRACTIONS = [0.40, 0.50, 0.60, 0.67, 0.75]
@@ -69,13 +84,13 @@ def data_quality_report(dataset: CleanDataset, outpath: Path) -> str:
         f"Failed/skipped source files: {len(dataset.errors)}",
         f"Duplicate M5 timestamps removed: {dataset.duplicates_removed_count:,}",
         f"Final M5 candles: {len(dataset.frame):,}",
-        f"First candle: {dataset.first}",
-        f"Last candle: {dataset.last}",
+        f"First candle: {dataset.start_dt}",
+        f"Last candle: {dataset.end_dt}",
         f"Clean M5 saved at: {outpath}",
     ]
 
-    if dataset.skipped_lines:
-        lines.append(f"Unparsable source lines skipped: {dataset.skipped_lines:,}")
+    if dataset.skipped_lines_count:
+        lines.append(f"Unparsable source lines skipped: {dataset.skipped_lines_count:,}")
 
     lines += ["", "FAILED/SKIPPED FILES", "-" * 90]
     lines += [f"{error.name} | {error.reason}" for error in dataset.errors]
@@ -92,7 +107,7 @@ def data_quality_report(dataset: CleanDataset, outpath: Path) -> str:
 
 def build_clean_m5(folder: Path, outdir: Path):
     """Stage 0: folder of raw M1 exports -> the clean M5 CSV + quality report."""
-    dataset = build_clean_dataset(folder, timeframe="M5", progress=print)
+    dataset = build_clean_dataset(folder, timeframe="M5", skip_parts=SKIP_NAME_PARTS, progress=print)
 
     outpath = outdir / M5_NAME
     dataset.frame.to_csv(outpath, index=False)
@@ -103,11 +118,11 @@ def build_clean_m5(folder: Path, outdir: Path):
     print("\nClean M5 created:")
     print(outpath)
     print(f"Candles: {len(dataset.frame):,}")
-    print(f"Dates: {dataset.first} -> {dataset.last}")
+    print(f"Dates: {dataset.start_dt} -> {dataset.end_dt}")
     print(f"Duplicates removed: {dataset.duplicates_removed_count:,}")
 
-    if dataset.skipped_lines:
-        print(f"Unparsable lines skipped: {dataset.skipped_lines:,}")
+    if dataset.skipped_lines_count:
+        print(f"Unparsable lines skipped: {dataset.skipped_lines_count:,}")
 
     return dataset.frame
 

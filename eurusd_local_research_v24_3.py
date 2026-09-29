@@ -66,13 +66,13 @@ def data_quality_report(dataset: CleanDataset, outpath: Path) -> str:
         f"Failed/skipped source files: {len(dataset.errors)}",
         f"Duplicate M5 timestamps removed: {dataset.duplicates_removed_count:,}",
         f"Final M5 candles: {len(dataset.frame):,}",
-        f"First candle: {dataset.first}",
-        f"Last candle: {dataset.last}",
+        f"First candle: {dataset.start_dt}",
+        f"Last candle: {dataset.end_dt}",
         f"Clean M5 saved at: {outpath}",
     ]
 
-    if dataset.skipped_lines:
-        lines.append(f"Unparsable source lines skipped: {dataset.skipped_lines:,}")
+    if dataset.skipped_lines_count:
+        lines.append(f"Unparsable source lines skipped: {dataset.skipped_lines_count:,}")
 
     lines += ["", "FAILED/SKIPPED FILES", "-" * 90]
     lines += [f"{error.name} | {error.reason}" for error in dataset.errors]
