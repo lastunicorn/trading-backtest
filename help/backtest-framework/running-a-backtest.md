@@ -34,7 +34,7 @@ python3 backtest.py backtests/narrow_asia_fade        # a folder: reads the back
 
 | Key | Required | Default | Meaning |
 |---|---|---|---|
-| `strategy` | yes | – | A key of `strategies.STRATEGIES`, e.g. `"narrow_asia_fade"`, `"rsi_divergence"`. |
+| `strategy` | yes | – | A key of `strategies.STRATEGIES`, e.g. `"narrow_asia_fade"`, `"rsi_divergence"`, `"session_breakout"`. |
 | `source` | one of these two | – | A pipeline clean CSV (recognised by its `datetime` header), a folder of MT5 exports, or one MT5 export. Bars are on the broker-server clock. |
 | `dukascopy_years` | one of these two | – | A list of years, e.g. `[2024, 2025]`: read Dukascopy bid/ask M1 pairs for them from the folder set in `ports/ducascopy/config.py`. Bars are in **UTC**. |
 | `out` | yes | – | Output directory. Created if missing; existing result files are **overwritten**. |

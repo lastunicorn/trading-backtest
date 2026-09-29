@@ -112,3 +112,4 @@ Common mistakes:
 - The strategies:
   - [Narrow Asia London Fade](strategy-narrow-asia-fade.md) (`narrow_asia_fade`): the frozen v28 strategy.
   - [RSI Divergence](strategy-rsi-divergence.md) (`rsi_divergence`): regular RSI divergences on M15.
+  - [Session Breakout](strategy-session-breakout.md) (`session_breakout`): breakout of the Tokyo/Asian session range, `session_breakout_strategy.py`'s rules.

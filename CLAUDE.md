@@ -170,8 +170,9 @@ application/load_historical_data_use_case.py  load_mt5 / load_clean_csv / load_d
 strategies/__init__.py                     STRATEGIES registry: the names a backtest.py config's `strategy` accepts
 strategies/narrow_asia_fade.py             v28's frozen rules (NarrowAsiaFade)
 strategies/rsi_divergence.py               RSI divergence reversal (RsiDivergence), entries = rsi_divergence_strategy.py's
+strategies/session_breakout.py             Tokyo/Asian session breakout (SessionBreakout), session_breakout_strategy.py's rules
 backtest.py                                the CLI (one arg: a JSON config, load_config → BacktestConfig), plus run_backtest → BacktestRun; build_run_info, format_report, write_results
-backtests/<name>/backtest.json             ready-made configs: narrow_asia_fade (v28 parity), rsi_divergence, rsi_divergence_dukascopy
+backtests/<name>/backtest.json             ready-made configs: narrow_asia_fade (v28 parity), rsi_divergence, rsi_divergence_dukascopy, session_breakout (script parity)
 ```
 
 ```bash
@@ -180,6 +181,7 @@ python3 backtest.py backtests/narrow_asia_fade            # a folder means its b
 
 python3 backtest.py backtests/rsi_divergence/backtest.json
 python3 backtest.py backtests/rsi_divergence_dukascopy
+python3 backtest.py backtests/session_breakout        # script parity: 912 trades on the canonical M5 dataset
 ```
 
 The only CLI argument is a JSON config (or a folder holding `backtest.json`); its keys are the old flags in snake_case (`strategy`, `source` | `dukascopy_years`, `out`, `timeframe`, `symbol`, `cost_pips`, `spread_cost`, `commission_pips`, `ambiguity`, `resolve_from`, `splits`), plus `strategy_parameters`: an object overriding the strategy's dataclass fields, type-checked against them (time fields as `"HH:MM"`) and validated by building the strategy while the config loads. **Relative `source`/`out` paths resolve against the config file's folder, not the cwd.** Unknown keys and wrong types are errors, not ignored. `source` is detected: a file with a `datetime` header is a pipeline clean CSV; anything else is MT5 exports (folder or one file). `out` is required and is overwritten. It writes `positions.csv` (one row per trade), `statistics.txt` (the human report — read it first), `statistics.csv` (one row per split, for diffing runs) and `run.json` (strategy + parameters, data range, simulation settings, git commit, source).
@@ -206,6 +208,8 @@ A strategy with wall-clock session windows (`NarrowAsiaFade`) raises on data tha
 **Adding a strategy:** subclass `TradingStrategy` as a frozen dataclass. Its fields become `parameters()`, land in `run.json`, and are what a config's `strategy_parameters` can set. Implement `generate_positions` (and `split_days` if it trades a subset of days), and register it in `strategies/STRATEGIES` to make it runnable from `backtest.py`. Put tests in `tests/strategies/<module>/`.
 
 **Verified:** `NarrowAsiaFade` reproduces v28's RANGE_MULT 1.00 line trade for trade: all 207 trades have the same day, direction, entry, stop, target, exit reason, pips and R. `tests/strategies/narrow_asia_fade/test_v28_parity.py` re-checks the totals on every `pytest` run, and skips where the local-only `output/` dataset is absent. A failure there is a framework bug, not a finding. Not one of the 207 trades hits an ambiguous bar, so v28's `assume-sl` choice did not affect its result.
+
+`SessionBreakout` reproduces `session_breakout_strategy.py` trade for trade (entry time, side, levels, outcome, close time and price). `tests/strategies/session_breakout/test_script_parity.py` runs both on a synthetic M1 random walk across a DST switch. On the canonical M5 dataset they agree on all 912 trades. Parity settings: `entry-bar`, `exclude`, `cost_pips` 0. The port keeps the script's quirks, which are listed in `help/backtest-framework/strategy-session-breakout.md`.
 
 ## Testing
 

@@ -139,6 +139,7 @@ from strategies.opening_range_breakout import OpeningRangeBreakout
 STRATEGIES: dict[str, type[TradingStrategy]] = {
     "narrow_asia_fade": NarrowAsiaFade,
     "rsi_divergence": RsiDivergence,
+    "session_breakout": SessionBreakout,
     "opening_range_breakout": OpeningRangeBreakout,
 }
 ```
