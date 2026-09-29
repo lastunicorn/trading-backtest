@@ -62,8 +62,13 @@ Extra columns are kept. The constructor only **validates**, and raises `ValueErr
 | `BROKER_SERVER_TZ` | the MT5 server clock, New York + 7h |
 | `ShiftedZone(base, shift, name)` | a `tzinfo`: `base`'s wall clock moved by `shift` |
 | `timezone_by_name(name)` | `"broker"` → `BROKER_SERVER_TZ`, otherwise `ZoneInfo(name)` |
+| `timezone_name(zone)` | the inverse: `BROKER_SERVER_TZ` → `"broker"`, a `ZoneInfo` → its IANA key |
 
 pandas rejects custom `tzinfo` objects, so don't pass `BROKER_SERVER_TZ` to `tz_localize`; use `shift_timezone`.
+
+### `domain.time_window`
+
+**`TimeWindow(start=None, end=None)`**: a daily `[start, end)` window. Each bound is a timezone-aware `datetime.time` or `None` (open). `window.contains(instant)` takes a timezone-aware `datetime`. An `end` at or before `start` wraps past midnight, and the bounds may be in different zones. **`ZonedTime`** is the annotation for a strategy field holding such a bound; the config reads it as `"HH:MM <zone>"`.
 
 ### `domain.pandas_approach.shift_timezone`
 

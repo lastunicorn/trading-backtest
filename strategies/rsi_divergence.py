@@ -23,6 +23,15 @@ Exits:
     drawn from.
   - Target: `risk_reward` x the entry-to-stop distance.
 
+Entry window: `start_time` / `end_time` (both optional, None by default)
+limit entries to a time of day. Each is a timezone-aware `datetime.time`, so
+08:00 London stays 08:00 London across DST whatever clock the data is on; a
+signal whose entry bar opens outside [start_time, end_time) is skipped (see
+`domain.time_window.TimeWindow` for wrapping and one-sided windows). Only
+entries are limited: RSI and pivots still run over every bar, and a position
+opened inside the window is managed to its stop or target like any other.
+From a config: `"start_time": "08:00 Europe/London"`, `"end_time": "16:00 broker"`.
+
 If price has already run past the pivot extreme by the entry bar's open, the
 stop would sit on the wrong side of the entry; that signal is skipped.
 
@@ -32,7 +41,9 @@ ignore a stop or target hit on the entry bar itself.
 
     python3 backtest.py backtests/rsi_divergence     # timeframe 15m, resolve_from entry-bar
 
-Timezone-agnostic: RSI and pivots depend on bar order, not the clock.
+Timezone-agnostic without an entry window: RSI and pivots depend on bar order,
+not the clock. With one, the data's `timezone` must be right, since the window
+is compared against real instants.
 """
 
 from __future__ import annotations
@@ -47,6 +58,7 @@ from domain.pandas_approach.historical_data import HistoricalData
 from domain.pandas_approach.position import Position, Side
 from domain.pandas_approach.rsi import rsi
 from domain.pandas_approach.trading_strategy import TradingStrategy
+from domain.time_window import TimeWindow, ZonedTime
 
 __all__ = ["RsiDivergence"]
 
@@ -62,8 +74,13 @@ class RsiDivergence(TradingStrategy):
     rsi_upper: float = 70
     risk_reward: float = 2.0
     stop_buffer_pips: float = 1.0
+    start_time: ZonedTime | None = None     # first entry time of day, inclusive
+    end_time: ZonedTime | None = None       # exclusive
 
     def __post_init__(self) -> None:
+        for name, bound in (("start_time", self.start_time), ("end_time", self.end_time)):
+            if bound is not None and bound.tzinfo is None:
+                raise ValueError(f"{name} must carry a timezone, got {bound}")
         if self.risk_reward <= 0:
             raise ValueError(f"risk_reward must be positive, got {self.risk_reward}")
         if self.stop_buffer_pips < 0:
@@ -91,9 +108,15 @@ class RsiDivergence(TradingStrategy):
 
         pivot_rows = data.locate(signal.divergence.end_time for signal in signals)
         buffer = self.stop_buffer_pips * data.symbol.pip_size
+        window = TimeWindow(self.start_time, self.end_time)
 
         positions = []
         for signal, pivot_row in zip(signals, pivot_rows):
+            # Bars are naive wall-clock times on the data's clock; pandas rejects
+            # custom tzinfos (the broker clock), so attach it on a stdlib datetime.
+            if not window.contains(pd.Timestamp(signal.open_time).to_pydatetime().replace(tzinfo=data.timezone)):
+                continue
+
             entry_price = float(signal.open_price)
 
             if signal.side == Side.LONG:

@@ -2,9 +2,11 @@
 
 import json
 from datetime import time
+from zoneinfo import ZoneInfo
 
 import pytest
 
+from domain.broker_clock import BROKER_SERVER_TZ
 from backtest import BacktestConfig, DataConfig, load_config
 from strategies import STRATEGIES
 from strategies.rsi_divergence import RsiDivergence
@@ -159,7 +161,27 @@ def test_strategy_parameters_build_the_strategy(tmp_path) -> None:
     assert STRATEGIES[config.strategy](**config.strategy_parameters) == RsiDivergence(risk_reward=1.5)
 
 
+def test_timezone_aware_times_take_a_zone_name(tmp_path) -> None:
+    config = _with_parameters(tmp_path, "rsi_divergence", {"start_time": "08:00 Europe/London", "end_time": "16:30 broker"})
+
+    assert config.strategy_parameters == {"start_time": time(8, 0, tzinfo=ZoneInfo("Europe/London")),
+                                          "end_time": time(16, 30, tzinfo=BROKER_SERVER_TZ)}
+
+
+def test_nullable_parameters_take_null(tmp_path) -> None:
+    config = _with_parameters(tmp_path, "rsi_divergence", {"start_time": None, "end_time": "16:00 UTC"})
+
+    assert config.strategy_parameters["start_time"] is None
+
+
 @pytest.mark.parametrize("strategy, parameters, message", [
+    ("rsi_divergence", {"start_time": "08:00"}, '"start_time" must be a time "HH:MM <zone>"'),
+    ("rsi_divergence", {"start_time": "08:00 Mars/Olympus"}, '"start_time" must be a time "HH:MM <zone>"'),
+    ("rsi_divergence", {"start_time": "08:00+01:00"}, '"start_time" must be a time "HH:MM <zone>"'),
+    ("rsi_divergence", {"end_time": 8}, '"end_time" must be a time "HH:MM <zone>"'),
+    ("narrow_asia_fade", {"study_end": "13:00 Europe/London"}, '"study_end" must be a time "HH:MM"'),
+    ("narrow_asia_fade", {"study_end": None}, '"study_end" must be a time "HH:MM"'),
+    ("rsi_divergence", {"risk_reward": None}, '"risk_reward" must be a number'),
     ("rsi_divergence", {"risk_reword": 1.5}, "has no parameter.*risk_reword.*its parameters: rsi_length"),
     ("rsi_divergence", {"rsi_length": 14.5}, '"rsi_length" must be a whole number'),
     ("rsi_divergence", {"risk_reward": "2"}, '"risk_reward" must be a number'),

@@ -1,8 +1,13 @@
 """Tests for `backtest.build_run_info`."""
 
+from datetime import time
+from zoneinfo import ZoneInfo
+
 from backtest import build_run_info
+from domain.broker_clock import BROKER_SERVER_TZ
 from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest, PositionResolveDelay
 from domain.pandas_approach.cost_model import FixedCost
+from strategies.rsi_divergence import RsiDivergence
 from tests.domain.pandas_approach.backtest._fakes import ScriptedStrategy, data
 
 
@@ -16,6 +21,15 @@ def test_records_the_strategy() -> None:
     assert strategy["name"] == "ScriptedStrategy"
     assert strategy["parameters"] == {"entry_days": [0, 1]}
     assert strategy["class"].endswith("_fakes.ScriptedStrategy")
+
+
+def test_records_timezone_aware_times_with_their_zone() -> None:
+    strategy = RsiDivergence(start_time=time(8, 0, tzinfo=ZoneInfo("Europe/London")),
+                             end_time=time(16, 30, tzinfo=BROKER_SERVER_TZ))
+
+    parameters = _info(Backtest(strategy, data(10, {})))["strategy"]["parameters"]
+
+    assert (parameters["start_time"], parameters["end_time"]) == ("08:00:00 Europe/London", "16:30:00 broker")
 
 
 def test_records_the_data() -> None:

@@ -5,6 +5,7 @@
     datetime(2020, 1, 6, 0, 0, tzinfo=BROKER_SERVER_TZ).astimezone(UTC)   # 2020-01-05 22:00 UTC
     timezone_by_name("broker") is BROKER_SERVER_TZ                        # what CLI flags accept
     timezone_by_name("Europe/London")                                     # any IANA name too
+    timezone_name(BROKER_SERVER_TZ)                                       # "broker" -- and back again
 
 The broker's server runs on the common "New York close" clock. FX opens Sunday
 17:00 New York, which is Monday 00:00 on the server, so every trading week in
@@ -28,7 +29,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone, tzinfo
 from zoneinfo import ZoneInfo
 
-__all__ = ["BROKER_SERVER_TZ", "BROKER_TZ_NAME", "ShiftedZone", "timezone_by_name"]
+__all__ = ["BROKER_SERVER_TZ", "BROKER_TZ_NAME", "ShiftedZone", "timezone_by_name", "timezone_name"]
 
 
 class ShiftedZone(tzinfo):
@@ -59,6 +60,10 @@ class ShiftedZone(tzinfo):
     def fromutc(self, dt: datetime) -> datetime:
         in_base = dt.replace(tzinfo=timezone.utc).astimezone(self.base)
         return (in_base.replace(tzinfo=None) + self.shift).replace(tzinfo=self, fold=in_base.fold)
+
+    def __getinitargs__(self) -> tuple:
+        """What `tzinfo.__reduce__` rebuilds this from, so copy and pickle work (a dataclass's `asdict` deep-copies)."""
+        return self.base, self.shift, self.name
 
     def _base_wall(self, dt: datetime) -> datetime:
         """The `base` wall-clock reading at the same instant as `dt` on this clock."""
@@ -93,3 +98,16 @@ def timezone_by_name(name: str) -> tzinfo:
     if name.strip().lower() == BROKER_TZ_NAME:
         return BROKER_SERVER_TZ
     return ZoneInfo(name)
+
+
+def timezone_name(zone: tzinfo) -> str:
+    """The name `timezone_by_name` reads back as `zone`: "broker", or an IANA key.
+
+    Any other tzinfo (a fixed `datetime.timezone` offset) has no such name; its
+    `str()` is returned, for display.
+    """
+    if zone == BROKER_SERVER_TZ:
+        return BROKER_TZ_NAME
+    if isinstance(zone, ZoneInfo):
+        return zone.key
+    return str(zone)

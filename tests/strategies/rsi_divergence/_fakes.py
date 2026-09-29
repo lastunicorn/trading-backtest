@@ -5,8 +5,11 @@ divergence so the strategy's own logic -- band filter, entry timing, stop and
 target -- can be pinned down exactly.
 """
 
+from datetime import tzinfo
+
 import pandas as pd
 
+from domain.broker_clock import BROKER_SERVER_TZ
 from domain.pandas_approach.divergence import Category, Direction, Divergence
 from domain.pandas_approach.historical_data import HistoricalData
 from domain.sample_size import SampleSize
@@ -22,7 +25,7 @@ def at(bar: int) -> pd.Timestamp:
 
 
 def data(n: int = 60, *, pivot_low: float = 1.0980, pivot_high: float = 1.1020,
-         entry_open: float = 1.1000) -> HistoricalData:
+         entry_open: float = 1.1000, timezone: tzinfo = BROKER_SERVER_TZ) -> HistoricalData:
     """Flat M15 bars around 1.1000, with the pivot bar's extremes and the entry bar's open set."""
     frame = pd.DataFrame({
         "datetime": pd.date_range(T0, periods=n, freq="15min"),
@@ -33,7 +36,7 @@ def data(n: int = 60, *, pivot_low: float = 1.0980, pivot_high: float = 1.1020,
     })
     frame.loc[PIVOT, ["low", "high"]] = [pivot_low, pivot_high]
     frame.loc[ENTRY, "open"] = entry_open
-    return HistoricalData(frame, SampleSize.Parse("15m"), EurUsd())
+    return HistoricalData(frame, SampleSize.Parse("15m"), EurUsd(), timezone)
 
 
 def divergence(direction: Direction, start_value: float, end_value: float,

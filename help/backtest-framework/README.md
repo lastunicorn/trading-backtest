@@ -32,7 +32,7 @@ The code is split in three layers:
 
 | Layer | Package | Does |
 |---|---|---|
-| domain | `domain/pandas_approach/`, `domain/broker_clock.py`, `domain/sample_size.py`, `domain/symbol.py` | the concepts and all the calculations; no file access, no clock, no git |
+| domain | `domain/pandas_approach/`, `domain/broker_clock.py`, `domain/time_window.py`, `domain/sample_size.py`, `domain/symbol.py` | the concepts and all the calculations; no file access, no clock, no git |
 | application | `application/` | loads data from files, records provenance, writes results |
 | strategies | `strategies/` | concrete `TradingStrategy` subclasses and the registry the CLI uses |
 

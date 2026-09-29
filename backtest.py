@@ -25,7 +25,9 @@ resolved against the config file's own folder, not the working directory:
     }
 
 `strategy_parameters` (optional) overrides the strategy's dataclass fields;
-the rest keep their defaults. Time fields take "HH:MM" strings.
+the rest keep their defaults. Time fields take "HH:MM" strings (on the data's
+clock), timezone-aware ones (`ZonedTime`) "HH:MM <zone>" such as
+"08:00 Europe/London" or "10:00 broker". A nullable field also takes null.
 
 `data` describes the bars as they are on disk. `source` (a file or a folder)
 and `format` say where they are and how to read them: "metatrader" for MT4/MT5
@@ -69,18 +71,21 @@ import os
 import subprocess
 import sys
 import time
+import types
 import typing
 from dataclasses import asdict, dataclass, field, fields, is_dataclass
 from datetime import datetime, time as clock_time
 from pathlib import Path
+from zoneinfo import ZoneInfoNotFoundError
 
 from application.load_historical_data_use_case import SourceFormat, load_source
-from domain.broker_clock import timezone_by_name
+from domain.broker_clock import timezone_by_name, timezone_name
 from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest, BacktestResult, PositionResolveDelay
 from domain.pandas_approach.cost_model import FixedCost, SpreadCost
 from domain.pandas_approach.splits import Split
 from domain.sample_size import SampleSize
 from domain.symbol import Symbol, by_ticker
+from domain.time_window import ZonedTime
 from strategies import STRATEGIES
 
 _REPO_ROOT = Path(__file__).resolve().parent
@@ -169,7 +174,7 @@ class BacktestConfig:
     config file's folder. `timeframe` is the bar size to backtest on;
     `data.timeframe` divides it. `strategy_parameters` holds the strategy's
     constructor arguments, already converted to its field types (a JSON
-    "HH:MM" string becomes a `datetime.time`).
+    "HH:MM" string becomes a `datetime.time`, "HH:MM <zone>" a timezone-aware one).
     """
 
     strategy: str
@@ -298,7 +303,7 @@ def _strategy_parameters(name: str, raw: dict, fail) -> dict[str, object]:
     `__post_init__`) fails before any data is loaded, not after.
     """
     strategy_class = STRATEGIES[name]
-    types = typing.get_type_hints(strategy_class)
+    types = typing.get_type_hints(strategy_class, include_extras=True)
     names = [f.name for f in fields(strategy_class) if f.init] if is_dataclass(strategy_class) else []
 
     unknown = sorted(set(raw) - set(names))
@@ -306,28 +311,50 @@ def _strategy_parameters(name: str, raw: dict, fail) -> dict[str, object]:
         raise fail(f"{name} has no parameter(s) {', '.join(unknown)}; "
                    f"its parameters: {', '.join(names) or 'none'}")
 
-    converted = {}
-    for key, value in raw.items():
-        expected = types[key]
-        if expected is clock_time:
-            try:
-                converted[key] = clock_time.fromisoformat(value) if isinstance(value, str) else None
-            except ValueError:
-                converted[key] = None
-            if converted[key] is None:
-                raise fail(f'strategy parameter "{key}" must be a time "HH:MM", got {json.dumps(value)}')
-        elif expected in (int, float, bool, str):
-            if not _has_json_type(value, expected):
-                raise fail(f'strategy parameter "{key}" must be {_JSON_TYPE_NAMES[expected]}, got {json.dumps(value)}')
-            converted[key] = float(value) if expected is float else value
-        else:
-            raise fail(f'strategy parameter "{key}" has type {expected}, which a JSON config cannot set')
+    converted = {key: _strategy_parameter(key, value, types[key], fail) for key, value in raw.items()}
 
     try:
         strategy_class(**converted)
     except (TypeError, ValueError) as error:
         raise fail(f"invalid strategy_parameters for {name}: {error}") from error
     return converted
+
+
+def _strategy_parameter(key: str, value, expected, fail):
+    """One strategy parameter converted to its field's type `expected`; a `X | None` field also takes null."""
+    arguments = [a for a in typing.get_args(expected) if a is not type(None)]
+    if typing.get_origin(expected) in (typing.Union, types.UnionType) and len(arguments) == 1:
+        if value is None:
+            return None
+        expected = arguments[0]
+
+    if expected == ZonedTime:
+        return _parse_time(key, value, zoned=True, fail=fail)
+    if expected is clock_time:
+        return _parse_time(key, value, zoned=False, fail=fail)
+    if expected in (int, float, bool, str):
+        if not _has_json_type(value, expected):
+            raise fail(f'strategy parameter "{key}" must be {_JSON_TYPE_NAMES[expected]}, got {json.dumps(value)}')
+        return float(value) if expected is float else value
+    raise fail(f'strategy parameter "{key}" has type {expected}, which a JSON config cannot set')
+
+
+def _parse_time(key: str, value, *, zoned: bool, fail) -> clock_time:
+    """ "HH:MM" -> a naive time on the data's clock; with `zoned`, "HH:MM <zone>" -> a timezone-aware one.
+
+    The zone is anything `timezone_by_name` reads: "broker" or an IANA name.
+    """
+    form = '"HH:MM <zone>" (e.g. "08:00 Europe/London" or "10:00 broker")' if zoned else '"HH:MM"'
+    parts = value.split() if isinstance(value, str) else []
+    try:
+        if len(parts) != (2 if zoned else 1):
+            raise ValueError
+        parsed = clock_time.fromisoformat(parts[0])
+        if parsed.tzinfo is not None:
+            raise ValueError
+        return parsed.replace(tzinfo=timezone_by_name(parts[1])) if zoned else parsed
+    except (ValueError, ZoneInfoNotFoundError):
+        raise fail(f'strategy parameter "{key}" must be a time {form}, got {json.dumps(value)}') from None
 
 
 def _relative_to(config_file: Path, path: str) -> Path:
@@ -391,7 +418,7 @@ def build_run_info(backtest: Backtest, result: BacktestResult, *, source: str | 
         "strategy": {
             "name": strategy.name,
             "class": f"{type(strategy).__module__}.{type(strategy).__qualname__}",
-            "parameters": strategy.parameters(),
+            "parameters": {key: _parameter_text(value) for key, value in strategy.parameters().items()},
         },
         "data": {
             "symbol": data.symbol.ticker,
@@ -480,6 +507,17 @@ def write_results(result: BacktestResult, run_info: dict, report: str, out_dir, 
     result.statistics.to_csv(paths[2], index_label="split")
     paths[3].write_text(json.dumps(run_info, indent="\t", default=str) + "\n", encoding="utf-8")
     return paths
+
+
+def _parameter_text(value):
+    """A strategy parameter as `run.json` records it: a timezone-aware time with its zone's name, else unchanged.
+
+    `str()` of a time on an IANA zone drops the zone; this keeps it, in the
+    spelling a config reads back ("08:00:00 Europe/London").
+    """
+    if isinstance(value, clock_time) and value.tzinfo is not None:
+        return f"{value.replace(tzinfo=None)} {timezone_name(value.tzinfo)}"
+    return value
 
 
 def _describe(values: dict) -> str:
