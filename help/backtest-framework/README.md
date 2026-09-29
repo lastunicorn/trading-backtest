@@ -66,7 +66,7 @@ Every backtest runs under these rules. Two of them are settings, so pick those d
 
 **End of data.** If the bars run out before a hit or the time stop, the position closes as `end-of-data` at the last bar's close.
 
-**Costs are always subtracted.** Every P&L figure is net of the cost model. `FixedCost` charges a flat amount per trade (default 1.7 pips). `SpreadCost` charges the spread of the bar where the trade crosses to the ask: entry for a long, exit for a short.
+**Costs are always subtracted.** Every P&L figure is net of the cost model. `FixedCost` charges a flat amount per trade (default 1.7 pips). `SpreadCost` charges the spread of the bar where the trade crosses to the ask: entry for a long, exit for a short. A config picks between them with `cost.spread`, and `cost.commission_pips` is the flat amount; a config without `cost` charges nothing.
 
 **A win means net pips > 0 after costs.** That is not the same as `take-profit-hit`: a take-profit smaller than the cost is still a loss. The report shows both views, as outcome counts and as the win/loss split.
 
@@ -93,7 +93,7 @@ Common mistakes:
 | Symptom | Cause |
 |---|---|
 | `ERROR: … windows are broker-server times; the data is on UTC` | a broker-clock strategy on data that isn't on the broker clock: Dukascopy, histdata (`America/New_York`), or a config that left `data.timezone` at its `"UTC"` default. If the files really are broker-server time, set `"timezone": "broker"`; otherwise convert them with `shift_timezone` or use broker MT5 exports |
-| `ERROR: SpreadCost needs a 'spread' column` | `"spread_cost": true` on the clean CSV, which has no spread; use `cost_pips`, or MT5/Dukascopy data |
+| `ERROR: SpreadCost needs a 'spread' column` | `"cost": {"spread": true}` on the clean CSV, which has no spread; drop `spread` and set `commission_pips`, or use MT5/Dukascopy data |
 | `ERROR: backtest.json: unknown key(s) …` | a misspelt config key; the message lists the allowed ones |
 | `ValueError: long position needs sl < open_price < tp` | the strategy built a position with levels on the wrong side; skip such signals |
 | `'datetime' must be strictly increasing` | the frame needs `clean_frame` before `HistoricalData` |

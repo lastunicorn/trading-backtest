@@ -33,7 +33,7 @@ These rules come from the code, not from `tokyo-session-breakout.md`, and they a
 - **Breakouts are looked for until the session's end on D+1**, not until midnight as the description says.
 - **A day's session only takes bars dated D in UTC, from 00:00 UTC.** A session crossing UTC midnight is cut there. A session that ends on D+1 never trades, because its breakout window is empty.
 - **SL/TP are checked on the trigger bar itself**, so run it with `"resolve_from": "entry-bar"`. The trigger is at a level inside the bar, so for results rather than parity, `next-bar` is the stricter choice.
-- **The script charges no costs** (`"cost_pips": 0`).
+- **The script charges no costs** (`"cost": {"commission_pips": 0}`).
 
 There is one departure: a day whose session has H == L is skipped. The script would open two zero-risk positions there, which a `Position` cannot hold. The same day is also left out of `split_days`. The split days are the days with a usable session, whatever their range, so tuning `max_range_pips` doesn't move the split boundaries.
 

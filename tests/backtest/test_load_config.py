@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from domain.broker_clock import BROKER_SERVER_TZ
-from backtest import BacktestConfig, DataConfig, load_config
+from backtest import BacktestConfig, CostConfig, DataConfig, load_config
 from strategies import STRATEGIES
 from strategies.rsi_divergence import RsiDivergence
 
@@ -63,9 +63,7 @@ def test_reads_every_setting(tmp_path) -> None:
                  "timezone": "Etc/UTC"},
         "out": "out",
         "timeframe": "15m",
-        "cost_pips": 2,
-        "spread_cost": True,
-        "commission_pips": 0.2,
+        "cost": {"spread": True, "commission_pips": 0.2},
         "ambiguity": "assume-sl",
         "resolve_from": "entry-bar",
         "splits": False,
@@ -76,9 +74,16 @@ def test_reads_every_setting(tmp_path) -> None:
         data=DataConfig(source=tmp_path / "duka", format="dukascopy", symbol="GBPUSD", timeframe="5m",
                         timezone="Etc/UTC"),
         timeframe="15m",
-        cost_pips=2.0, spread_cost=True, commission_pips=0.2, ambiguity="assume-sl",
+        cost=CostConfig(spread=True, commission_pips=0.2), ambiguity="assume-sl",
         resolve_from="entry-bar", splits=False,
     )
+
+
+def test_cost_keys_default_inside_the_cost_object(tmp_path) -> None:
+    config = load_config(_write(tmp_path, {"strategy": "rsi_divergence", "data": _data(), "out": "o",
+                                           "cost": {"commission_pips": 1}}))
+
+    assert config.cost == CostConfig(spread=False, commission_pips=1.0)
 
 
 @pytest.mark.parametrize("config, message", [
@@ -113,8 +118,18 @@ def test_reads_every_setting(tmp_path) -> None:
     ({"strategy": "rsi_divergence", "data": _data(), "out": "o", "resolve_from": "later"}, '"resolve_from"'),
     ({"strategy": "rsi_divergence", "data": _data(), "out": "o", "symbol": "EURUSD"}, "unknown key"),
     ({"strategy": "rsi_divergence", "data": _data(), "out": "o", "cost_pip": 1.0}, "unknown key"),
-    ({"strategy": "rsi_divergence", "data": _data(), "out": "o", "cost_pips": "1.7"}, '"cost_pips" must be a number'),
-    ({"strategy": "rsi_divergence", "data": _data(), "out": "o", "cost_pips": True}, '"cost_pips" must be a number'),
+    ({"strategy": "rsi_divergence", "data": _data(), "out": "o", "commission_pips": 0.2}, "unknown key.*commission_pips"),
+    ({"strategy": "rsi_divergence", "data": _data(), "out": "o", "cost": 1.7}, '"cost" must be a JSON object'),
+    ({"strategy": "rsi_divergence", "data": _data(), "out": "o", "cost": {"commision_pips": 1.0}},
+     "unknown key.*cost.commision_pips"),
+    ({"strategy": "rsi_divergence", "data": _data(), "out": "o", "cost": {"commission_pips": "1.7"}},
+     '"cost.commission_pips" must be a number'),
+    ({"strategy": "rsi_divergence", "data": _data(), "out": "o", "cost": {"commission_pips": True}},
+     '"cost.commission_pips" must be a number'),
+    ({"strategy": "rsi_divergence", "data": _data(), "out": "o", "cost": {"commission_pips": -0.5}},
+     '"cost.commission_pips" cannot be negative'),
+    ({"strategy": "rsi_divergence", "data": _data(), "out": "o", "cost": {"spread": "yes"}},
+     '"cost.spread" must be true or false'),
     ({"strategy": "rsi_divergence", "data": _data(), "out": "o", "splits": "no"}, '"splits" must be true or false'),
 ])
 def test_rejects_an_invalid_config(tmp_path, config: dict, message: str) -> None:

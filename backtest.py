@@ -81,7 +81,7 @@ from zoneinfo import ZoneInfoNotFoundError
 from application.load_historical_data_use_case import SourceFormat, load_source
 from domain.broker_clock import timezone_by_name, timezone_name
 from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest, BacktestResult, PositionResolveDelay
-from domain.pandas_approach.cost_model import FixedCost, SpreadCost
+from domain.pandas_approach.cost_model import CostModel, FixedCost, SpreadCost
 from domain.pandas_approach.splits import Split
 from domain.sample_size import SampleSize
 from domain.symbol import Symbol, by_ticker
@@ -136,12 +136,10 @@ def _run(config: BacktestConfig, timeframe: SampleSize, symbol: Symbol) -> Backt
     data = load_source(config.data.source, source_format, timeframe, symbol,
                        timezone=timezone_by_name(config.data.timezone), progress=print)
 
-    cost = SpreadCost(commission_pips=config.commission_pips) if config.spread_cost else FixedCost(pips=config.cost_pips)
-
     backtest = Backtest(
         strategy=STRATEGIES[config.strategy](**config.strategy_parameters),
         data=data,
-        cost_model=cost,
+        cost_model=config.cost.model(),
         ambiguity_policy=AmbiguityPolicy(config.ambiguity),
         position_resolve_delay=PositionResolveDelay(config.resolve_from),
         splits=config.splits,
@@ -167,6 +165,25 @@ class DataConfig:
 
 
 @dataclass(frozen=True)
+class CostConfig:
+    """The config's `cost` object: what each trade pays, in pips.
+
+    `commission_pips` is charged on every trade. With `spread`, each trade also
+    pays the spread of the bar where it crosses to the ask (`SpreadCost`);
+    without it, the commission is the whole cost (`FixedCost`). The default is
+    no cost at all.
+    """
+
+    spread: bool = False
+    commission_pips: float = 0.0
+
+    def model(self) -> CostModel:
+        if self.spread:
+            return SpreadCost(commission_pips=self.commission_pips)
+        return FixedCost(pips=self.commission_pips)
+
+
+@dataclass(frozen=True)
 class BacktestConfig:
     """The settings of one CLI run, as read from its JSON config by `load_config`.
 
@@ -181,9 +198,7 @@ class BacktestConfig:
     data: DataConfig
     out: Path
     timeframe: str = "5m"
-    cost_pips: float = 1.7
-    spread_cost: bool = False
-    commission_pips: float = 0.0
+    cost: CostConfig = field(default_factory=CostConfig)
     ambiguity: str = AmbiguityPolicy.EXCLUDE.value
     resolve_from: str = PositionResolveDelay.NEXT_BAR.value
     splits: bool = True
@@ -191,15 +206,13 @@ class BacktestConfig:
 
 
 # The JSON type each config key must have. bool is kept apart from the numbers
-# on purpose: `"cost_pips": true` is a mistake, not 1 pip.
+# on purpose: `"commission_pips": true` is a mistake, not 1 pip.
 _CONFIG_KEY_TYPES = {
     "strategy": str,
     "data": dict,
     "out": str,
     "timeframe": str,
-    "cost_pips": float,
-    "spread_cost": bool,
-    "commission_pips": float,
+    "cost": dict,
     "ambiguity": str,
     "resolve_from": str,
     "splits": bool,
@@ -212,6 +225,11 @@ _DATA_KEY_TYPES = {
     "symbol": str,
     "timeframe": str,
     "timezone": str,
+}
+
+_COST_KEY_TYPES = {
+    "spread": bool,
+    "commission_pips": float,
 }
 
 
@@ -258,9 +276,8 @@ def load_config(path) -> BacktestConfig:
     if not timeframe.can_be_resampled_from(_parse_timeframe(values["data"].timeframe, "data.timeframe", fail)):
         raise fail(f'"timeframe" {timeframe} is not a whole multiple of the source\'s '
                    f'"data.timeframe" {values["data"].timeframe}; resampling only coarsens')
-    for key in ("cost_pips", "commission_pips"):
-        if key in raw:
-            values[key] = float(raw[key])
+    if "cost" in raw:
+        values["cost"] = _cost_config(raw["cost"], fail)
     if "strategy_parameters" in raw:
         values["strategy_parameters"] = _strategy_parameters(raw["strategy"], raw["strategy_parameters"], fail)
     return BacktestConfig(**values)
@@ -287,6 +304,17 @@ def _data_config(file: Path, raw: dict, fail) -> DataConfig:
             raise fail(f'"data.timezone" is {json.dumps(raw["timezone"])}: not "broker" or an IANA time zone '
                        f'name such as "UTC" or "America/New_York"') from error
     return DataConfig(**values)
+
+
+def _cost_config(raw: dict, fail) -> CostConfig:
+    """The `cost` object, checked, with `commission_pips` as a float."""
+    _check_keys(raw, _COST_KEY_TYPES, "cost.", fail)
+    values = dict(raw)
+    if "commission_pips" in raw:
+        values["commission_pips"] = float(raw["commission_pips"])
+        if values["commission_pips"] < 0:
+            raise fail(f'"cost.commission_pips" cannot be negative, got {raw["commission_pips"]}')
+    return CostConfig(**values)
 
 
 def _parse_timeframe(value: str, key: str, fail) -> SampleSize:

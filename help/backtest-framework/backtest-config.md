@@ -26,7 +26,7 @@ Ready-made configs live in `backtests/<name>/backtest.json`.
 
 ## 2. Structure
 
-A config is one JSON object. The root holds the run's settings; the nested `data` object describes the bars as they are on disk:
+A config is one JSON object. The root holds the run's settings; the nested `data` object describes the bars as they are on disk, and the nested `cost` object what each trade pays:
 
 ```json
 {
@@ -39,6 +39,9 @@ A config is one JSON object. The root holds the run's settings; the nested `data
 		"timezone": "broker"
 	},
 	"out": "../../output/backtest_narrow_asia_fade",
+	"cost": {
+		"commission_pips": 1.7
+	},
 	"ambiguity": "assume-sl",
 	"resolve_from": "next-bar"
 }
@@ -57,9 +60,9 @@ A config is one JSON object. The root holds the run's settings; the nested `data
 | `data.timezone` | no | `"UTC"` | The clock the source's timestamps are on: an IANA name (`"UTC"`, `"America/New_York"`, …) or `"broker"` for the MT5 broker-server clock (New York + 7h). It labels the bars and is never inferred from `data.format`: see [Data sources and clocks](running-a-backtest.md#4-data-sources-and-clocks) for the right value per source. Nothing is shifted, so a strategy with wall-clock windows must get data on the clock it expects. |
 | `out` | yes | – | Output directory. Created if missing; existing result files are **overwritten**. What it receives is in [Reading the results](reading-the-backtest-results.md). |
 | `timeframe` | no | `"5m"` | Bar size to test on: `5m`, `15m`, `1h`, `4h`, `1d`… (`m` minutes, `h` hours, `d` days, `w` weeks, `M` months). The source is resampled to it, so it must be a whole multiple of `data.timeframe` (`15m` from `5m`, not `1m` or `7m` from `5m`); anything else is rejected when the config loads (see [Checklist and common mistakes](README.md#checklist-and-common-mistakes)). |
-| `cost_pips` | no | `1.7` | Fixed round-trip cost per trade, in pips (`FixedCost`). |
-| `spread_cost` | no | `false` | `true`: charge each trade the bar's spread instead of `cost_pips` (`SpreadCost`). Needs data with a `spread` column: MT5 raw exports or Dukascopy, not the clean CSV. |
-| `commission_pips` | no | `0` | With `spread_cost`: a flat commission added per trade. |
+| `cost` | no | no cost | What each trade pays: an object with the `cost.*` keys below. Leaving it out, or leaving it empty, backtests with **zero cost**; the research pipeline's round-trip friction is `"cost": {"commission_pips": 1.7}`. |
+| `cost.spread` | no | `false` | `true`: charge each trade the spread of the bar where it crosses to the ask, entry for a long and exit for a short (`SpreadCost`). Needs data with a `spread` column: MT5 raw exports or Dukascopy, not the clean CSV. |
+| `cost.commission_pips` | no | `0` | A flat round-trip cost per trade, in pips. Without `cost.spread` it is the whole cost (`FixedCost`); with it, it is added to the spread. |
 | `ambiguity` | no | `"exclude"` | A bar touching both SL and TP: `exclude`, `assume-sl` or `assume-tp`. See [Choosing `resolve_from` and `ambiguity`](running-a-backtest.md#3-choosing-resolve_from-and-ambiguity). |
 | `resolve_from` | no | `"next-bar"` | First bar SL/TP are checked on: `next-bar` or `entry-bar`. See [Choosing `resolve_from` and `ambiguity`](running-a-backtest.md#3-choosing-resolve_from-and-ambiguity). |
 | `splits` | no | `true` | `false`: report only "all", without the discovery/validation/test breakdown. |
@@ -101,7 +104,7 @@ The same happens when the data and the strategy don't fit together:
 
 - a broker-clock strategy on data whose `data.timezone` isn't `"broker"`;
 - an invalid `data.timezone`, or a Dukascopy source with a non-UTC `data.timezone`;
-- `spread_cost` without a spread column;
+- `"cost": {"spread": true}` without a spread column;
 - a missing source, or an incomplete Dukascopy bid/ask pair;
 - an unknown timeframe or symbol.
 
@@ -126,8 +129,7 @@ Both in `backtests/`:
 	"out": "../../scratch/backtest_rsi_duka",
 	"timeframe": "15m",
 	"resolve_from": "entry-bar",
-	"spread_cost": true,
-	"commission_pips": 0.2
+	"cost": {"spread": true, "commission_pips": 0.2}
 }
 ```
 
