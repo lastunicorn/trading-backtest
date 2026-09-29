@@ -23,23 +23,29 @@ python3 backtest.py backtests/narrow_asia_fade        # a folder: reads the back
 ```json
 {
 	"strategy": "narrow_asia_fade",
-	"source": "../../output/research_output_v24_1/EURUSD_M5_CLEAN_2020_2026.csv",
+	"data": {
+		"source": "../../output/research_output_v24_1/EURUSD_M5_CLEAN_2020_2026.csv",
+		"symbol": "EURUSD",
+		"timeframe": "5m"
+	},
 	"out": "../../output/backtest_narrow_asia_fade",
 	"ambiguity": "assume-sl",
 	"resolve_from": "next-bar"
 }
 ```
 
-**Relative paths (`source`, `out`) are resolved against the config file's folder**, not the directory you run from, so a config gives the same run wherever it is launched. Ready-made configs live in `backtests/<name>/backtest.json`.
+**Relative paths (`data.source`, `out`) are resolved against the config file's folder**, not the directory you run from, so a config gives the same run wherever it is launched. Ready-made configs live in `backtests/<name>/backtest.json`.
 
 | Key | Required | Default | Meaning |
 |---|---|---|---|
 | `strategy` | yes | – | A key of `strategies.STRATEGIES`, e.g. `"narrow_asia_fade"`, `"rsi_divergence"`, `"session_breakout"`. |
-| `source` | one of these two | – | A pipeline clean CSV (recognised by its `datetime` header), a folder of MT5 exports, or one MT5 export. Bars are on the broker-server clock. |
-| `dukascopy_years` | one of these two | – | A list of years, e.g. `[2024, 2025]`: read Dukascopy bid/ask M1 pairs for them from the folder set in `ports/ducascopy/config.py`. Bars are in **UTC**. |
+| `data` | yes | – | The bars as they are on disk: an object with the `data.*` keys below. |
+| `data.source` | one of these two | – | A pipeline clean CSV (recognised by its `datetime` header), a folder of MT5 exports, or one MT5 export. Bars are on the broker-server clock. |
+| `data.dukascopy_years` | one of these two | – | A list of years, e.g. `[2024, 2025]`: read Dukascopy bid/ask M1 pairs for them from the folder set in `ports/ducascopy/config.py`. Bars are in **UTC**. |
+| `data.symbol` | yes | – | Ticker of the source data, for pip size and price precision: `EURUSD`, `GBPUSD`, `AUDUSD`, `NZDUSD`, `USDCAD`, `USDCHF`, `USDJPY`, `XAUUSD`, `XAGUSD`. |
+| `data.timeframe` | no | `"1m"` | Bar size of the source as stored: `"1m"` for raw MT5 exports and Dukascopy, `"5m"` for the pipeline clean CSV. Not read from the files: it is what the root `timeframe` is checked against. |
 | `out` | yes | – | Output directory. Created if missing; existing result files are **overwritten**. |
-| `timeframe` | no | `"5m"` | Bar size to test on: `5m`, `15m`, `1h`, `4h`, `1d`… (`m` minutes, `h` hours, `d` days, `w` weeks, `M` months). The source is resampled to it. It must not be finer than the source (see [Checklist and common mistakes](README.md#checklist-and-common-mistakes)). |
-| `symbol` | no | `"EURUSD"` | Ticker, for pip size and price precision: `EURUSD`, `GBPUSD`, `AUDUSD`, `NZDUSD`, `USDCAD`, `USDCHF`, `USDJPY`, `XAUUSD`, `XAGUSD`. |
+| `timeframe` | no | `"5m"` | Bar size to test on: `5m`, `15m`, `1h`, `4h`, `1d`… (`m` minutes, `h` hours, `d` days, `w` weeks, `M` months). The source is resampled to it, so it must be a whole multiple of `data.timeframe` (`15m` from `5m`, not `1m` or `7m` from `5m`); anything else is rejected when the config loads (see [Checklist and common mistakes](README.md#checklist-and-common-mistakes)). |
 | `cost_pips` | no | `1.7` | Fixed round-trip cost per trade, in pips (`FixedCost`). |
 | `spread_cost` | no | `false` | `true`: charge each trade the bar's spread instead of `cost_pips` (`SpreadCost`). Needs data with a `spread` column: MT5 raw exports or Dukascopy, not the clean CSV. |
 | `commission_pips` | no | `0` | With `spread_cost`: a flat commission added per trade. |
@@ -53,14 +59,18 @@ A variant of a strategy only needs `strategy_parameters`; the report header and 
 ```json
 {
 	"strategy": "narrow_asia_fade",
-	"source": "../../output/research_output_v24_1/EURUSD_M5_CLEAN_2020_2026.csv",
+	"data": {
+		"source": "../../output/research_output_v24_1/EURUSD_M5_CLEAN_2020_2026.csv",
+		"symbol": "EURUSD",
+		"timeframe": "5m"
+	},
 	"out": "../../scratch/backtest_narrow_asia_fade_1300",
 	"ambiguity": "assume-sl",
 	"strategy_parameters": {"study_end": "13:00", "rel_vol_min": 1.8}
 }
 ```
 
-The config is checked before any data is read: an unknown key (a typo such as `"ambigutiy"`), a value of the wrong JSON type, a missing required key, an invalid choice, or a strategy parameter the strategy doesn't have or rejects (e.g. a negative `risk_reward`) prints `ERROR: <file>: …` and exits with code 1, rather than quietly running on a default. The same happens when the data and the strategy don't fit together: a broker-clock strategy on UTC data, `spread_cost` without a spread column, a missing Dukascopy year, or an unknown timeframe or symbol.
+The config is checked before any data is read: an unknown key (a typo such as `"ambigutiy"`), a value of the wrong JSON type, a missing required key, an invalid choice, a `timeframe` that isn't a whole multiple of `data.timeframe`, or a strategy parameter the strategy doesn't have or rejects (e.g. a negative `risk_reward`) prints `ERROR: <file>: …` and exits with code 1, rather than quietly running on a default. The same happens when the data and the strategy don't fit together: a broker-clock strategy on UTC data, `spread_cost` without a spread column, a missing Dukascopy year, or an unknown timeframe or symbol.
 
 More examples, both in `backtests/`:
 
@@ -68,7 +78,7 @@ More examples, both in `backtests/`:
 // backtests/rsi_divergence/backtest.json: M15 bars rebuilt from raw M1 exports; entries are at a bar's open
 {
 	"strategy": "rsi_divergence",
-	"source": "../../data/eurusd/1min",
+	"data": {"source": "../../data/eurusd/1min", "symbol": "EURUSD", "timeframe": "1m"},
 	"out": "../../scratch/backtest_rsi_divergence",
 	"timeframe": "15m",
 	"resolve_from": "entry-bar"
@@ -77,7 +87,7 @@ More examples, both in `backtests/`:
 // backtests/rsi_divergence_dukascopy/backtest.json: the same on Dukascopy data, charging the real spread plus a commission
 {
 	"strategy": "rsi_divergence",
-	"dukascopy_years": [2024, 2025],
+	"data": {"dukascopy_years": [2024, 2025], "symbol": "EURUSD"},
 	"out": "../../scratch/backtest_rsi_duka",
 	"timeframe": "15m",
 	"resolve_from": "entry-bar",

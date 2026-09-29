@@ -9,6 +9,7 @@ Stdlib only. The unit letters are case-sensitive so "m" (minute) and "M"
     spec.amount, spec.unit             # 4, SampleUnit.Hour
     spec.to_pandas_rule()              # "4h"
     str(spec)                          # "4h" -- round-trips through Parse
+    spec.can_be_resampled_from(SampleSize.Parse("15m"))   # True: 4h is a whole number of 15m bars
 """
 
 from __future__ import annotations
@@ -34,6 +35,15 @@ class SampleUnit(Enum):
 # one and forgotten in the other.
 _UNIT_LETTERS = "".join(unit.value for unit in SampleUnit)
 _INTERVAL_RE = re.compile(rf"(\d+)([{_UNIT_LETTERS}])")
+
+# SampleUnit -> its width in minutes, for the fixed-width units. Months have
+# no fixed width, so they are handled apart in `can_be_resampled_from`.
+_MINUTES = {
+    SampleUnit.Minute: 1,
+    SampleUnit.Hour: 60,
+    SampleUnit.Day: 24 * 60,
+    SampleUnit.Week: 7 * 24 * 60,
+}
 
 # SampleUnit -> the pandas frequency alias it means. Months map to "MS"
 # (month start) so a monthly bucket is labelled by its first day, like every
@@ -84,3 +94,22 @@ class SampleSize:
     def to_pandas_rule(self) -> str:
         """The pandas resample rule this size means ("5m" -> "5min", "3M" -> "3MS")."""
         return f"{self.amount}{_PANDAS_ALIAS[self.unit]}"
+
+    def can_be_resampled_from(self, source: SampleSize) -> bool:
+        """Whether bars of size `source` can be merged into bars of this size.
+
+        Resampling only coarsens, and only cleanly: each bar here must be a
+        whole number of `source` bars ("15m" from "5m" yes, "7m" from "5m"
+        no, "1m" from "5m" no). A month holds a whole number of any size that
+        divides a day, and of a smaller number of months.
+        """
+        if self.unit is SampleUnit.Month:
+            if source.unit is SampleUnit.Month:
+                return self.amount % source.amount == 0
+            return _MINUTES[SampleUnit.Day] % source._minutes() == 0
+        if source.unit is SampleUnit.Month:
+            return False
+        return self._minutes() % source._minutes() == 0
+
+    def _minutes(self) -> int:
+        return self.amount * _MINUTES[self.unit]

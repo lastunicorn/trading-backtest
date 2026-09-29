@@ -99,7 +99,8 @@ Common mistakes:
 | `'datetime' must be strictly increasing` | the frame needs `clean_frame` before `HistoricalData` |
 | far fewer trades than expected | a fixture or real bar touching a level counts as a hit/break; check the ≥ / ≤ edges |
 | results with times 7 hours off | the data was treated as New York time; the broker clock is New York + 7h (`BROKER_SERVER_TZ`) |
-| numbers look wrong on a finer `timeframe` | resampling only coarsens: asking for `1m` from an M5 file returns M5 bars labelled 1m |
+| `ERROR: … "timeframe" … is not a whole multiple of the source's "data.timeframe"` | resampling only coarsens; test on a multiple of the source's bar size, or fix `data.timeframe` if it misstates the source |
+| numbers look wrong on a finer `timeframe` | `data.timeframe` understates the source (e.g. left at the `1m` default for the M5 clean CSV), so the check passed; asking for `1m` from an M5 file returns M5 bars labelled 1m |
 
 ---
 

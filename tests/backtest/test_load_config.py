@@ -5,9 +5,13 @@ from datetime import time
 
 import pytest
 
-from backtest import BacktestConfig, load_config
+from backtest import BacktestConfig, DataConfig, load_config
 from strategies import STRATEGIES
 from strategies.rsi_divergence import RsiDivergence
+
+
+def _data(source: str = "m5.csv", **extra) -> dict:
+    return {"source": source, "symbol": "EURUSD", **extra}
 
 
 def _write(folder, config: dict, name: str = "backtest.json"):
@@ -17,13 +21,18 @@ def _write(folder, config: dict, name: str = "backtest.json"):
 
 
 def test_minimal_config_takes_the_defaults(tmp_path) -> None:
-    config = load_config(_write(tmp_path, {"strategy": "narrow_asia_fade", "source": "m5.csv", "out": "results"}))
+    config = load_config(_write(tmp_path, {"strategy": "narrow_asia_fade", "data": _data(), "out": "results"}))
 
-    assert config == BacktestConfig(strategy="narrow_asia_fade", source=tmp_path / "m5.csv", out=tmp_path / "results")
+    assert config == BacktestConfig(
+        strategy="narrow_asia_fade",
+        data=DataConfig(symbol="EURUSD", source=tmp_path / "m5.csv", timeframe="1m"),
+        out=tmp_path / "results",
+        timeframe="5m",
+    )
 
 
 def test_reads_backtest_json_from_a_folder(tmp_path) -> None:
-    _write(tmp_path, {"strategy": "rsi_divergence", "source": "m1", "out": "results"})
+    _write(tmp_path, {"strategy": "rsi_divergence", "data": _data("m1"), "out": "results"})
 
     assert load_config(tmp_path).strategy == "rsi_divergence"
 
@@ -31,26 +40,25 @@ def test_reads_backtest_json_from_a_folder(tmp_path) -> None:
 def test_paths_are_relative_to_the_config_file(tmp_path) -> None:
     folder = tmp_path / "runs" / "one"
     folder.mkdir(parents=True)
-    config = load_config(_write(folder, {"strategy": "rsi_divergence", "source": "../../m1", "out": "out"}))
+    config = load_config(_write(folder, {"strategy": "rsi_divergence", "data": _data("../../m1"), "out": "out"}))
 
-    assert config.source == tmp_path / "m1"
+    assert config.data.source == tmp_path / "m1"
     assert config.out == folder / "out"
 
 
 def test_absolute_paths_are_kept(tmp_path) -> None:
-    config = load_config(_write(tmp_path, {"strategy": "rsi_divergence", "source": "/data/m1", "out": "/tmp/out"}))
+    config = load_config(_write(tmp_path, {"strategy": "rsi_divergence", "data": _data("/data/m1"), "out": "/tmp/out"}))
 
-    assert str(config.source) == "/data/m1"
+    assert str(config.data.source) == "/data/m1"
     assert str(config.out) == "/tmp/out"
 
 
 def test_reads_every_setting(tmp_path) -> None:
     config = load_config(_write(tmp_path, {
         "strategy": "rsi_divergence",
-        "dukascopy_years": [2024, 2025],
+        "data": {"dukascopy_years": [2024, 2025], "symbol": "GBPUSD", "timeframe": "5m"},
         "out": "out",
         "timeframe": "15m",
-        "symbol": "GBPUSD",
         "cost_pips": 2,
         "spread_cost": True,
         "commission_pips": 0.2,
@@ -60,26 +68,41 @@ def test_reads_every_setting(tmp_path) -> None:
     }))
 
     assert config == BacktestConfig(
-        strategy="rsi_divergence", out=tmp_path / "out", dukascopy_years=(2024, 2025), timeframe="15m",
-        symbol="GBPUSD", cost_pips=2.0, spread_cost=True, commission_pips=0.2, ambiguity="assume-sl",
+        strategy="rsi_divergence", out=tmp_path / "out",
+        data=DataConfig(symbol="GBPUSD", dukascopy_years=(2024, 2025), timeframe="5m"), timeframe="15m",
+        cost_pips=2.0, spread_cost=True, commission_pips=0.2, ambiguity="assume-sl",
         resolve_from="entry-bar", splits=False,
     )
 
 
 @pytest.mark.parametrize("config, message", [
-    ({"source": "m5.csv", "out": "o"}, '"strategy" is required'),
-    ({"strategy": "rsi_divergence", "source": "m5.csv"}, '"out" is required'),
-    ({"strategy": "rsi_divergence", "out": "o"}, "exactly one of"),
-    ({"strategy": "rsi_divergence", "source": "m5.csv", "dukascopy_years": [2024], "out": "o"}, "exactly one of"),
-    ({"strategy": "nope", "source": "m5.csv", "out": "o"}, '"strategy" is "nope"'),
-    ({"strategy": "rsi_divergence", "source": "m5.csv", "out": "o", "ambiguity": "guess"}, '"ambiguity"'),
-    ({"strategy": "rsi_divergence", "source": "m5.csv", "out": "o", "resolve_from": "later"}, '"resolve_from"'),
-    ({"strategy": "rsi_divergence", "source": "m5.csv", "out": "o", "cost_pip": 1.0}, "unknown key"),
-    ({"strategy": "rsi_divergence", "source": "m5.csv", "out": "o", "cost_pips": "1.7"}, '"cost_pips" must be a number'),
-    ({"strategy": "rsi_divergence", "source": "m5.csv", "out": "o", "cost_pips": True}, '"cost_pips" must be a number'),
-    ({"strategy": "rsi_divergence", "source": "m5.csv", "out": "o", "splits": "no"}, '"splits" must be true or false'),
-    ({"strategy": "rsi_divergence", "dukascopy_years": [], "out": "o"}, '"dukascopy_years"'),
-    ({"strategy": "rsi_divergence", "dukascopy_years": ["2024"], "out": "o"}, '"dukascopy_years"'),
+    ({"data": _data(), "out": "o"}, '"strategy" is required'),
+    ({"strategy": "rsi_divergence", "data": _data()}, '"out" is required'),
+    ({"strategy": "rsi_divergence", "out": "o"}, '"data" is required'),
+    ({"strategy": "rsi_divergence", "source": "m5.csv", "out": "o"}, "unknown key.*source"),
+    ({"strategy": "rsi_divergence", "data": "m5.csv", "out": "o"}, '"data" must be a JSON object'),
+    ({"strategy": "rsi_divergence", "data": {"symbol": "EURUSD"}, "out": "o"}, "exactly one of"),
+    ({"strategy": "rsi_divergence", "data": _data(dukascopy_years=[2024]), "out": "o"}, "exactly one of"),
+    ({"strategy": "rsi_divergence", "data": {"source": "m5.csv"}, "out": "o"}, '"data.symbol" is required'),
+    ({"strategy": "rsi_divergence", "data": {"source": "m5.csv", "symbol": "EURUSX"}, "out": "o"}, '"data.symbol"'),
+    ({"strategy": "rsi_divergence", "data": _data(timefrane="1m"), "out": "o"}, "unknown key.*data.timefrane"),
+    ({"strategy": "rsi_divergence", "data": _data(timeframe=1), "out": "o"}, '"data.timeframe" must be a string'),
+    ({"strategy": "rsi_divergence", "data": _data(timeframe="1min"), "out": "o"}, '"data.timeframe": invalid'),
+    ({"strategy": "rsi_divergence", "data": _data(), "out": "o", "timeframe": "5x"}, '"timeframe": invalid'),
+    ({"strategy": "rsi_divergence", "data": _data(timeframe="15m"), "out": "o"}, "not a whole multiple"),
+    ({"strategy": "rsi_divergence", "data": _data(timeframe="5m"), "out": "o", "timeframe": "7m"}, "not a whole multiple"),
+    ({"strategy": "nope", "data": _data(), "out": "o"}, '"strategy" is "nope"'),
+    ({"strategy": "rsi_divergence", "data": _data(), "out": "o", "ambiguity": "guess"}, '"ambiguity"'),
+    ({"strategy": "rsi_divergence", "data": _data(), "out": "o", "resolve_from": "later"}, '"resolve_from"'),
+    ({"strategy": "rsi_divergence", "data": _data(), "out": "o", "symbol": "EURUSD"}, "unknown key"),
+    ({"strategy": "rsi_divergence", "data": _data(), "out": "o", "cost_pip": 1.0}, "unknown key"),
+    ({"strategy": "rsi_divergence", "data": _data(), "out": "o", "cost_pips": "1.7"}, '"cost_pips" must be a number'),
+    ({"strategy": "rsi_divergence", "data": _data(), "out": "o", "cost_pips": True}, '"cost_pips" must be a number'),
+    ({"strategy": "rsi_divergence", "data": _data(), "out": "o", "splits": "no"}, '"splits" must be true or false'),
+    ({"strategy": "rsi_divergence", "data": {"dukascopy_years": [], "symbol": "EURUSD"}, "out": "o"},
+     '"data.dukascopy_years"'),
+    ({"strategy": "rsi_divergence", "data": {"dukascopy_years": ["2024"], "symbol": "EURUSD"}, "out": "o"},
+     '"data.dukascopy_years"'),
 ])
 def test_rejects_an_invalid_config(tmp_path, config: dict, message: str) -> None:
     with pytest.raises(ValueError, match=message):
@@ -101,12 +124,12 @@ def test_rejects_a_json_array(tmp_path) -> None:
 
 
 def _with_parameters(tmp_path, strategy: str, parameters: dict):
-    return load_config(_write(tmp_path, {"strategy": strategy, "source": "m5.csv", "out": "o",
+    return load_config(_write(tmp_path, {"strategy": strategy, "data": _data(), "out": "o",
                                          "strategy_parameters": parameters}))
 
 
 def test_strategy_parameters_default_to_none_given(tmp_path) -> None:
-    config = load_config(_write(tmp_path, {"strategy": "rsi_divergence", "source": "m5.csv", "out": "o"}))
+    config = load_config(_write(tmp_path, {"strategy": "rsi_divergence", "data": _data(), "out": "o"}))
 
     assert config.strategy_parameters == {}
 

@@ -11,8 +11,13 @@ resolved against the config file's own folder, not the working directory:
 
     {
         "strategy": "narrow_asia_fade",
-        "source": "../../output/research_output_v24_1/EURUSD_M5_CLEAN_2020_2026.csv",
+        "data": {
+            "source": "../../output/research_output_v24_1/EURUSD_M5_CLEAN_2020_2026.csv",
+            "symbol": "EURUSD",
+            "timeframe": "5m"
+        },
         "out": "../../output/backtest_narrow_asia_fade",
+        "timeframe": "5m",
         "ambiguity": "assume-sl",
         "strategy_parameters": {"rel_vol_min": 1.8, "study_end": "13:00"}
     }
@@ -20,10 +25,13 @@ resolved against the config file's own folder, not the working directory:
 `strategy_parameters` (optional) overrides the strategy's dataclass fields;
 the rest keep their defaults. Time fields take "HH:MM" strings.
 
-`source` is a pipeline clean CSV (detected by its `datetime` header), a
-folder of MT5 exports, or one export. `dukascopy_years` (instead of `source`)
-reads Dukascopy bid/ask pairs from the folder in `ports/ducascopy/config.py`;
-those bars are UTC, not broker-server time.
+`data` describes the bars as they are on disk. Its `source` is a pipeline
+clean CSV (detected by its `datetime` header), a folder of MT5 exports, or one
+export. `dukascopy_years` (instead of `source`) reads Dukascopy bid/ask M1
+pairs from the folder in `ports/ducascopy/config.py`; those bars are UTC, not
+broker-server time. `symbol` is required; `timeframe` (default "1m") is the
+bar size of the source, which the root `timeframe` -- the size to backtest
+on -- must be a whole multiple of.
 
 Writes four files into `out`, overwriting earlier results there, and prints
 the statistics report. Strategies come from `strategies.STRATEGIES`.
@@ -83,7 +91,7 @@ def main() -> int:
     try:
         config = load_config(args.config)
         timeframe = SampleSize.Parse(config.timeframe)
-        symbol = by_ticker(config.symbol)
+        symbol = by_ticker(config.data.symbol)
     except (ValueError, FileNotFoundError) as error:
         print(f"ERROR: {error}", file=sys.stderr)
         return 1
@@ -114,12 +122,12 @@ def _parse_args() -> argparse.Namespace:
 
 
 def _run(config: BacktestConfig, timeframe: SampleSize, symbol: Symbol) -> BacktestRun:
-    if config.source is not None:
-        source = config.source
-        data = load_source(config.source, timeframe, symbol, progress=print)
+    if config.data.source is not None:
+        source = config.data.source
+        data = load_source(config.data.source, timeframe, symbol, progress=print)
     else:
-        source = f"Dukascopy {', '.join(map(str, config.dukascopy_years))}"
-        data = load_dukascopy(list(config.dukascopy_years), timeframe, symbol, progress=print)
+        source = f"Dukascopy {', '.join(map(str, config.data.dukascopy_years))}"
+        data = load_dukascopy(list(config.data.dukascopy_years), timeframe, symbol, progress=print)
 
     cost = SpreadCost(commission_pips=config.commission_pips) if config.spread_cost else FixedCost(pips=config.cost_pips)
 
@@ -135,22 +143,35 @@ def _run(config: BacktestConfig, timeframe: SampleSize, symbol: Symbol) -> Backt
 
 
 @dataclass(frozen=True)
+class DataConfig:
+    """The config's `data` object: where the bars come from and what they are.
+
+    `source` is already resolved against the config file's folder. Exactly one
+    of `source` and `dukascopy_years` is set. `timeframe` is the bar size of
+    the source as stored, not the one backtested on.
+    """
+
+    symbol: str
+    source: Path | None = None
+    dukascopy_years: tuple[int, ...] | None = None
+    timeframe: str = "1m"
+
+
+@dataclass(frozen=True)
 class BacktestConfig:
     """The settings of one CLI run, as read from its JSON config by `load_config`.
 
-    Field names are the JSON keys. `source` and `out` are already resolved
-    against the config file's folder. Exactly one of `source` and
-    `dukascopy_years` is set. `strategy_parameters` holds the strategy's
+    Field names are the JSON keys. `out` is already resolved against the
+    config file's folder. `timeframe` is the bar size to backtest on;
+    `data.timeframe` divides it. `strategy_parameters` holds the strategy's
     constructor arguments, already converted to its field types (a JSON
     "HH:MM" string becomes a `datetime.time`).
     """
 
     strategy: str
+    data: DataConfig
     out: Path
-    source: Path | None = None
-    dukascopy_years: tuple[int, ...] | None = None
     timeframe: str = "5m"
-    symbol: str = "EURUSD"
     cost_pips: float = 1.7
     spread_cost: bool = False
     commission_pips: float = 0.0
@@ -164,11 +185,9 @@ class BacktestConfig:
 # on purpose: `"cost_pips": true` is a mistake, not 1 pip.
 _CONFIG_KEY_TYPES = {
     "strategy": str,
-    "source": str,
-    "dukascopy_years": list,
+    "data": dict,
     "out": str,
     "timeframe": str,
-    "symbol": str,
     "cost_pips": float,
     "spread_cost": bool,
     "commission_pips": float,
@@ -176,6 +195,13 @@ _CONFIG_KEY_TYPES = {
     "resolve_from": str,
     "splits": bool,
     "strategy_parameters": dict,
+}
+
+_DATA_KEY_TYPES = {
+    "source": str,
+    "dukascopy_years": list,
+    "symbol": str,
+    "timeframe": str,
 }
 
 
@@ -206,38 +232,58 @@ def load_config(path) -> BacktestConfig:
     def fail(message: str) -> ValueError:
         return ValueError(f"{file}: {message}")
 
-    unknown = sorted(set(raw) - set(_CONFIG_KEY_TYPES))
-    if unknown:
-        raise fail(f"unknown key(s) {', '.join(unknown)}; allowed: {', '.join(_CONFIG_KEY_TYPES)}")
-    for key, value in raw.items():
-        if not _has_json_type(value, _CONFIG_KEY_TYPES[key]):
-            raise fail(f'"{key}" must be {_JSON_TYPE_NAMES[_CONFIG_KEY_TYPES[key]]}, got {json.dumps(value)}')
-
-    for key in ("strategy", "out"):
+    _check_keys(raw, _CONFIG_KEY_TYPES, "", fail)
+    for key in ("strategy", "data", "out"):
         if key not in raw:
             raise fail(f'"{key}" is required')
-    if ("source" in raw) == ("dukascopy_years" in raw):
-        raise fail('give exactly one of "source" and "dukascopy_years"')
 
     _check_choice(raw, "strategy", sorted(STRATEGIES), fail)
     _check_choice(raw, "ambiguity", [policy.value for policy in AmbiguityPolicy], fail)
     _check_choice(raw, "resolve_from", [start.value for start in PositionResolveDelay], fail)
 
     values = dict(raw)
+    values["data"] = _data_config(file, raw["data"], fail)
     values["out"] = _relative_to(file, raw["out"])
-    if "source" in raw:
-        values["source"] = _relative_to(file, raw["source"])
-    if "dukascopy_years" in raw:
-        years = raw["dukascopy_years"]
-        if not years or not all(_has_json_type(year, int) for year in years):
-            raise fail(f'"dukascopy_years" must be a non-empty list of years, got {json.dumps(years)}')
-        values["dukascopy_years"] = tuple(years)
+    timeframe = _parse_timeframe(raw.get("timeframe", BacktestConfig.timeframe), "timeframe", fail)
+    if not timeframe.can_be_resampled_from(_parse_timeframe(values["data"].timeframe, "data.timeframe", fail)):
+        raise fail(f'"timeframe" {timeframe} is not a whole multiple of the source\'s '
+                   f'"data.timeframe" {values["data"].timeframe}; resampling only coarsens')
     for key in ("cost_pips", "commission_pips"):
         if key in raw:
             values[key] = float(raw[key])
     if "strategy_parameters" in raw:
         values["strategy_parameters"] = _strategy_parameters(raw["strategy"], raw["strategy_parameters"], fail)
     return BacktestConfig(**values)
+
+
+def _data_config(file: Path, raw: dict, fail) -> DataConfig:
+    """The `data` object, checked, with `source` resolved against the config file's folder."""
+    _check_keys(raw, _DATA_KEY_TYPES, "data.", fail)
+    if "symbol" not in raw:
+        raise fail('"data.symbol" is required')
+    if ("source" in raw) == ("dukascopy_years" in raw):
+        raise fail('give exactly one of "data.source" and "data.dukascopy_years"')
+
+    values = dict(raw)
+    try:
+        by_ticker(raw["symbol"])
+    except ValueError as error:
+        raise fail(f'"data.symbol": {error}') from error
+    if "source" in raw:
+        values["source"] = _relative_to(file, raw["source"])
+    if "dukascopy_years" in raw:
+        years = raw["dukascopy_years"]
+        if not years or not all(_has_json_type(year, int) for year in years):
+            raise fail(f'"data.dukascopy_years" must be a non-empty list of years, got {json.dumps(years)}')
+        values["dukascopy_years"] = tuple(years)
+    return DataConfig(**values)
+
+
+def _parse_timeframe(value: str, key: str, fail) -> SampleSize:
+    try:
+        return SampleSize.Parse(value)
+    except ValueError as error:
+        raise fail(f'"{key}": {error}') from error
 
 
 def _strategy_parameters(name: str, raw: dict, fail) -> dict[str, object]:
@@ -294,6 +340,17 @@ def _has_json_type(value, expected: type) -> bool:
     if expected is float:
         return isinstance(value, (int, float))
     return isinstance(value, expected)
+
+
+def _check_keys(raw: dict, key_types: dict[str, type], prefix: str, fail) -> None:
+    """Reject keys not in `key_types` and values of the wrong JSON type; `prefix` names the nesting ("data.")."""
+    unknown = sorted(set(raw) - set(key_types))
+    if unknown:
+        raise fail(f"unknown key(s) {', '.join(prefix + key for key in unknown)}; "
+                   f"allowed: {', '.join(prefix + key for key in key_types)}")
+    for key, value in raw.items():
+        if not _has_json_type(value, key_types[key]):
+            raise fail(f'"{prefix}{key}" must be {_JSON_TYPE_NAMES[key_types[key]]}, got {json.dumps(value)}')
 
 
 def _check_choice(raw: dict, key: str, choices: list[str], fail) -> None:

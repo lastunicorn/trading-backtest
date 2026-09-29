@@ -228,7 +228,11 @@ Put a config in `backtests/opening_range_breakout/backtest.json`:
 ```json
 {
 	"strategy": "opening_range_breakout",
-	"source": "../../output/research_output_v24_1/EURUSD_M5_CLEAN_2020_2026.csv",
+	"data": {
+		"source": "../../output/research_output_v24_1/EURUSD_M5_CLEAN_2020_2026.csv",
+		"symbol": "EURUSD",
+		"timeframe": "5m"
+	},
 	"out": "../../scratch/backtest_orb"
 }
 ```
