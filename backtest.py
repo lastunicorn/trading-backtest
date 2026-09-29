@@ -15,7 +15,8 @@ resolved against the config file's own folder, not the working directory:
             "source": "../../output/research_output_v24_1/EURUSD_M5_CLEAN_2020_2026.csv",
             "format": "clean-csv",
             "symbol": "EURUSD",
-            "timeframe": "5m"
+            "timeframe": "5m",
+            "timezone": "broker"
         },
         "out": "../../output/backtest_narrow_asia_fade",
         "timeframe": "5m",
@@ -32,6 +33,9 @@ exports, "dukascopy" for Dukascopy bid/ask pairs (UTC bars, not broker-server
 time), "clean-csv" for the research pipeline's clean CSV. `symbol` is
 required; `timeframe` (default "1m") is the bar size of the source, which the
 root `timeframe` -- the size to backtest on -- must be a whole multiple of.
+`timezone` (default "UTC") is the clock the source's timestamps are on: an
+IANA name such as "America/New_York", or "broker" for this repo's MT5
+broker-server clock (New York + 7h). It labels the bars; nothing is shifted.
 
 Writes four files into `out`, overwriting earlier results there, and prints
 the statistics report. Strategies come from `strategies.STRATEGIES`.
@@ -71,6 +75,7 @@ from datetime import datetime, time as clock_time
 from pathlib import Path
 
 from application.load_historical_data_use_case import SourceFormat, load_source
+from domain.broker_clock import timezone_by_name
 from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest, BacktestResult, PositionResolveDelay
 from domain.pandas_approach.cost_model import FixedCost, SpreadCost
 from domain.pandas_approach.splits import Split
@@ -123,7 +128,8 @@ def _parse_args() -> argparse.Namespace:
 
 def _run(config: BacktestConfig, timeframe: SampleSize, symbol: Symbol) -> BacktestRun:
     source_format = SourceFormat(config.data.format)
-    data = load_source(config.data.source, source_format, timeframe, symbol, progress=print)
+    data = load_source(config.data.source, source_format, timeframe, symbol,
+                       timezone=timezone_by_name(config.data.timezone), progress=print)
 
     cost = SpreadCost(commission_pips=config.commission_pips) if config.spread_cost else FixedCost(pips=config.cost_pips)
 
@@ -144,13 +150,15 @@ class DataConfig:
 
     `source` is already resolved against the config file's folder. `format` is
     a `SourceFormat` value. `timeframe` is the bar size of the source as
-    stored, not the one backtested on.
+    stored, not the one backtested on. `timezone` is the clock its timestamps
+    are on, as `timezone_by_name` reads it ("broker" or an IANA name).
     """
 
     source: Path
     format: str
     symbol: str
     timeframe: str = "1m"
+    timezone: str = "UTC"
 
 
 @dataclass(frozen=True)
@@ -198,6 +206,7 @@ _DATA_KEY_TYPES = {
     "format": str,
     "symbol": str,
     "timeframe": str,
+    "timezone": str,
 }
 
 
@@ -266,6 +275,12 @@ def _data_config(file: Path, raw: dict, fail) -> DataConfig:
     except ValueError as error:
         raise fail(f'"data.symbol": {error}') from error
     values["source"] = _relative_to(file, raw["source"])
+    if "timezone" in raw:
+        try:
+            timezone_by_name(raw["timezone"])
+        except (KeyError, ValueError) as error:  # ZoneInfoNotFoundError is a KeyError
+            raise fail(f'"data.timezone" is {json.dumps(raw["timezone"])}: not "broker" or an IANA time zone '
+                       f'name such as "UTC" or "America/New_York"') from error
     return DataConfig(**values)
 
 
