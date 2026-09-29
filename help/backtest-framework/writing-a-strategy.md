@@ -232,7 +232,8 @@ Put a config in `backtests/opening_range_breakout/backtest.json`:
 		"source": "../../output/research_output_v24_1/EURUSD_M5_CLEAN_2020_2026.csv",
 		"format": "clean-csv",
 		"symbol": "EURUSD",
-		"timeframe": "5m"
+		"timeframe": "5m",
+		"timezone": "broker"
 	},
 	"out": "../../scratch/backtest_orb"
 }

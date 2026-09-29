@@ -1,5 +1,7 @@
 """Tests for `application.load_historical_data_use_case.load_mt5`."""
 
+from zoneinfo import ZoneInfo
+
 import pytest
 
 from application.load_historical_data_use_case import load_mt5
@@ -13,7 +15,7 @@ M5 = SampleSize.Parse("5m")
 
 
 def test_one_export_is_resampled_to_the_timeframe(tmp_path) -> None:
-    data = load_mt5(write_mt5_export(tmp_path / "EURUSD_2020_01.csv"), M5, EurUsd())
+    data = load_mt5(write_mt5_export(tmp_path / "EURUSD_2020_01.csv"), M5, EurUsd(), timezone=BROKER_SERVER_TZ)
 
     assert len(data) == 2
     first = data.data.iloc[0]
@@ -26,29 +28,36 @@ def test_one_export_is_resampled_to_the_timeframe(tmp_path) -> None:
 
 
 def test_spread_is_converted_from_points_to_pips(tmp_path) -> None:
-    data = load_mt5(write_mt5_export(tmp_path / "EURUSD_2020_01.csv"), M5, EurUsd())
+    data = load_mt5(write_mt5_export(tmp_path / "EURUSD_2020_01.csv"), M5, EurUsd(), timezone=BROKER_SERVER_TZ)
 
     assert data.data["spread"].tolist() == pytest.approx([0.5, 0.5])
 
 
-def test_carries_timeframe_symbol_and_broker_clock(tmp_path) -> None:
-    data = load_mt5(write_mt5_export(tmp_path / "EURUSD_2020_01.csv"), M5, EurUsd())
+def test_carries_timeframe_and_symbol(tmp_path) -> None:
+    data = load_mt5(write_mt5_export(tmp_path / "EURUSD_2020_01.csv"), M5, EurUsd(), timezone=BROKER_SERVER_TZ)
 
     assert data.timeframe == M5
     assert data.symbol.ticker == "EURUSD"
-    assert data.timezone == BROKER_SERVER_TZ
+
+
+@pytest.mark.parametrize("zone", [BROKER_SERVER_TZ, ZoneInfo("America/New_York"), ZoneInfo("UTC")])
+def test_bars_carry_the_given_clock_unshifted(tmp_path, zone) -> None:
+    data = load_mt5(write_mt5_export(tmp_path / "EURUSD_2020_01.csv"), M5, EurUsd(), timezone=zone)
+
+    assert data.timezone == zone
+    assert data.data["datetime"].iat[0] == START
 
 
 def test_a_folder_merges_its_exports_dropping_duplicate_bars(tmp_path) -> None:
     write_mt5_export(tmp_path / "EURUSD_2020_01_a.csv")
     write_mt5_export(tmp_path / "EURUSD_2020_01_b.csv")
 
-    assert len(load_mt5(tmp_path, M5, EurUsd())) == 2
+    assert len(load_mt5(tmp_path, M5, EurUsd(), timezone=BROKER_SERVER_TZ)) == 2
 
 
 def test_reports_progress(tmp_path) -> None:
     messages = []
 
-    load_mt5(write_mt5_export(tmp_path / "EURUSD_2020_01.csv"), M5, EurUsd(), progress=messages.append)
+    load_mt5(write_mt5_export(tmp_path / "EURUSD_2020_01.csv"), M5, EurUsd(), timezone=BROKER_SERVER_TZ, progress=messages.append)
 
     assert any("EURUSD_2020_01.csv" in message for message in messages)

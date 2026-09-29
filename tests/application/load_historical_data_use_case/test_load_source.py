@@ -13,14 +13,16 @@ M5 = SampleSize.Parse("5m")
 
 
 def test_clean_csv_format_reads_the_pipeline_csv(tmp_path) -> None:
-    data = load_source(write_clean_csv(tmp_path / "clean.csv"), SourceFormat.CLEAN_CSV, M5, EurUsd())
+    data = load_source(write_clean_csv(tmp_path / "clean.csv"), SourceFormat.CLEAN_CSV, M5, EurUsd(),
+                       timezone=BROKER_SERVER_TZ)
 
     assert len(data) == 2
     assert "spread" not in data.data.columns
 
 
 def test_metatrader_format_reads_mt5_exports(tmp_path) -> None:
-    data = load_source(write_mt5_export(tmp_path / "EURUSD_2020_01.csv"), SourceFormat.METATRADER, M5, EurUsd())
+    data = load_source(write_mt5_export(tmp_path / "EURUSD_2020_01.csv"), SourceFormat.METATRADER, M5, EurUsd(),
+                       timezone=BROKER_SERVER_TZ)
 
     assert len(data) == 2
     assert "spread" in data.data.columns
@@ -28,7 +30,7 @@ def test_metatrader_format_reads_mt5_exports(tmp_path) -> None:
 
 
 def test_dukascopy_format_reads_bid_ask_pairs(tmp_path) -> None:
-    data = load_source(write_dukascopy_month(tmp_path), SourceFormat.DUKASCOPY, M5, EurUsd())
+    data = load_source(write_dukascopy_month(tmp_path), SourceFormat.DUKASCOPY, M5, EurUsd(), timezone=ZoneInfo("UTC"))
 
     assert len(data) == 2
     assert data.timezone == ZoneInfo("UTC")

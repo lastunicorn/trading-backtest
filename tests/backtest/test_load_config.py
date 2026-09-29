@@ -25,7 +25,8 @@ def test_minimal_config_takes_the_defaults(tmp_path) -> None:
 
     assert config == BacktestConfig(
         strategy="narrow_asia_fade",
-        data=DataConfig(source=tmp_path / "m5.csv", format="metatrader", symbol="EURUSD", timeframe="1m"),
+        data=DataConfig(source=tmp_path / "m5.csv", format="metatrader", symbol="EURUSD", timeframe="1m",
+                        timezone="UTC"),
         out=tmp_path / "results",
         timeframe="5m",
     )
@@ -56,7 +57,8 @@ def test_absolute_paths_are_kept(tmp_path) -> None:
 def test_reads_every_setting(tmp_path) -> None:
     config = load_config(_write(tmp_path, {
         "strategy": "rsi_divergence",
-        "data": {"source": "duka", "format": "dukascopy", "symbol": "GBPUSD", "timeframe": "5m"},
+        "data": {"source": "duka", "format": "dukascopy", "symbol": "GBPUSD", "timeframe": "5m",
+                 "timezone": "Etc/UTC"},
         "out": "out",
         "timeframe": "15m",
         "cost_pips": 2,
@@ -69,7 +71,8 @@ def test_reads_every_setting(tmp_path) -> None:
 
     assert config == BacktestConfig(
         strategy="rsi_divergence", out=tmp_path / "out",
-        data=DataConfig(source=tmp_path / "duka", format="dukascopy", symbol="GBPUSD", timeframe="5m"),
+        data=DataConfig(source=tmp_path / "duka", format="dukascopy", symbol="GBPUSD", timeframe="5m",
+                        timezone="Etc/UTC"),
         timeframe="15m",
         cost_pips=2.0, spread_cost=True, commission_pips=0.2, ambiguity="assume-sl",
         resolve_from="entry-bar", splits=False,
@@ -92,6 +95,9 @@ def test_reads_every_setting(tmp_path) -> None:
      '"data.format" is "mt5"; choose one of metatrader, dukascopy, clean-csv'),
     ({"strategy": "rsi_divergence", "data": _data(format=5), "out": "o"}, '"data.format" must be a string'),
     ({"strategy": "rsi_divergence", "data": _data(symbol="EURUSX"), "out": "o"}, '"data.symbol"'),
+    ({"strategy": "rsi_divergence", "data": _data(timezone="New York"), "out": "o"}, '"data.timezone" is "New York"'),
+    ({"strategy": "rsi_divergence", "data": _data(timezone="../etc"), "out": "o"}, '"data.timezone" is "../etc"'),
+    ({"strategy": "rsi_divergence", "data": _data(timezone=-5), "out": "o"}, '"data.timezone" must be a string'),
     ({"strategy": "rsi_divergence", "data": _data(dukascopy_years=[2024]), "out": "o"},
      "unknown key.*data.dukascopy_years"),
     ({"strategy": "rsi_divergence", "data": _data(timefrane="1m"), "out": "o"}, "unknown key.*data.timefrane"),
@@ -170,3 +176,10 @@ def test_rejects_invalid_strategy_parameters(tmp_path, strategy: str, parameters
 def test_strategy_parameters_must_be_an_object(tmp_path) -> None:
     with pytest.raises(ValueError, match='"strategy_parameters" must be a JSON object'):
         _with_parameters(tmp_path, "rsi_divergence", [1.5])
+
+
+@pytest.mark.parametrize("zone", ["broker", "Broker", "America/New_York", "UTC"])
+def test_data_timezone_takes_broker_or_an_iana_name(tmp_path, zone: str) -> None:
+    config = load_config(_write(tmp_path, {"strategy": "rsi_divergence", "data": _data(timezone=zone), "out": "o"}))
+
+    assert config.data.timezone == zone

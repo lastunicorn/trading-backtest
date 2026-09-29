@@ -160,12 +160,12 @@ pandas rejects custom `tzinfo` objects, so don't pass `BROKER_SERVER_TZ` to `tz_
 
 | Function | Reads |
 |---|---|
-| `load_mt5(source, timeframe, symbol, *, progress=None)` | a folder of MT5 exports or one export; resampled per file and deduplicated across files (the pipeline's stage-0 build) |
-| `load_clean_csv(path, timeframe, symbol)` | the research pipeline's clean CSV |
-| `load_dukascopy(source, timeframe, symbol, *, progress=None)` | Dukascopy bid/ask pairs under a folder (recursively), or the pair one file belongs to; pairs match on instrument and start date; clock UTC, no volume columns |
-| `load_source(source, source_format, timeframe, symbol, *, progress=None)` | the loader for `source_format`, a `SourceFormat`: `METATRADER` → `load_mt5`, `DUKASCOPY` → `load_dukascopy`, `CLEAN_CSV` → `load_clean_csv` |
+| `load_mt5(source, timeframe, symbol, *, timezone, progress=None)` | a folder of MT5 exports or one export; resampled per file and deduplicated across files (the pipeline's stage-0 build) |
+| `load_clean_csv(path, timeframe, symbol, *, timezone)` | the research pipeline's clean CSV |
+| `load_dukascopy(source, timeframe, symbol, *, timezone, progress=None)` | Dukascopy bid/ask pairs under a folder (recursively), or the pair one file belongs to; pairs match on instrument and start date; no volume columns; `timezone` must be UTC (`ValueError` otherwise) |
+| `load_source(source, source_format, timeframe, symbol, *, timezone, progress=None)` | the loader for `source_format`, a `SourceFormat`: `METATRADER` → `load_mt5`, `DUKASCOPY` → `load_dukascopy`, `CLEAN_CSV` → `load_clean_csv` |
 
-All return a `HistoricalData` resampled to `timeframe`. Pass `progress=print` to see one line per file.
+All return a `HistoricalData` resampled to `timeframe`, labelled with the required `timezone` (the clock the source is on; never assumed, never shifted). Pass `progress=print` to see one line per file.
 
 ### `backtest` (the CLI module, importable)
 

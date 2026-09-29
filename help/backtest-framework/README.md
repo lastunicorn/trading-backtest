@@ -92,13 +92,13 @@ Common mistakes:
 
 | Symptom | Cause |
 |---|---|
-| `ERROR: … windows are broker-server times; the data is on UTC` | a broker-clock strategy on Dukascopy data; convert the data to the broker clock with `shift_timezone`, or use MT5 data |
+| `ERROR: … windows are broker-server times; the data is on UTC` | a broker-clock strategy on data that isn't on the broker clock: Dukascopy, histdata (`America/New_York`), or a config that left `data.timezone` at its `"UTC"` default. If the files really are broker-server time, set `"timezone": "broker"`; otherwise convert them with `shift_timezone` or use broker MT5 exports |
 | `ERROR: SpreadCost needs a 'spread' column` | `"spread_cost": true` on the clean CSV, which has no spread; use `cost_pips`, or MT5/Dukascopy data |
 | `ERROR: backtest.json: unknown key(s) …` | a misspelt config key; the message lists the allowed ones |
 | `ValueError: long position needs sl < open_price < tp` | the strategy built a position with levels on the wrong side; skip such signals |
 | `'datetime' must be strictly increasing` | the frame needs `clean_frame` before `HistoricalData` |
 | far fewer trades than expected | a fixture or real bar touching a level counts as a hit/break; check the ≥ / ≤ edges |
-| results with times 7 hours off | the data was treated as New York time; the broker clock is New York + 7h (`BROKER_SERVER_TZ`) |
+| results with times 7 hours off | `data.timezone` doesn't match the files: the broker clock is New York + 7h (`"broker"`), histdata is New York time (`"America/New_York"`) |
 | `ERROR: … "timeframe" … is not a whole multiple of the source's "data.timeframe"` | resampling only coarsens; test on a multiple of the source's bar size, or fix `data.timeframe` if it misstates the source |
 | numbers look wrong on a finer `timeframe` | `data.timeframe` understates the source (e.g. left at the `1m` default for the M5 clean CSV), so the check passed; asking for `1m` from an M5 file returns M5 bars labelled 1m |
 
