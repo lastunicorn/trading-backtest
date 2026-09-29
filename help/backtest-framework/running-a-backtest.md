@@ -32,6 +32,7 @@ from backtest import run_backtest
 from domain.broker_clock import BROKER_SERVER_TZ
 from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest, PositionResolveDelay
 from domain.pandas_approach.cost_model import FixedCost
+from domain.pandas_approach.splits import SplitMode
 from domain.sample_size import SampleSize
 from domain.symbol import EurUsd
 from strategies.opening_range_breakout import OpeningRangeBreakout
@@ -44,6 +45,7 @@ backtest = Backtest(
     cost_model=FixedCost(pips=1.7),
     ambiguity_policy=AmbiguityPolicy.EXCLUDE,
     position_resolve_delay=PositionResolveDelay.NEXT_BAR,
+    splits=SplitMode.DVT,                        # default SplitMode.NONE: "all" only
 )
 
 result = backtest.run()                          # numbers only, nothing written
@@ -60,7 +62,7 @@ A parameter sweep:
 
 ```python
 for rr in (1.0, 1.5, 2.0):
-    stats = Backtest(OpeningRangeBreakout(risk_reward=rr), data).run().statistics
+    stats = Backtest(OpeningRangeBreakout(risk_reward=rr), data, splits=SplitMode.DVT).run().statistics
     print(rr, stats.loc["discovery", "total_net_pips"], stats.loc["test", "total_net_pips"])
 ```
 

@@ -6,13 +6,15 @@ import pandas as pd
 
 from backtest import write_results
 from domain.pandas_approach.backtest import Backtest
+from domain.pandas_approach.splits import SplitMode
 from tests.domain.pandas_approach.backtest._fakes import ScriptedStrategy, data
 
 RUN_INFO = {"strategy": {"name": "ScriptedStrategy"}, "source": "somewhere.csv"}
 
 
 def _write(out_dir, entry_days=(0, 1), results=None, price_decimals=5):
-    result = Backtest(ScriptedStrategy(list(entry_days)), data(10, results or {0: "win", 1: "loss"})).run()
+    result = Backtest(ScriptedStrategy(list(entry_days)), data(10, results or {0: "win", 1: "loss"}),
+                      splits=SplitMode.DVT).run()
     return write_results(result, RUN_INFO, "the report\n", out_dir, price_decimals=price_decimals)
 
 

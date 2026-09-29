@@ -65,7 +65,7 @@ A config is one JSON object. The root holds the run's settings; the nested `data
 | `cost.commission_pips` | no | `0` | A flat round-trip cost per trade, in pips. Without `cost.spread` it is the whole cost (`FixedCost`); with it, it is added to the spread. |
 | `ambiguity` | no | `"exclude"` | A bar touching both SL and TP: `exclude`, `assume-sl` or `assume-tp`. See [Choosing `resolve_from` and `ambiguity`](running-a-backtest.md#3-choosing-resolve_from-and-ambiguity). |
 | `resolve_from` | no | `"next-bar"` | First bar SL/TP are checked on: `next-bar` or `entry-bar`. See [Choosing `resolve_from` and `ambiguity`](running-a-backtest.md#3-choosing-resolve_from-and-ambiguity). |
-| `splits` | no | `true` | `false`: report only "all", without the discovery/validation/test breakdown. |
+| `splits` | no | `"none"` | How the statistics are broken down besides "all":<br>`"none"`: only "all".<br>`"dvt"`: the chronological 60/20/20 discovery / validation / test cut, over the strategy's `split_days`.<br>`"monthly"` / `"yearly"`: one group per calendar month (`2024-03`) or year (`2024`), including periods without trades.<br>See [Reading the results](reading-the-backtest-results.md) for how each is reported. |
 | `strategy_parameters` | no | `{}` | Overrides for the strategy's own parameters (its dataclass fields, listed on each strategy's page); the rest keep their defaults. See [Strategy parameters](#4-strategy-parameters). |
 
 ## 4. Strategy parameters

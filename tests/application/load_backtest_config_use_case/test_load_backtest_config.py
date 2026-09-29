@@ -61,6 +61,7 @@ def test_errors_name_the_config_file(tmp_path) -> None:
     ({"strategy": "nope", "data": data(), "out": "o"}, '"strategy" is "nope"'),
     ({"strategy": "rsi_divergence", "data": data(), "out": "o", "ambiguity": "guess"}, '"ambiguity"'),
     ({"strategy": "rsi_divergence", "data": data(), "out": "o", "resolve_from": "later"}, '"resolve_from"'),
+    ({"strategy": "rsi_divergence", "data": data(), "out": "o", "splits": "weekly"}, '"splits" is "weekly"'),
 ])
 def test_rejects_invalid_values(tmp_path, config: dict, message: str) -> None:
     with pytest.raises(ValueError, match=message):

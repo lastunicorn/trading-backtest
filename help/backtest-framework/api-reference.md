@@ -135,19 +135,21 @@ pandas rejects custom `tzinfo` objects, so don't pass `BROKER_SERVER_TZ` to `tz_
 
 ### `domain.pandas_approach.splits`
 
+- **`SplitMode`**: `NONE` (`"none"`), `DVT` (`"dvt"`), `MONTHLY` (`"monthly"`), `YEARLY` (`"yearly"`). How `Backtest` groups trades.
+- **`split_labels(dates, mode) -> dict[date, str]`**: each distinct date's split name, in chronological order: `split_dates`'s cut for `DVT`, `"2024-03"` for `MONTHLY`, `"2024"` for `YEARLY`. Raises for `NONE`.
 - **`Split`**: `DISCOVERY`, `VALIDATION`, `TEST`.
 - **`split_dates(dates, *, discovery=0.60, validation=0.20) -> dict[date, Split]`**: sorts the distinct dates and cuts them chronologically. The boundaries are identical to the research scripts' `split_dates`.
-- **`assign_splits(open_dts, by_date) -> pd.Series`**: the split name of each trade from the date it opens on. Raises if a date isn't covered.
+- **`assign_splits(open_dts, by_date: dict[date, str]) -> pd.Series`**: the split name of each trade from the date it opens on. Raises if a date isn't covered.
 
 ### `domain.pandas_approach.statistics`
 
 - **`compute_statistics(trades) -> dict`**: every metric in [`statistics.csv`](reading-the-backtest-results.md#statisticscsv) in *Reading the backtest results*, in report order.
-- **`statistics_by_split(trades) -> pd.DataFrame`**: one row for `all`, then one per split if the frame has a `split` column.
+- **`statistics_by_split(trades, splits=()) -> pd.DataFrame`**: one row for `all`, then one per name in `splits`, in that order (a split without trades gets a row of zeros).
 - **`max_drawdown(net_pips)`**, **`max_consecutive_losses(net_pips)`**: the two building blocks, usable on any sequence.
 
 ### `domain.pandas_approach.backtest`
 
-**`Backtest(strategy, data, cost_model=FixedCost(), ambiguity_policy=AmbiguityPolicy.EXCLUDE, position_resolve_delay=PositionResolveDelay.NEXT_BAR, splits=True)`**: one strategy, one dataset, one set of rules.
+**`Backtest(strategy, data, cost_model=FixedCost(), ambiguity_policy=AmbiguityPolicy.EXCLUDE, position_resolve_delay=PositionResolveDelay.NEXT_BAR, splits=SplitMode.NONE)`**: one strategy, one dataset, one set of rules.
 
 - `run() -> BacktestResult`: a pure calculation, with no files, clock or git. It closes every position the strategy returned under the rules in [How a backtest decides things](README.md#how-a-backtest-decides-things) (in the private `_simulate`, the one place exits are decided), then applies costs, splits and statistics. It raises `ValueError` on a position that is already closed or that opens before the first bar; these are never skipped silently.
 
@@ -156,8 +158,8 @@ pandas rejects custom `tzinfo` objects, so don't pass `BROKER_SERVER_TZ` to `tz_
 
 **`BacktestResult(trades, statistics)`** (frozen):
 
-- `trades`: the positions frame with its result columns (and `split`), sorted by `open_dt`.
-- `statistics`: the `statistics_by_split` table.
+- `trades`: the positions frame with its result columns (and `split`, unless `SplitMode.NONE`), sorted by `open_dt`.
+- `statistics`: the `statistics_by_split` table: `all`, then one row per split in chronological order.
 
 ## 5. Application (files, provenance)
 

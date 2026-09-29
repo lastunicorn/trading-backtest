@@ -1,13 +1,14 @@
 """`Backtest`: run one strategy over one dataset under one set of simulation rules.
 
     from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest, PositionResolveDelay
+    from domain.pandas_approach.splits import SplitMode
 
-    result = Backtest(strategy, data, cost_model=FixedCost(pips=1.7)).run()
+    result = Backtest(strategy, data, cost_model=FixedCost(pips=1.7), splits=SplitMode.DVT).run()
     result.trades                                   # one row per trade, P&L and split included
     result.statistics.loc["all", "win_rate_pct"]    # rows: all, discovery, validation, test
 
 `run()` goes strategy -> open positions -> exits (`_simulate`) -> costs ->
-per-trade P&L -> discovery/validation/test split -> statistics, and returns
+per-trade P&L -> split (`SplitMode`, none by default) -> statistics, and returns
 the numbers. It is a pure calculation: no files, no clock, no git. Recording
 provenance and writing results is the `backtest.py` CLI's job.
 
@@ -50,7 +51,7 @@ import pandas as pd
 from domain.pandas_approach.cost_model import CostModel, FixedCost
 from domain.pandas_approach.historical_data import HistoricalData
 from domain.pandas_approach.position import Position, PositionOutcome, Side, positions_to_frame
-from domain.pandas_approach.splits import assign_splits, split_dates
+from domain.pandas_approach.splits import SplitMode, assign_splits, split_labels
 from domain.pandas_approach.statistics import statistics_by_split
 from domain.pandas_approach.trade_results import trade_results
 from domain.pandas_approach.trading_strategy import TradingStrategy
@@ -94,8 +95,8 @@ class Backtest:
     cost_model: CostModel = field(default_factory=FixedCost)
     ambiguity_policy: AmbiguityPolicy = AmbiguityPolicy.EXCLUDE
     position_resolve_delay: PositionCloseDelay = PositionCloseDelay.NEXT_BAR
-    # Report per discovery/validation/test split as well as overall.
-    splits: bool = True
+    # Report per split as well as overall: discovery/validation/test, month or year.
+    splits: SplitMode = SplitMode.NONE
 
     def run(self) -> BacktestResult:
         positions = self.strategy.generate_positions(self.data)
@@ -105,13 +106,15 @@ class Backtest:
         trades = trade_results(trades, self.data.symbol, self.cost_model.cost_pips(trades, self.data))
         trades = trades.sort_values("open_dt", kind="stable").reset_index(drop=True)
 
-        if self.splits:
-            by_date = split_dates(self.strategy.split_days(self.data))
+        names: list[str] = []
+        if self.splits is not SplitMode.NONE:
+            by_date = split_labels(self.strategy.split_days(self.data), self.splits)
             trades["split"] = assign_splits(trades["open_dt"], by_date)
+            names = list(dict.fromkeys(by_date.values()))
 
         return BacktestResult(
             trades=trades,
-            statistics=statistics_by_split(trades)
+            statistics=statistics_by_split(trades, names)
         )
 
     def _close_positions(self, positions: list[Position]) -> None:

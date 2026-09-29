@@ -2,11 +2,12 @@
 
 from backtest import build_run_info, format_report
 from domain.pandas_approach.backtest import Backtest
+from domain.pandas_approach.splits import SplitMode
 from tests.domain.pandas_approach.backtest._fakes import ScriptedStrategy, data
 
 
-def _report(entry_days, results, *, source=None, **kwargs) -> str:
-    backtest = Backtest(ScriptedStrategy(entry_days), data(10, results), **kwargs)
+def _report(entry_days, results, *, source=None, days=10, splits=SplitMode.DVT, **kwargs) -> str:
+    backtest = Backtest(ScriptedStrategy(entry_days), data(days, results), splits=splits, **kwargs)
     result = backtest.run()
     return format_report(result, build_run_info(backtest, result, source=source))
 
@@ -59,4 +60,24 @@ def test_source_line_appears_only_when_recorded() -> None:
 
 
 def test_without_splits_there_is_no_verdict() -> None:
-    assert "Net positive" not in _report([0], {}, splits=False)
+    assert "Net positive" not in _report([0], {}, splits=SplitMode.NONE)
+
+
+def test_calendar_splits_put_one_period_per_row() -> None:
+    # 2026-01-05 + 60 days: January, February, March.
+    report = _report([0, 58], {0: "win", 58: "loss"}, days=60, splits=SplitMode.MONTHLY)
+
+    header = next(line for line in report.splitlines() if "win_rate_pct" in line)
+    assert header.split() == [
+        "trades", "win_rate_pct", "total_net_pips", "profit_factor", "expectancy_r", "max_drawdown_pips"]
+    assert _row(report, "all")[:3] == ["2", "50.0%", "-3.4"]
+    assert _row(report, "2026-02")[:2] == ["0", "n/a"]
+    assert _row(report, "2026-03")[:3] == ["1", "0.0%", "-21.7"]
+
+
+def test_calendar_verdict_counts_positive_periods_with_trades() -> None:
+    monthly = _report([0, 58], {0: "win", 58: "loss"}, days=60, splits=SplitMode.MONTHLY)
+    yearly = _report([0], {0: "win"}, splits=SplitMode.YEARLY)
+
+    assert monthly.splitlines()[-1] == "Net positive in 1 of 2 months with trades (1 without)"
+    assert yearly.splitlines()[-1] == "Net positive in 1 of 1 years with trades (0 without)"

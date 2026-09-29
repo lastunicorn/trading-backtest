@@ -10,7 +10,7 @@
 shape; this adds what needs the rest of the code base to decide: the strategy
 is registered and its parameters convert to its field types (and build it),
 the source format, symbol and time zone exist, the timeframes fit together,
-and `ambiguity`/`resolve_from` name a policy. Every failure is a `ValueError`
+and `ambiguity`/`resolve_from`/`splits` name a policy or split mode. Every failure is a `ValueError`
 naming the config file.
 """
 
@@ -27,6 +27,7 @@ from zoneinfo import ZoneInfoNotFoundError
 from application.load_historical_data_use_case import SourceFormat
 from domain.broker_clock import timezone_by_name
 from domain.pandas_approach.backtest import AmbiguityPolicy, PositionCloseDelay
+from domain.pandas_approach.splits import SplitMode
 from domain.pandas_approach.cost_model import CostModel, FixedCost, SpreadCost
 from domain.sample_size import SampleSize
 from domain.symbol import by_ticker
@@ -58,6 +59,7 @@ def load_backtest_config(path) -> BacktestConfig:
     _check_choice(config.strategy, "strategy", sorted(STRATEGIES), fail)
     _check_choice(config.ambiguity, "ambiguity", [policy.value for policy in AmbiguityPolicy], fail)
     _check_choice(config.resolve_from, "resolve_from", [delay.value for delay in PositionCloseDelay], fail)
+    _check_choice(config.splits, "splits", [mode.value for mode in SplitMode], fail)
     _check_data(config.data, fail)
 
     timeframe = _parse_timeframe(config.timeframe, "timeframe", fail)

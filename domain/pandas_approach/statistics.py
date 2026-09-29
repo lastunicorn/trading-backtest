@@ -31,7 +31,6 @@ import numpy as np
 import pandas as pd
 
 from domain.pandas_approach.position import PositionOutcome
-from domain.pandas_approach.splits import Split
 
 __all__ = ["compute_statistics", "max_consecutive_losses", "max_drawdown", "statistics_by_split"]
 
@@ -95,17 +94,16 @@ def compute_statistics(trades: pd.DataFrame) -> dict[str, float]:
     return stats
 
 
-def statistics_by_split(trades: pd.DataFrame) -> pd.DataFrame:
-    """One row of `compute_statistics` for all trades, then one per split.
+def statistics_by_split(trades: pd.DataFrame, splits: Sequence[str] = ()) -> pd.DataFrame:
+    """One row of `compute_statistics` for all trades, then one per name in `splits`, in order.
 
-    Every split gets a row even when it has no trades, so a missing split shows
-    up as zeros rather than vanishing. Without a `split` column, only "all".
+    Every split named gets a row even when it has no trades, so a missing split
+    shows up as zeros rather than vanishing. With no `splits`, only "all".
     """
     rows = {"all": compute_statistics(trades)}
 
-    if "split" in trades.columns:
-        for split in Split:
-            rows[split.value] = compute_statistics(trades[trades["split"] == split.value])
+    for split in splits:
+        rows[split] = compute_statistics(trades[trades["split"] == split])
 
     return pd.DataFrame.from_dict(rows, orient="index")
 

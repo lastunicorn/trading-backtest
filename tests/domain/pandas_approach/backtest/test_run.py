@@ -8,13 +8,14 @@ import pytest
 from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest, PositionCloseDelay
 from domain.pandas_approach.cost_model import FixedCost
 from domain.pandas_approach.position import FRAME_COLUMNS, PositionOutcome
+from domain.pandas_approach.splits import SplitMode
 from domain.pandas_approach.trade_results import RESULT_COLUMNS
 
 from ._fakes import QUIET, T0, Replay, ScriptedStrategy, at, bars, data, day, long_position, short_position
 
 
 def test_every_position_comes_back_closed_with_pnl_and_split() -> None:
-    result = Backtest(ScriptedStrategy([0, 1]), data(10, {0: "win", 1: "loss"})).run()
+    result = Backtest(ScriptedStrategy([0, 1]), data(10, {0: "win", 1: "loss"}), splits=SplitMode.DVT).run()
 
     trades = result.trades
     assert list(trades.columns) == [*FRAME_COLUMNS, *RESULT_COLUMNS, "split"]
@@ -32,7 +33,8 @@ def test_trades_are_sorted_by_open_time() -> None:
 
 def test_statistics_cover_all_trades_and_each_split() -> None:
     # 10 days: 0-5 discovery, 6-7 validation, 8-9 test.
-    result = Backtest(ScriptedStrategy([0, 6, 8, 9]), data(10, {0: "win", 6: "win", 8: "loss", 9: "win"})).run()
+    result = Backtest(ScriptedStrategy([0, 6, 8, 9]), data(10, {0: "win", 6: "win", 8: "loss", 9: "win"}),
+                      splits=SplitMode.DVT).run()
 
     stats = result.statistics
     assert stats.index.tolist() == ["all", "discovery", "validation", "test"]
@@ -71,18 +73,34 @@ def test_position_resolve_delay_is_passed_through() -> None:
     assert entry_bar.trades["outcome"].tolist() == ["take-profit-hit"]
 
 
-def test_without_splits_there_is_no_split_column_and_only_all() -> None:
-    result = Backtest(ScriptedStrategy([0]), data(10, {}), splits=False).run()
+def test_by_default_there_is_no_split_column_and_only_all() -> None:
+    result = Backtest(ScriptedStrategy([0]), data(10, {})).run()
 
     assert "split" not in result.trades.columns
     assert result.statistics.index.tolist() == ["all"]
+
+
+def test_monthly_splits_give_one_row_per_month_even_without_trades() -> None:
+    # 2026-01-05 + 60 days: January, February, March; trades only in January and March.
+    result = Backtest(ScriptedStrategy([0, 58]), data(60, {}), splits=SplitMode.MONTHLY).run()
+
+    assert result.trades["split"].tolist() == ["2026-01", "2026-03"]
+    assert result.statistics.index.tolist() == ["all", "2026-01", "2026-02", "2026-03"]
+    assert result.statistics.loc["2026-02", "trades"] == 0
+
+
+def test_yearly_splits_label_each_trade_with_its_year() -> None:
+    result = Backtest(ScriptedStrategy([0]), data(3, {}), splits=SplitMode.YEARLY).run()
+
+    assert result.trades["split"].tolist() == ["2026"]
+    assert result.statistics.index.tolist() == ["all", "2026"]
 
 
 def test_split_is_cut_over_the_strategy_split_days() -> None:
     # Only days 0-4 count: 0-2 discovery, 3 validation, 4 test.
     strategy = ScriptedStrategy([3, 4], only_split_over=[day(i).date() for i in range(5)])
 
-    result = Backtest(strategy, data(10, {})).run()
+    result = Backtest(strategy, data(10, {}), splits=SplitMode.DVT).run()
 
     assert result.trades["split"].tolist() == ["validation", "test"]
 
@@ -104,7 +122,7 @@ HITS_BOTH = (1.1000, 1.1045, 1.0975, 1.1000)
 
 
 def _trades(rows, *positions, **settings) -> pd.DataFrame:
-    return Backtest(Replay(*positions), bars(*rows), splits=False, **settings).run().trades
+    return Backtest(Replay(*positions), bars(*rows), **settings).run().trades
 
 
 def _one(rows, position, **settings) -> tuple:

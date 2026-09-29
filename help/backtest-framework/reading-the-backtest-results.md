@@ -6,9 +6,13 @@ A run writes four files into the config's `out` folder (or `run_backtest`'s `out
 
 ## `statistics.txt` — read this first
 
-A header with the strategy, its parameters, the data, the source, the cost model, the simulation settings, the creation time and the git commit. Below it is the statistics table, one column per split, and a final line: *Net positive in every split: yes/no*.
+A header with the strategy, its parameters, the data, the source, the cost model, the simulation settings, the creation time and the git commit. Below it is the statistics table. Its layout depends on the config's [`splits`](backtest-config.md#3-keys):
 
-For example, the end of the [Narrow Asia London Fade](strategy-narrow-asia-fade.md) report:
+- `"none"`: one column, `all`.
+- `"dvt"`: one column per split and a final line, *Net positive in every split: yes/no*.
+- `"monthly"` / `"yearly"`: too many periods for a column each, so the table is turned around: one row per period and six key metrics as columns (every metric is still in `statistics.csv`). The final line counts the periods that made money: *Net positive in K of N months with trades (E without)*.
+
+For example, the end of the [Narrow Asia London Fade](strategy-narrow-asia-fade.md) report with `"splits": "dvt"`:
 
 ```
                                   all   discovery  validation        test
@@ -22,9 +26,23 @@ profit_factor                    1.37        1.41        1.23        1.53
 Net positive in every split (discovery, validation, test): yes
 ```
 
+And with `"splits": "yearly"`:
+
+```
+          trades  win_rate_pct  total_net_pips  profit_factor  expectancy_r  max_drawdown_pips
+----------------------------------------------------------------------------------------------
+all          207         72.0%           257.5           1.37         0.078               70.5
+2020          30         86.7%           139.5           4.63         0.269               20.0
+2021          53         66.0%            10.3           1.05         0.017               70.5
+...
+2026          12         75.0%            30.8           2.86         0.186               10.9
+
+Net positive in 6 of 7 years with trades (0 without)
+```
+
 ## `statistics.csv`
 
-The same numbers, one row per split (`all`, `discovery`, `validation`, `test`), for comparing runs. The metrics, which are also the keys of [`compute_statistics()`](api-reference.md#domainpandas_approachstatistics):
+The same numbers, one row for `all` and then one per split (`discovery`, `validation`, `test`; or `2024-03`…; or `2024`…), always with every metric, for comparing runs. The metrics, which are also the keys of [`compute_statistics()`](api-reference.md#domainpandas_approachstatistics):
 
 | Metric | Meaning |
 |---|---|
@@ -57,7 +75,7 @@ One row per trade, sorted by entry time:
 | `gross_pips`, `cost_pips`, `net_pips` | result before costs, the cost, result after costs |
 | `risk_pips`, `net_r` | entry-to-stop distance, and net pips ÷ risk |
 | `duration_min` | minutes from `open_dt` to `close_dt` |
-| `split` | `discovery`, `validation` or `test` (absent with `"splits": false`) |
+| `split` | the trade's split: `discovery`, `validation` or `test` with `"splits": "dvt"`, `2024-03` with `"monthly"`, `2024` with `"yearly"` (absent with `"none"`) |
 
 `close_dt` is the open time of the bar where SL/TP was hit (OHLC can't say when inside the bar). For a time stop it is `exit_dt` itself.
 

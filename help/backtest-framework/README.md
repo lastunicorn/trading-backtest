@@ -70,7 +70,7 @@ Every backtest runs under these rules. Two of them are settings, so pick those d
 
 **A win means net pips > 0 after costs.** That is not the same as `take-profit-hit`: a take-profit smaller than the cost is still a loss. The report shows both views, as outcome counts and as the win/loss split.
 
-**Results are reported per split.** Calendar days are sorted and cut 60 / 20 / 20 into discovery / validation / test, never shuffled. Each trade belongs to the split of the day it opens. A result is only worth trusting if it holds in all three splits; the report ends with a yes/no line for that.
+**Results can be reported per split.** With `"splits": "dvt"`, calendar days are sorted and cut 60 / 20 / 20 into discovery / validation / test, never shuffled. Each trade belongs to the split of the day it opens. A result is only worth trusting if it holds in all three splits; the report ends with a yes/no line for that. `"monthly"` and `"yearly"` group trades by calendar period instead, to show whether the edge is spread over time or comes from a few periods. The default, `"none"`, reports all trades only.
 
 **Look-ahead is the strategy's job.** `generate_positions` receives the whole history. A signal on bar *i* must only use bars up to *i*.
 
@@ -83,7 +83,7 @@ Before trusting a result:
 - [ ] **No look-ahead.** Each entry uses only bars up to its own.
 - [ ] **The right `resolve_from`** for how the strategy enters ([Choosing `resolve_from` and `ambiguity`](running-a-backtest.md#3-choosing-resolve_from-and-ambiguity)).
 - [ ] **Costs included.** Never analyse `gross_pips` as if it were the result.
-- [ ] **All three splits positive.** One good split is noise. Parameters were chosen on discovery only.
+- [ ] **All three splits positive** (run with `"splits": "dvt"`). One good split is noise. Parameters were chosen on discovery only.
 - [ ] **Enough trades per split** for the numbers to mean something.
 - [ ] **`excluded_ambiguous` is small.** If not, compare `"ambiguity": "assume-sl"` against `"assume-tp"`.
 - [ ] **`run.json` kept with the results**, and the working tree committed (`"dirty": false`).

@@ -67,7 +67,8 @@ class BacktestConfig:
     Field names are the JSON keys. `out` is already resolved against the
     config file's folder. `timeframe` is the bar size to backtest on;
     `data.timeframe` divides it. The `ambiguity` and `resolve_from` defaults
-    are the values of `AmbiguityPolicy.EXCLUDE` and `PositionCloseDelay.NEXT_BAR`.
+    are the values of `AmbiguityPolicy.EXCLUDE` and `PositionCloseDelay.NEXT_BAR`;
+    `splits` is a `SplitMode` value, default "none".
 
     `strategy_parameters` is the strategy's constructor arguments: raw JSON
     values from `read_config`, converted to the strategy's field types (a
@@ -81,7 +82,7 @@ class BacktestConfig:
     cost: CostConfig = field(default_factory=CostConfig)
     ambiguity: str = "exclude"
     resolve_from: str = "next-bar"
-    splits: bool = True
+    splits: str = "none"
     strategy_parameters: dict[str, object] = field(default_factory=dict)
 
 
@@ -95,7 +96,7 @@ _CONFIG_KEY_TYPES = {
     "cost": dict,
     "ambiguity": str,
     "resolve_from": str,
-    "splits": bool,
+    "splits": str,
     "strategy_parameters": dict,
 }
 

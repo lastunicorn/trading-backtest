@@ -18,7 +18,7 @@ def test_minimal_config_takes_the_defaults(tmp_path) -> None:
         cost=CostConfig(spread=False, commission_pips=0.0),
         ambiguity="exclude",
         resolve_from="next-bar",
-        splits=True,
+        splits="none",
         strategy_parameters={},
     )
 
@@ -56,7 +56,7 @@ def test_reads_every_setting(tmp_path) -> None:
         "cost": {"spread": True, "commission_pips": 0.2},
         "ambiguity": "assume-sl",
         "resolve_from": "entry-bar",
-        "splits": False,
+        "splits": "monthly",
         "strategy_parameters": {"risk_reward": 1.5},
     }))
 
@@ -66,7 +66,7 @@ def test_reads_every_setting(tmp_path) -> None:
                         timezone="Etc/UTC"),
         timeframe="15m",
         cost=CostConfig(spread=True, commission_pips=0.2), ambiguity="assume-sl",
-        resolve_from="entry-bar", splits=False, strategy_parameters={"risk_reward": 1.5},
+        resolve_from="entry-bar", splits="monthly", strategy_parameters={"risk_reward": 1.5},
     )
 
 
@@ -125,7 +125,7 @@ def test_values_are_not_validated(tmp_path) -> None:
      '"cost.commission_pips" cannot be negative'),
     ({"strategy": "rsi_divergence", "data": data(), "out": "o", "cost": {"spread": "yes"}},
      '"cost.spread" must be true or false'),
-    ({"strategy": "rsi_divergence", "data": data(), "out": "o", "splits": "no"}, '"splits" must be true or false'),
+    ({"strategy": "rsi_divergence", "data": data(), "out": "o", "splits": True}, '"splits" must be a string'),
     ({"strategy": "rsi_divergence", "data": data(), "out": "o", "strategy_parameters": [1.5]},
      '"strategy_parameters" must be a JSON object'),
 ])

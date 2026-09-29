@@ -5,12 +5,12 @@ from datetime import date
 import pandas as pd
 import pytest
 
-from domain.pandas_approach.splits import Split, assign_splits
+from domain.pandas_approach.splits import assign_splits
 
 BY_DATE = {
-    date(2026, 1, 5): Split.DISCOVERY,
-    date(2026, 1, 6): Split.VALIDATION,
-    date(2026, 1, 7): Split.TEST,
+    date(2026, 1, 5): "discovery",
+    date(2026, 1, 6): "validation",
+    date(2026, 1, 7): "test",
 }
 
 

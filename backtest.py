@@ -22,6 +22,7 @@ resolved against the config file's own folder, not the working directory:
         "out": "../../output/backtest_narrow_asia_fade",
         "timeframe": "5m",
         "ambiguity": "assume-sl",
+        "splits": "dvt",
         "strategy_parameters": {"rel_vol_min": 1.8, "study_end": "13:00"}
     }
 
@@ -40,12 +41,16 @@ root `timeframe` -- the size to backtest on -- must be a whole multiple of.
 IANA name such as "America/New_York", or "broker" for this repo's MT5
 broker-server clock (New York + 7h). It labels the bars; nothing is shifted.
 
+`splits` (default "none") breaks the statistics down by group as well as
+overall: "dvt" for the 60/20/20 discovery / validation / test cut, "monthly"
+or "yearly" for one group per calendar month or year.
+
 Writes four files into `out`, overwriting earlier results there, and prints
 the statistics report. Strategies come from `strategies.STRATEGIES`.
 
     positions.csv    one row per trade: entry, levels, how it closed, P&L, split
     statistics.txt   the human report -- read this first
-    statistics.csv   the same numbers, one row per split, for diffing runs
+    statistics.csv   the same numbers, one row for all trades plus one per split, for diffing runs
     run.json         provenance: strategy + parameters, data, simulation settings, git commit
 
 `domain.pandas_approach.backtest.Backtest` computes; this script does what
@@ -79,13 +84,20 @@ from application.load_backtest_config_use_case import cost_model, load_backtest_
 from application.load_historical_data_use_case import SourceFormat, load_source
 from domain.broker_clock import timezone_by_name, timezone_name
 from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest, BacktestResult, PositionCloseDelay
-from domain.pandas_approach.splits import Split
+from domain.pandas_approach.splits import SplitMode
 from domain.sample_size import SampleSize
 from domain.symbol import Symbol, by_ticker
 from ports.backtest_config_access import CONFIG_FILE_NAME, BacktestConfig
 from strategies import STRATEGIES
 
 _REPO_ROOT = Path(__file__).resolve().parent
+
+# Calendar splits have one row per period, too many for a column each: their
+# table is transposed and shows these metrics only (statistics.csv has them all).
+_PERIOD_SPLITS = {SplitMode.MONTHLY: "months", SplitMode.YEARLY: "years"}
+_PERIOD_REPORT_METRICS = (
+    "trades", "win_rate_pct", "total_net_pips", "profit_factor", "expectancy_r", "max_drawdown_pips",
+)
 
 
 def main() -> int:
@@ -136,7 +148,7 @@ def _run(config: BacktestConfig, timeframe: SampleSize, symbol: Symbol) -> Backt
         cost_model=cost_model(config.cost),
         ambiguity_policy=AmbiguityPolicy(config.ambiguity),
         position_resolve_delay=PositionCloseDelay(config.resolve_from),
-        splits=config.splits,
+        splits=SplitMode(config.splits),
     )
     return run_backtest(backtest, config.out, source=f"{config.data.source} ({source_format.value})")
 
@@ -186,7 +198,7 @@ def build_run_info(backtest: Backtest, result: BacktestResult, *, source: str | 
             },
             "ambiguity_policy": backtest.ambiguity_policy.value,
             "position_resolve_delay": backtest.position_resolve_delay.value,
-            "splits": backtest.splits,
+            "splits": backtest.splits.value,
         },
         "trades": len(result.trades),
         "git": _git_state(),
@@ -222,21 +234,54 @@ def format_report(result: BacktestResult, run_info: dict) -> str:
         "",
     ]
 
-    table = result.statistics
+    mode = SplitMode(sim["splits"])
+    if mode in _PERIOD_SPLITS:
+        lines += _period_table(result.statistics)
+        lines += ["", _period_verdict(result.statistics, mode)]
+    else:
+        lines += _split_table(result.statistics)
+        if len(result.statistics) > 1:
+            lines += ["", _split_verdict(result.statistics)]
+
+    return "\n".join(lines) + "\n"
+
+
+def _split_table(table) -> list[str]:
+    """One row per metric, one column per split ("all" first)."""
     width = max(len(name) for name in table.columns)
-    lines.append(f"{'':<{width}}  " + "".join(f"{split:>12}" for split in table.index))
+    lines = [f"{'':<{width}}  " + "".join(f"{split:>12}" for split in table.index)]
     lines.append("-" * (width + 2 + 12 * len(table.index)))
     for metric in table.columns:
         cells = "".join(f"{_format(metric, table.loc[split, metric]):>12}" for split in table.index)
         lines.append(f"{metric:<{width}}  {cells}")
+    return lines
 
-    splits = [split.value for split in Split if split.value in table.index]
-    if splits:
-        net = table.loc[splits, "total_net_pips"]
-        verdict = "yes" if (net > 0).all() else "no"
-        lines += ["", f"Net positive in every split ({', '.join(splits)}): {verdict}"]
 
-    return "\n".join(lines) + "\n"
+def _period_table(table) -> list[str]:
+    """One row per split ("all" first), one column per `_PERIOD_REPORT_METRICS` metric."""
+    width = max(len(split) for split in table.index)
+    widths = [max(len(metric), 10) for metric in _PERIOD_REPORT_METRICS]
+    lines = [f"{'':<{width}}" + "".join(f"  {metric:>{w}}" for metric, w in zip(_PERIOD_REPORT_METRICS, widths))]
+    lines.append("-" * len(lines[0]))
+    for split in table.index:
+        cells = "".join(f"  {_format(metric, table.loc[split, metric]):>{w}}"
+                        for metric, w in zip(_PERIOD_REPORT_METRICS, widths))
+        lines.append(f"{split:<{width}}{cells}")
+    return lines
+
+
+def _split_verdict(table) -> str:
+    splits = [split for split in table.index if split != "all"]
+    verdict = "yes" if (table.loc[splits, "total_net_pips"] > 0).all() else "no"
+    return f"Net positive in every split ({', '.join(splits)}): {verdict}"
+
+
+def _period_verdict(table, mode: SplitMode) -> str:
+    periods = table.drop(index="all")
+    traded = periods[periods["trades"] > 0]
+    positive = int((traded["total_net_pips"] > 0).sum())
+    return (f"Net positive in {positive} of {len(traded)} {_PERIOD_SPLITS[mode]} with trades "
+            f"({len(periods) - len(traded)} without)")
 
 
 def write_results(result: BacktestResult, run_info: dict, report: str, out_dir, *, price_decimals: int) -> list[Path]:
