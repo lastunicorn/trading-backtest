@@ -1,23 +1,34 @@
 """Tests for `application.load_historical_data_use_case.load_source`."""
 
-from application.load_historical_data_use_case import load_source
+from zoneinfo import ZoneInfo
+
+from application.load_historical_data_use_case import SourceFormat, load_source
+from domain.broker_clock import BROKER_SERVER_TZ
 from domain.sample_size import SampleSize
 from domain.symbol import EurUsd
 
-from ._fakes import write_clean_csv, write_mt5_export
+from ._fakes import write_clean_csv, write_dukascopy_month, write_mt5_export
 
 M5 = SampleSize.Parse("5m")
 
 
-def test_clean_csv_is_loaded_as_one(tmp_path) -> None:
-    data = load_source(write_clean_csv(tmp_path / "clean.csv"), M5, EurUsd())
+def test_clean_csv_format_reads_the_pipeline_csv(tmp_path) -> None:
+    data = load_source(write_clean_csv(tmp_path / "clean.csv"), SourceFormat.CLEAN_CSV, M5, EurUsd())
 
     assert len(data) == 2
     assert "spread" not in data.data.columns
 
 
-def test_anything_else_is_loaded_as_mt5_exports(tmp_path) -> None:
-    data = load_source(write_mt5_export(tmp_path / "EURUSD_2020_01.csv"), M5, EurUsd())
+def test_metatrader_format_reads_mt5_exports(tmp_path) -> None:
+    data = load_source(write_mt5_export(tmp_path / "EURUSD_2020_01.csv"), SourceFormat.METATRADER, M5, EurUsd())
 
     assert len(data) == 2
     assert "spread" in data.data.columns
+    assert data.timezone == BROKER_SERVER_TZ
+
+
+def test_dukascopy_format_reads_bid_ask_pairs(tmp_path) -> None:
+    data = load_source(write_dukascopy_month(tmp_path), SourceFormat.DUKASCOPY, M5, EurUsd())
+
+    assert len(data) == 2
+    assert data.timezone == ZoneInfo("UTC")

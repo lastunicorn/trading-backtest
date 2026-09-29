@@ -11,7 +11,7 @@ from strategies.rsi_divergence import RsiDivergence
 
 
 def _data(source: str = "m5.csv", **extra) -> dict:
-    return {"source": source, "symbol": "EURUSD", **extra}
+    return {"source": source, "format": "metatrader", "symbol": "EURUSD", **extra}
 
 
 def _write(folder, config: dict, name: str = "backtest.json"):
@@ -25,7 +25,7 @@ def test_minimal_config_takes_the_defaults(tmp_path) -> None:
 
     assert config == BacktestConfig(
         strategy="narrow_asia_fade",
-        data=DataConfig(symbol="EURUSD", source=tmp_path / "m5.csv", timeframe="1m"),
+        data=DataConfig(source=tmp_path / "m5.csv", format="metatrader", symbol="EURUSD", timeframe="1m"),
         out=tmp_path / "results",
         timeframe="5m",
     )
@@ -56,7 +56,7 @@ def test_absolute_paths_are_kept(tmp_path) -> None:
 def test_reads_every_setting(tmp_path) -> None:
     config = load_config(_write(tmp_path, {
         "strategy": "rsi_divergence",
-        "data": {"dukascopy_years": [2024, 2025], "symbol": "GBPUSD", "timeframe": "5m"},
+        "data": {"source": "duka", "format": "dukascopy", "symbol": "GBPUSD", "timeframe": "5m"},
         "out": "out",
         "timeframe": "15m",
         "cost_pips": 2,
@@ -69,7 +69,8 @@ def test_reads_every_setting(tmp_path) -> None:
 
     assert config == BacktestConfig(
         strategy="rsi_divergence", out=tmp_path / "out",
-        data=DataConfig(symbol="GBPUSD", dukascopy_years=(2024, 2025), timeframe="5m"), timeframe="15m",
+        data=DataConfig(source=tmp_path / "duka", format="dukascopy", symbol="GBPUSD", timeframe="5m"),
+        timeframe="15m",
         cost_pips=2.0, spread_cost=True, commission_pips=0.2, ambiguity="assume-sl",
         resolve_from="entry-bar", splits=False,
     )
@@ -81,10 +82,18 @@ def test_reads_every_setting(tmp_path) -> None:
     ({"strategy": "rsi_divergence", "out": "o"}, '"data" is required'),
     ({"strategy": "rsi_divergence", "source": "m5.csv", "out": "o"}, "unknown key.*source"),
     ({"strategy": "rsi_divergence", "data": "m5.csv", "out": "o"}, '"data" must be a JSON object'),
-    ({"strategy": "rsi_divergence", "data": {"symbol": "EURUSD"}, "out": "o"}, "exactly one of"),
-    ({"strategy": "rsi_divergence", "data": _data(dukascopy_years=[2024]), "out": "o"}, "exactly one of"),
-    ({"strategy": "rsi_divergence", "data": {"source": "m5.csv"}, "out": "o"}, '"data.symbol" is required'),
-    ({"strategy": "rsi_divergence", "data": {"source": "m5.csv", "symbol": "EURUSX"}, "out": "o"}, '"data.symbol"'),
+    ({"strategy": "rsi_divergence", "data": {"format": "metatrader", "symbol": "EURUSD"}, "out": "o"},
+     '"data.source" is required'),
+    ({"strategy": "rsi_divergence", "data": {"source": "m5.csv", "symbol": "EURUSD"}, "out": "o"},
+     '"data.format" is required'),
+    ({"strategy": "rsi_divergence", "data": {"source": "m5.csv", "format": "metatrader"}, "out": "o"},
+     '"data.symbol" is required'),
+    ({"strategy": "rsi_divergence", "data": _data(format="mt5"), "out": "o"},
+     '"data.format" is "mt5"; choose one of metatrader, dukascopy, clean-csv'),
+    ({"strategy": "rsi_divergence", "data": _data(format=5), "out": "o"}, '"data.format" must be a string'),
+    ({"strategy": "rsi_divergence", "data": _data(symbol="EURUSX"), "out": "o"}, '"data.symbol"'),
+    ({"strategy": "rsi_divergence", "data": _data(dukascopy_years=[2024]), "out": "o"},
+     "unknown key.*data.dukascopy_years"),
     ({"strategy": "rsi_divergence", "data": _data(timefrane="1m"), "out": "o"}, "unknown key.*data.timefrane"),
     ({"strategy": "rsi_divergence", "data": _data(timeframe=1), "out": "o"}, '"data.timeframe" must be a string'),
     ({"strategy": "rsi_divergence", "data": _data(timeframe="1min"), "out": "o"}, '"data.timeframe": invalid'),
@@ -99,10 +108,6 @@ def test_reads_every_setting(tmp_path) -> None:
     ({"strategy": "rsi_divergence", "data": _data(), "out": "o", "cost_pips": "1.7"}, '"cost_pips" must be a number'),
     ({"strategy": "rsi_divergence", "data": _data(), "out": "o", "cost_pips": True}, '"cost_pips" must be a number'),
     ({"strategy": "rsi_divergence", "data": _data(), "out": "o", "splits": "no"}, '"splits" must be true or false'),
-    ({"strategy": "rsi_divergence", "data": {"dukascopy_years": [], "symbol": "EURUSD"}, "out": "o"},
-     '"data.dukascopy_years"'),
-    ({"strategy": "rsi_divergence", "data": {"dukascopy_years": ["2024"], "symbol": "EURUSD"}, "out": "o"},
-     '"data.dukascopy_years"'),
 ])
 def test_rejects_an_invalid_config(tmp_path, config: dict, message: str) -> None:
     with pytest.raises(ValueError, match=message):

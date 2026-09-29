@@ -13,6 +13,7 @@ resolved against the config file's own folder, not the working directory:
         "strategy": "narrow_asia_fade",
         "data": {
             "source": "../../output/research_output_v24_1/EURUSD_M5_CLEAN_2020_2026.csv",
+            "format": "clean-csv",
             "symbol": "EURUSD",
             "timeframe": "5m"
         },
@@ -25,13 +26,12 @@ resolved against the config file's own folder, not the working directory:
 `strategy_parameters` (optional) overrides the strategy's dataclass fields;
 the rest keep their defaults. Time fields take "HH:MM" strings.
 
-`data` describes the bars as they are on disk. Its `source` is a pipeline
-clean CSV (detected by its `datetime` header), a folder of MT5 exports, or one
-export. `dukascopy_years` (instead of `source`) reads Dukascopy bid/ask M1
-pairs from the folder in `ports/ducascopy/config.py`; those bars are UTC, not
-broker-server time. `symbol` is required; `timeframe` (default "1m") is the
-bar size of the source, which the root `timeframe` -- the size to backtest
-on -- must be a whole multiple of.
+`data` describes the bars as they are on disk. `source` (a file or a folder)
+and `format` say where they are and how to read them: "metatrader" for MT4/MT5
+exports, "dukascopy" for Dukascopy bid/ask pairs (UTC bars, not broker-server
+time), "clean-csv" for the research pipeline's clean CSV. `symbol` is
+required; `timeframe` (default "1m") is the bar size of the source, which the
+root `timeframe` -- the size to backtest on -- must be a whole multiple of.
 
 Writes four files into `out`, overwriting earlier results there, and prints
 the statistics report. Strategies come from `strategies.STRATEGIES`.
@@ -70,7 +70,7 @@ from dataclasses import asdict, dataclass, field, fields, is_dataclass
 from datetime import datetime, time as clock_time
 from pathlib import Path
 
-from application.load_historical_data_use_case import load_dukascopy, load_source
+from application.load_historical_data_use_case import SourceFormat, load_source
 from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest, BacktestResult, PositionResolveDelay
 from domain.pandas_approach.cost_model import FixedCost, SpreadCost
 from domain.pandas_approach.splits import Split
@@ -100,7 +100,7 @@ def main() -> int:
         run = _run(config, timeframe, symbol)
     except (ValueError, FileNotFoundError) as error:
         # Data and strategy that don't fit together (wrong clock, no spread
-        # column, missing Dukascopy year): say so plainly, not as a traceback.
+        # column, missing source files): say so plainly, not as a traceback.
         print(f"ERROR: {error}", file=sys.stderr)
         return 1
 
@@ -122,12 +122,8 @@ def _parse_args() -> argparse.Namespace:
 
 
 def _run(config: BacktestConfig, timeframe: SampleSize, symbol: Symbol) -> BacktestRun:
-    if config.data.source is not None:
-        source = config.data.source
-        data = load_source(config.data.source, timeframe, symbol, progress=print)
-    else:
-        source = f"Dukascopy {', '.join(map(str, config.data.dukascopy_years))}"
-        data = load_dukascopy(list(config.data.dukascopy_years), timeframe, symbol, progress=print)
+    source_format = SourceFormat(config.data.format)
+    data = load_source(config.data.source, source_format, timeframe, symbol, progress=print)
 
     cost = SpreadCost(commission_pips=config.commission_pips) if config.spread_cost else FixedCost(pips=config.cost_pips)
 
@@ -139,21 +135,21 @@ def _run(config: BacktestConfig, timeframe: SampleSize, symbol: Symbol) -> Backt
         position_resolve_delay=PositionResolveDelay(config.resolve_from),
         splits=config.splits,
     )
-    return run_backtest(backtest, config.out, source=str(source))
+    return run_backtest(backtest, config.out, source=f"{config.data.source} ({source_format.value})")
 
 
 @dataclass(frozen=True)
 class DataConfig:
     """The config's `data` object: where the bars come from and what they are.
 
-    `source` is already resolved against the config file's folder. Exactly one
-    of `source` and `dukascopy_years` is set. `timeframe` is the bar size of
-    the source as stored, not the one backtested on.
+    `source` is already resolved against the config file's folder. `format` is
+    a `SourceFormat` value. `timeframe` is the bar size of the source as
+    stored, not the one backtested on.
     """
 
+    source: Path
+    format: str
     symbol: str
-    source: Path | None = None
-    dukascopy_years: tuple[int, ...] | None = None
     timeframe: str = "1m"
 
 
@@ -199,7 +195,7 @@ _CONFIG_KEY_TYPES = {
 
 _DATA_KEY_TYPES = {
     "source": str,
-    "dukascopy_years": list,
+    "format": str,
     "symbol": str,
     "timeframe": str,
 }
@@ -259,23 +255,17 @@ def load_config(path) -> BacktestConfig:
 def _data_config(file: Path, raw: dict, fail) -> DataConfig:
     """The `data` object, checked, with `source` resolved against the config file's folder."""
     _check_keys(raw, _DATA_KEY_TYPES, "data.", fail)
-    if "symbol" not in raw:
-        raise fail('"data.symbol" is required')
-    if ("source" in raw) == ("dukascopy_years" in raw):
-        raise fail('give exactly one of "data.source" and "data.dukascopy_years"')
+    for key in ("source", "format", "symbol"):
+        if key not in raw:
+            raise fail(f'"data.{key}" is required')
+    _check_choice(raw, "format", [source_format.value for source_format in SourceFormat], fail, prefix="data.")
 
     values = dict(raw)
     try:
         by_ticker(raw["symbol"])
     except ValueError as error:
         raise fail(f'"data.symbol": {error}') from error
-    if "source" in raw:
-        values["source"] = _relative_to(file, raw["source"])
-    if "dukascopy_years" in raw:
-        years = raw["dukascopy_years"]
-        if not years or not all(_has_json_type(year, int) for year in years):
-            raise fail(f'"data.dukascopy_years" must be a non-empty list of years, got {json.dumps(years)}')
-        values["dukascopy_years"] = tuple(years)
+    values["source"] = _relative_to(file, raw["source"])
     return DataConfig(**values)
 
 
@@ -353,9 +343,9 @@ def _check_keys(raw: dict, key_types: dict[str, type], prefix: str, fail) -> Non
             raise fail(f'"{prefix}{key}" must be {_JSON_TYPE_NAMES[key_types[key]]}, got {json.dumps(value)}')
 
 
-def _check_choice(raw: dict, key: str, choices: list[str], fail) -> None:
+def _check_choice(raw: dict, key: str, choices: list[str], fail, *, prefix: str = "") -> None:
     if key in raw and raw[key] not in choices:
-        raise fail(f'"{key}" is {json.dumps(raw[key])}; choose one of {", ".join(choices)}')
+        raise fail(f'"{prefix}{key}" is {json.dumps(raw[key])}; choose one of {", ".join(choices)}')
 
 
 @dataclass(frozen=True)

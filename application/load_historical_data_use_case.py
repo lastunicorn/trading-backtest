@@ -1,11 +1,12 @@
 """Load bars from any of the repo's sources into a `HistoricalData`.
 
-    from application.load_historical_data_use_case import load_clean_csv, load_dukascopy, load_mt5, load_source
+    from application.load_historical_data_use_case import (
+        SourceFormat, load_clean_csv, load_dukascopy, load_mt5, load_source)
 
     data = load_mt5("data/eurusd/1min", SampleSize.Parse("5m"), EurUsd(), progress=print)
     data = load_clean_csv("output/research_output_v24_1/EURUSD_M5_CLEAN_2020_2026.csv", SampleSize.Parse("5m"), EurUsd())
-    data = load_dukascopy([2024, 2025], SampleSize.Parse("5m"), EurUsd())
-    data = load_source(path, timeframe, symbol)   # MT5 or clean CSV, detected from the header
+    data = load_dukascopy("/data/ducascopy/eurusd/2025", SampleSize.Parse("5m"), EurUsd())
+    data = load_source(path, SourceFormat.METATRADER, timeframe, symbol)   # the loader for a format
 
 Each source differs in format, spread unit and clock, and this module is where
 those differences are settled:
@@ -23,8 +24,8 @@ M5 file gives the M5 bars back labelled M1.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
-from pathlib import Path
+from collections.abc import Callable
+from enum import Enum
 from zoneinfo import ZoneInfo
 
 import pandas as pd
@@ -36,28 +37,30 @@ from domain.sample_size import SampleSize
 from domain.symbol import Symbol
 from ports import ducascopy
 
-__all__ = ["_is_clean_csv", "load_clean_csv", "load_dukascopy", "load_mt5", "load_source"]
+__all__ = ["SourceFormat", "load_clean_csv", "load_dukascopy", "load_mt5", "load_source"]
 
 Progress = Callable[[str], None]
 
 
-def load_source(source, timeframe: SampleSize, symbol: Symbol, *, progress: Progress | None = None) -> HistoricalData:
-    """A clean CSV if `source` is one, MT5 exports otherwise."""
-    if _is_clean_csv(source):
+class SourceFormat(Enum):
+    """How a source's files are laid out, which decides the loader. Values are the config's `data.format`."""
+
+    METATRADER = "metatrader"   # MT4/MT5 exports: a folder of them, or one
+    DUKASCOPY = "dukascopy"     # bid/ask pairs: a folder of them, or one file of a pair
+    CLEAN_CSV = "clean-csv"     # the research pipeline's clean CSV (v24 output)
+
+
+def load_source(
+    source, source_format: SourceFormat, timeframe: SampleSize, symbol: Symbol, *, progress: Progress | None = None,
+) -> HistoricalData:
+    """`source` read by the loader for `source_format`."""
+    if source_format is SourceFormat.METATRADER:
+        return load_mt5(source, timeframe, symbol, progress=progress)
+    if source_format is SourceFormat.DUKASCOPY:
+        return load_dukascopy(source, timeframe, symbol, progress=progress)
+    if source_format is SourceFormat.CLEAN_CSV:
         return load_clean_csv(source, timeframe, symbol)
-    
-    return load_mt5(source, timeframe, symbol, progress=progress)
-
-
-def _is_clean_csv(path) -> bool:
-    """Whether `path` is a single pipeline clean CSV -- its header starts with `datetime`."""
-    path = Path(path)
-    
-    if not path.is_file():
-        return False
-    
-    with open(path, encoding="utf-8-sig") as handle:
-        return handle.readline().lower().startswith("datetime")
+    raise ValueError(f"unknown source format {source_format!r}")
 
 
 def load_mt5(source, timeframe: SampleSize, symbol: Symbol, *, progress: Progress | None = None) -> HistoricalData:
@@ -78,28 +81,14 @@ def load_clean_csv(path, timeframe: SampleSize, symbol: Symbol) -> HistoricalDat
     return HistoricalData.from_frame(frame, timeframe, symbol, spread_unit=SpreadUnit.POINTS)
 
 
-def load_dukascopy(
-    years: Iterable[int],
-    timeframe: SampleSize,
-    symbol: Symbol,
-    *,
-    data_dir=None,
-    progress: Progress | None = None,
-) -> HistoricalData:
-    """Dukascopy M1 bid/ask pairs for `years`, resampled; the clock stays UTC.
+def load_dukascopy(source, timeframe: SampleSize, symbol: Symbol, *, progress: Progress | None = None) -> HistoricalData:
+    """Dukascopy M1 bid/ask pairs under folder `source` (or the pair one file belongs to), resampled; the clock stays UTC.
 
     Dukascopy has no volume, so the empty volume columns are dropped rather
-    than resampled into zeros. `data_dir` defaults to the port's config.
+    than resampled into zeros.
     """
-    say = progress or (lambda _message: None)
-    pieces = []
-    for year in sorted(set(years)):
-        say(f"Reading Dukascopy {year}...")
-        raw = ducascopy.read_frame(year, data_dir=data_dir).drop(columns=["tick_volume", "volume"])
-        pieces.append(resample_ohlc(clean_frame(raw), timeframe))
-
-    if not pieces:
-        raise ValueError("no years given")
-
-    frame = clean_frame(pd.concat(pieces, ignore_index=True))
+    if progress is not None:
+        progress(f"Reading Dukascopy {source}...")
+    raw = ducascopy.read_path(source).drop(columns=["tick_volume", "volume"])
+    frame = resample_ohlc(clean_frame(raw), timeframe)
     return HistoricalData.from_frame(frame, timeframe, symbol, spread_unit=SpreadUnit.PRICE, timezone=ZoneInfo("UTC"))

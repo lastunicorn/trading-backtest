@@ -14,7 +14,7 @@ M5 = SampleSize.Parse("5m")
 
 
 def test_reads_bid_prices_resampled(tmp_path) -> None:
-    data = load_dukascopy([2020], M5, EurUsd(), data_dir=write_dukascopy_month(tmp_path))
+    data = load_dukascopy(write_dukascopy_month(tmp_path), M5, EurUsd())
 
     assert len(data) == 2
     assert data.data["datetime"].iat[0] == START
@@ -22,29 +22,24 @@ def test_reads_bid_prices_resampled(tmp_path) -> None:
 
 
 def test_spread_is_converted_from_price_units_to_pips(tmp_path) -> None:
-    data = load_dukascopy([2020], M5, EurUsd(), data_dir=write_dukascopy_month(tmp_path, spread=0.00002))
+    data = load_dukascopy(write_dukascopy_month(tmp_path, spread=0.00002), M5, EurUsd())
 
     assert data.data["spread"].tolist() == pytest.approx([0.2, 0.2])
 
 
 def test_clock_is_utc(tmp_path) -> None:
-    data = load_dukascopy([2020], M5, EurUsd(), data_dir=write_dukascopy_month(tmp_path))
+    data = load_dukascopy(write_dukascopy_month(tmp_path), M5, EurUsd())
 
     assert data.timezone == ZoneInfo("UTC")
 
 
 def test_volume_columns_are_dropped_not_zero_filled(tmp_path) -> None:
-    data = load_dukascopy([2020], M5, EurUsd(), data_dir=write_dukascopy_month(tmp_path))
+    data = load_dukascopy(write_dukascopy_month(tmp_path), M5, EurUsd())
 
     assert "tick_volume" not in data.data.columns
     assert "volume" not in data.data.columns
 
 
-def test_no_years_is_rejected(tmp_path) -> None:
-    with pytest.raises(ValueError, match="no years"):
-        load_dukascopy([], M5, EurUsd(), data_dir=tmp_path)
-
-
-def test_missing_year_raises(tmp_path) -> None:
+def test_a_folder_without_exports_raises(tmp_path) -> None:
     with pytest.raises(FileNotFoundError):
-        load_dukascopy([2021], M5, EurUsd(), data_dir=write_dukascopy_month(tmp_path))
+        load_dukascopy(tmp_path, M5, EurUsd())

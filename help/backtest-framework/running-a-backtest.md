@@ -25,6 +25,7 @@ python3 backtest.py backtests/narrow_asia_fade        # a folder: reads the back
 	"strategy": "narrow_asia_fade",
 	"data": {
 		"source": "../../output/research_output_v24_1/EURUSD_M5_CLEAN_2020_2026.csv",
+		"format": "clean-csv",
 		"symbol": "EURUSD",
 		"timeframe": "5m"
 	},
@@ -40,8 +41,8 @@ python3 backtest.py backtests/narrow_asia_fade        # a folder: reads the back
 |---|---|---|---|
 | `strategy` | yes | – | A key of `strategies.STRATEGIES`, e.g. `"narrow_asia_fade"`, `"rsi_divergence"`, `"session_breakout"`. |
 | `data` | yes | – | The bars as they are on disk: an object with the `data.*` keys below. |
-| `data.source` | one of these two | – | A pipeline clean CSV (recognised by its `datetime` header), a folder of MT5 exports, or one MT5 export. Bars are on the broker-server clock. |
-| `data.dukascopy_years` | one of these two | – | A list of years, e.g. `[2024, 2025]`: read Dukascopy bid/ask M1 pairs for them from the folder set in `ports/ducascopy/config.py`. Bars are in **UTC**. |
+| `data.source` | yes | – | A file or a folder of files in `data.format`. |
+| `data.format` | yes | – | How to read `data.source`:<br>`"metatrader"`: MT4/MT5 exports, a folder of them or one file. Broker-server clock.<br>`"dukascopy"`: Dukascopy bid/ask M1 pairs, a folder of them (searched recursively, so the whole export folder or one year of it) or either file of one pair. **UTC** clock.<br>`"clean-csv"`: the research pipeline's clean CSV (v24 output). Broker-server clock. |
 | `data.symbol` | yes | – | Ticker of the source data, for pip size and price precision: `EURUSD`, `GBPUSD`, `AUDUSD`, `NZDUSD`, `USDCAD`, `USDCHF`, `USDJPY`, `XAUUSD`, `XAGUSD`. |
 | `data.timeframe` | no | `"1m"` | Bar size of the source as stored: `"1m"` for raw MT5 exports and Dukascopy, `"5m"` for the pipeline clean CSV. Not read from the files: it is what the root `timeframe` is checked against. |
 | `out` | yes | – | Output directory. Created if missing; existing result files are **overwritten**. |
@@ -61,6 +62,7 @@ A variant of a strategy only needs `strategy_parameters`; the report header and 
 	"strategy": "narrow_asia_fade",
 	"data": {
 		"source": "../../output/research_output_v24_1/EURUSD_M5_CLEAN_2020_2026.csv",
+		"format": "clean-csv",
 		"symbol": "EURUSD",
 		"timeframe": "5m"
 	},
@@ -70,7 +72,7 @@ A variant of a strategy only needs `strategy_parameters`; the report header and 
 }
 ```
 
-The config is checked before any data is read: an unknown key (a typo such as `"ambigutiy"`), a value of the wrong JSON type, a missing required key, an invalid choice, a `timeframe` that isn't a whole multiple of `data.timeframe`, or a strategy parameter the strategy doesn't have or rejects (e.g. a negative `risk_reward`) prints `ERROR: <file>: …` and exits with code 1, rather than quietly running on a default. The same happens when the data and the strategy don't fit together: a broker-clock strategy on UTC data, `spread_cost` without a spread column, a missing Dukascopy year, or an unknown timeframe or symbol.
+The config is checked before any data is read: an unknown key (a typo such as `"ambigutiy"`), a value of the wrong JSON type, a missing required key, an invalid choice, a `timeframe` that isn't a whole multiple of `data.timeframe`, or a strategy parameter the strategy doesn't have or rejects (e.g. a negative `risk_reward`) prints `ERROR: <file>: …` and exits with code 1, rather than quietly running on a default. The same happens when the data and the strategy don't fit together: a broker-clock strategy on UTC data, `spread_cost` without a spread column, a missing source or an incomplete Dukascopy bid/ask pair, or an unknown timeframe or symbol.
 
 More examples, both in `backtests/`:
 
@@ -78,7 +80,7 @@ More examples, both in `backtests/`:
 // backtests/rsi_divergence/backtest.json: M15 bars rebuilt from raw M1 exports; entries are at a bar's open
 {
 	"strategy": "rsi_divergence",
-	"data": {"source": "../../data/eurusd/1min", "symbol": "EURUSD", "timeframe": "1m"},
+	"data": {"source": "../../data/eurusd/1min", "format": "metatrader", "symbol": "EURUSD", "timeframe": "1m"},
 	"out": "../../scratch/backtest_rsi_divergence",
 	"timeframe": "15m",
 	"resolve_from": "entry-bar"
@@ -87,7 +89,7 @@ More examples, both in `backtests/`:
 // backtests/rsi_divergence_dukascopy/backtest.json: the same on Dukascopy data, charging the real spread plus a commission
 {
 	"strategy": "rsi_divergence",
-	"data": {"dukascopy_years": [2024, 2025], "symbol": "EURUSD"},
+	"data": {"source": "/path/to/ducascopy/eurusd/2025", "format": "dukascopy", "symbol": "EURUSD"},
 	"out": "../../scratch/backtest_rsi_duka",
 	"timeframe": "15m",
 	"resolve_from": "entry-bar",
@@ -103,7 +105,7 @@ More examples, both in `backtests/`:
 Use this for several runs in a loop (parameter sweeps), or the numbers without files:
 
 ```python
-from application.load_historical_data_use_case import load_source
+from application.load_historical_data_use_case import SourceFormat, load_source
 from backtest import run_backtest
 from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest, PositionResolveDelay
 from domain.pandas_approach.cost_model import FixedCost
@@ -111,7 +113,8 @@ from domain.sample_size import SampleSize
 from domain.symbol import EurUsd
 from strategies.opening_range_breakout import OpeningRangeBreakout
 
-data = load_source("output/research_output_v24_1/EURUSD_M5_CLEAN_2020_2026.csv", SampleSize.Parse("5m"), EurUsd())
+data = load_source("output/research_output_v24_1/EURUSD_M5_CLEAN_2020_2026.csv", SourceFormat.CLEAN_CSV,
+                   SampleSize.Parse("5m"), EurUsd())
 backtest = Backtest(
     OpeningRangeBreakout(risk_reward=1.5),
     data,
@@ -151,10 +154,10 @@ For `ambiguity`, keep `exclude` unless you are reproducing a study that used ano
 
 ## 4. Data sources and clocks
 
-| Source | Loader | Spread in the file | Clock (`data.timezone`) |
-|---|---|---|---|
-| MT5 exports, `resample_csv.py` output | `load_mt5` | points (tick size) | broker server |
-| Pipeline clean CSV (v24 output) | `load_clean_csv` | none | broker server |
-| Dukascopy bid/ask pairs | `load_dukascopy` | price units (ask − bid) | UTC |
+| Source | `data.format` | Loader | Spread in the file | Clock (`data.timezone`) |
+|---|---|---|---|---|
+| MT4/MT5 exports, `resample_csv.py` output | `metatrader` | `load_mt5` | points (tick size) | broker server |
+| Pipeline clean CSV (v24 output) | `clean-csv` | `load_clean_csv` | none | broker server |
+| Dukascopy bid/ask pairs | `dukascopy` | `load_dukascopy` | price units (ask − bid) | UTC |
 
 The loaders convert spread to pips. The **broker-server clock is New York + 7 hours** (GMT+2 in winter, GMT+3 in summer, switching on the US daylight-saving dates), available as `domain.broker_clock.BROKER_SERVER_TZ`. To move a frame between clocks, use `domain.pandas_approach.shift_timezone.shift_timezone`.

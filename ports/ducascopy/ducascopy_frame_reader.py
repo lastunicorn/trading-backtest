@@ -12,14 +12,16 @@ a pair at all rather than one file at a time.
 
     read_frame(2020)          # every bid/ask pair for 2020, concatenated
     read_frame(2020, 3)       # March 2020 only
+    read_path("/data/ducascopy/eurusd/2026")   # every pair under a folder, or one pair
 
-The export folder is read from `config.DATA_DIR` (see `config.example.py` --
+`read_frame` looks in `config.DATA_DIR` (see `config.example.py` --
 `config.py` itself is gitignored, machine-specific) unless `data_dir` is
-passed explicitly.
+passed explicitly. `read_path` takes the location itself and needs no config.
 """
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pandas as pd
@@ -29,7 +31,7 @@ try:
 except ImportError:
     config = None
 
-__all__ = ["FRAME_COLUMNS", "read_frame"]
+__all__ = ["FRAME_COLUMNS", "read_frame", "read_path"]
 
 # Same shape the rest of the pipeline's frames use. tick_volume/volume have no
 # source on either side of a Dukascopy export, so they are always empty.
@@ -95,6 +97,48 @@ def _find_pairs(data_dir: Path, year: int, month: int | None) -> list[tuple[Path
     return list(zip(bid_files, ask_files))
 
 
+# A Dukascopy export's name: `<instrument>-<timeframe>-<side>-<start date>-<end>.csv`.
+# The end is a date for a whole month but a download time for a partial one,
+# and it differs between the two sides then (`...-2026-09-21T16-57` bid,
+# `...-2026-09-21T17-14` ask), so a pair is matched on everything before it.
+_EXPORT_NAME = re.compile(r"(?P<prefix>.+)-(?P<side>bid|ask)-(?P<start>\d{4}-\d{2}-\d{2})-.*\.csv")
+
+
+def _pairs_under(path: Path) -> list[tuple[Path, Path]]:
+    """Every bid/ask pair in folder `path` (searched recursively), or the pair `path` is one side of.
+
+    A pair is a bid and an ask file in the same folder with the same
+    instrument and start date. Sorted by file name, which is calendar order:
+    the name starts with the month it covers, whichever year folder it sits in.
+    """
+    if path.is_file():
+        match = _EXPORT_NAME.fullmatch(path.name)
+        if match is None:
+            raise ValueError(f"{path} is not a Dukascopy export: expected a name like eurusd-m1-bid-2020-01-01-2020-02-01.csv")
+        candidates = [candidate for candidate in path.parent.glob(f"{match['prefix']}-*-{match['start']}-*.csv")]
+    elif path.is_dir():
+        candidates = list(path.rglob("*.csv"))
+    else:
+        raise FileNotFoundError(f"no Dukascopy export at {path}")
+
+    sides: dict[tuple[Path, str, str], dict[str, Path]] = {}
+    for candidate in candidates:
+        match = _EXPORT_NAME.fullmatch(candidate.name)
+        if match is None:
+            continue
+        pair = sides.setdefault((candidate.parent, match["prefix"], match["start"]), {})
+        if match["side"] in pair:
+            raise ValueError(f"two Dukascopy {match['side']} files for one month: {pair[match['side']]} and {candidate}")
+        pair[match["side"]] = candidate
+
+    incomplete = [next(iter(pair.values())) for pair in sides.values() if len(pair) != 2]
+    if incomplete:
+        raise FileNotFoundError(f"Dukascopy file(s) without the other side of their pair: {', '.join(map(str, incomplete))}")
+    if not sides:
+        raise FileNotFoundError(f"no Dukascopy bid/ask files under {path}")
+    return sorted(((pair["bid"], pair["ask"]) for pair in sides.values()), key=lambda bid_ask: bid_ask[0].name)
+
+
 def _read_side(path: Path) -> pd.DataFrame:
     """One Dukascopy price-side file: timestamp (epoch ms, UTC) + OHLC."""
     frame = pd.read_csv(path, usecols=["timestamp", *_OHLC])
@@ -143,6 +187,19 @@ def read_frame(year: int, month: int | None = None, *, data_dir: str | Path | No
     pairs = _find_pairs(base, year, month)
 
     parts = [_read_pair(bid_path, ask_path) for bid_path, ask_path in pairs]
+    frame = parts[0] if len(parts) == 1 else pd.concat(parts, ignore_index=True)
+
+    return frame[["datetime", *FRAME_COLUMNS]]
+
+
+def read_path(path: str | Path) -> pd.DataFrame:
+    """Dukascopy M1 bars from every bid/ask pair under folder `path`, or from the one pair a file belongs to.
+
+    `path` may be a folder (searched recursively, so the whole export folder
+    or one year of it) or either file of a pair. Same columns and the same
+    no-cleaning rule as `read_frame`; pairs are concatenated in calendar order.
+    """
+    parts = [_read_pair(bid_path, ask_path) for bid_path, ask_path in _pairs_under(Path(path))]
     frame = parts[0] if len(parts) == 1 else pd.concat(parts, ignore_index=True)
 
     return frame[["datetime", *FRAME_COLUMNS]]

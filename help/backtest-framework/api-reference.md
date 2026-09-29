@@ -162,9 +162,8 @@ pandas rejects custom `tzinfo` objects, so don't pass `BROKER_SERVER_TZ` to `tz_
 |---|---|
 | `load_mt5(source, timeframe, symbol, *, progress=None)` | a folder of MT5 exports or one export; resampled per file and deduplicated across files (the pipeline's stage-0 build) |
 | `load_clean_csv(path, timeframe, symbol)` | the research pipeline's clean CSV |
-| `load_dukascopy(years, timeframe, symbol, *, data_dir=None, progress=None)` | Dukascopy bid/ask pairs; clock UTC, no volume columns |
-| `load_source(source, timeframe, symbol, *, progress=None)` | clean CSV if `is_clean_csv(source)`, else MT5 |
-| `is_clean_csv(path)` | whether the file's header starts with `datetime` |
+| `load_dukascopy(source, timeframe, symbol, *, progress=None)` | Dukascopy bid/ask pairs under a folder (recursively), or the pair one file belongs to; pairs match on instrument and start date; clock UTC, no volume columns |
+| `load_source(source, source_format, timeframe, symbol, *, progress=None)` | the loader for `source_format`, a `SourceFormat`: `METATRADER` → `load_mt5`, `DUKASCOPY` → `load_dukascopy`, `CLEAN_CSV` → `load_clean_csv` |
 
 All return a `HistoricalData` resampled to `timeframe`. Pass `progress=print` to see one line per file.
 

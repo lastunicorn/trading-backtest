@@ -11,11 +11,12 @@ Re-exported so callers can use the short form:
 
     read_frame(2020)      # whole year
     read_frame(2020, 3)   # March 2020 only
+    read_path(folder)     # every pair under a folder (or the pair one file belongs to)
 
 The export folder's location is machine-specific and lives in
 `ports/ducascopy/config.py` (gitignored) -- see `config.example.py`.
 """
 
-from ports.ducascopy.ducascopy_frame_reader import FRAME_COLUMNS, read_frame
+from ports.ducascopy.ducascopy_frame_reader import FRAME_COLUMNS, read_frame, read_path
 
-__all__ = ["FRAME_COLUMNS", "read_frame"]
+__all__ = ["FRAME_COLUMNS", "read_frame", "read_path"]

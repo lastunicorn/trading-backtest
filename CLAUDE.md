@@ -80,7 +80,7 @@ The split between the packages is the point of the layout:
 ports/mt5_file_access/mt5_bar_reader.py   MT5 CSV → `Bar` objects (dt, OHLC, volumes, spread)            [stdlib]
 ports/mt5_file_access/mt5_frame_reader.py MT5 CSV → pandas frame directly, same fields                  [pandas]
 ports/file_system_access/file_system.py   list the source csv files in a folder (or pass one file through) [stdlib]
-ports/ducascopy/ducascopy_frame_reader.py Dukascopy bid/ask M1 pairs → pandas frame (OHLC from bid, spread = ask - bid) [pandas]
+ports/ducascopy/ducascopy_frame_reader.py Dukascopy bid/ask M1 pairs → pandas frame (OHLC from bid, spread = ask - bid); `read_frame(year)` from config.DATA_DIR, `read_path(folder or file)` [pandas]
 domain/broker_clock.py                    BROKER_SERVER_TZ (New York + 7h), ShiftedZone, timezone_by_name ("broker" or IANA) [stdlib]
 domain/bar_approach/bar.py                the `Bar` entity — one OHLC candle (dt, OHLC, volumes, spread)  [stdlib]
 domain/bar_approach/resample_bars.py      resample an iterable of `Bar` to a coarser grid, streaming    [stdlib]
@@ -166,7 +166,7 @@ domain/pandas_approach/trade_results.py    per-trade gross/cost/net pips, risk p
 domain/pandas_approach/splits.py           Split, split_dates (v28's exact 60/20/20 cut), assign_splits
 domain/pandas_approach/statistics.py       compute_statistics, statistics_by_split, max_drawdown, max_consecutive_losses
 domain/pandas_approach/backtest.py         Backtest(strategy, data, cost_model, ambiguity_policy, position_resolve_delay, splits).run(); exits (`_simulate`), AmbiguityPolicy, PositionResolveDelay
-application/load_historical_data_use_case.py  load_mt5 / load_clean_csv / load_dukascopy / load_source → HistoricalData
+application/load_historical_data_use_case.py  load_mt5 / load_clean_csv / load_dukascopy / load_source(source, SourceFormat) → HistoricalData
 strategies/__init__.py                     STRATEGIES registry: the names a backtest.py config's `strategy` accepts
 strategies/narrow_asia_fade.py             v28's frozen rules (NarrowAsiaFade)
 strategies/rsi_divergence.py               RSI divergence reversal (RsiDivergence), entries = rsi_divergence_strategy.py's
@@ -184,7 +184,7 @@ python3 backtest.py backtests/rsi_divergence_dukascopy
 python3 backtest.py backtests/session_breakout        # script parity: 912 trades on the canonical M5 dataset
 ```
 
-The only CLI argument is a JSON config (or a folder holding `backtest.json`); its keys are the old flags in snake_case (`strategy`, `out`, `timeframe`, `cost_pips`, `spread_cost`, `commission_pips`, `ambiguity`, `resolve_from`, `splits`), a required `data` object describing the bars on disk (`source` | `dukascopy_years`, required `symbol`, and `timeframe` — the source's bar size, default `"1m"`, which the root `timeframe` must be a whole multiple of, checked by `SampleSize.can_be_resampled_from`), plus `strategy_parameters`: an object overriding the strategy's dataclass fields, type-checked against them (time fields as `"HH:MM"`) and validated by building the strategy while the config loads. **Relative `data.source`/`out` paths resolve against the config file's folder, not the cwd.** Unknown keys and wrong types are errors, not ignored. `data.source` is detected: a file with a `datetime` header is a pipeline clean CSV; anything else is MT5 exports (folder or one file). `out` is required and is overwritten. It writes `positions.csv` (one row per trade), `statistics.txt` (the human report — read it first), `statistics.csv` (one row per split, for diffing runs) and `run.json` (strategy + parameters, data range, simulation settings, git commit, source).
+The only CLI argument is a JSON config (or a folder holding `backtest.json`); its keys are the old flags in snake_case (`strategy`, `out`, `timeframe`, `cost_pips`, `spread_cost`, `commission_pips`, `ambiguity`, `resolve_from`, `splits`), a required `data` object describing the bars on disk (required `source`, `format` — `metatrader` | `dukascopy` | `clean-csv`, a `SourceFormat`, which picks the loader — and `symbol`, and `timeframe` — the source's bar size, default `"1m"`, which the root `timeframe` must be a whole multiple of, checked by `SampleSize.can_be_resampled_from`), plus `strategy_parameters`: an object overriding the strategy's dataclass fields, type-checked against them (time fields as `"HH:MM"`) and validated by building the strategy while the config loads. **Relative `data.source`/`out` paths resolve against the config file's folder, not the cwd.** Unknown keys and wrong types are errors, not ignored. `out` is required and is overwritten. It writes `positions.csv` (one row per trade), `statistics.txt` (the human report — read it first), `statistics.csv` (one row per split, for diffing runs) and `run.json` (strategy + parameters, data range, simulation settings, git commit, source).
 
 **The rules every backtest runs under** (the defaults hold unless the config changes them):
 
