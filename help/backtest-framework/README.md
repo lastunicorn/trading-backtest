@@ -106,7 +106,8 @@ Common mistakes:
 
 ## Further reading
 
-- [Running a backtest](running-a-backtest.md): every `backtest.py` config key, running from Python (custom parameters, sweeps), choosing `resolve_from` and `ambiguity`, data sources and their clocks. **Start here.**
+- [Running a backtest](running-a-backtest.md): the `backtest.py` command, running from Python (custom parameters, sweeps), choosing `resolve_from` and `ambiguity`, data sources and their clocks. **Start here.**
+- [The backtest config file](backtest-config.md): the JSON config's structure, every key and its default, strategy parameter overrides, validation.
 - [Reading the backtest results](reading-the-backtest-results.md): the four files a run writes, every statistic and every column.
 - [Writing a new strategy](writing-a-strategy.md): the strategy contract, a worked example, registering it for the CLI, parameter variants, tests.
 - [API reference](api-reference.md): every public name, module by module.
