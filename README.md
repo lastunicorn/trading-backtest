@@ -24,3 +24,26 @@ Run tests:
 python -m pytest tests/ -v
 ```
 
+## How to recreate the python virtual environment
+
+Remove the current virtual environment
+
+```sh
+rm -rf .venv
+```
+
+Recreate the virtual environment
+
+```sh
+python3 -m venv .venv
+```
+
+???
+
+```sh
+.venv/bin/pip install -r requirements.txt pytest
+```
+
+Then activate it
+
+- See the "How to run"
