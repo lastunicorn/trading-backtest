@@ -36,16 +36,16 @@ Stdlib only (pandas is not used).
 import argparse
 import sys
 import time
-from zoneinfo import ZoneInfoNotFoundError
 
 from domain.bar_approach.clean_bars import clean_bars
 from domain.bar_approach.resample_bars import resample_bars
 from domain.sample_size import SampleSize
 from domain.bar_approach.shift_bars import shift_bars
-from domain.broker_clock import BROKER_SERVER_TZ, timezone_by_name
+from domain.broker_clock import BROKER_SERVER_TZ, timezone_name
 from domain.symbol import by_ticker
 from ports.file_system_access.file_system import find_files
 from ports.mt5_file_access import BarParseError, iterate_bars, write_bars
+from ui.cli_args import timezone_arg
 from ui.bar_window import BarWindow
 from ui.bar_window_view import display_bar_window
 
@@ -60,15 +60,6 @@ def main():
     if not paths:
         print(f"ERROR: no csv files found at {args.source!r}", file=sys.stderr)
         return 1
-
-    target_tz = None
-
-    if args.timezone:
-        try:
-            target_tz = timezone_by_name(args.timezone)
-        except ZoneInfoNotFoundError:
-            print(f"ERROR: unknown timezone {args.timezone!r}", file=sys.stderr)
-            return 1
 
     interval = None
 
@@ -111,8 +102,8 @@ def main():
         print(f"ERROR: {args.source}: line {line_no}: {reason}", file=sys.stderr)
         return 1
 
-    if target_tz is not None:
-        bars = list(shift_bars(bars, BROKER_SERVER_TZ, target_tz))
+    if args.timezone is not None:
+        bars = list(shift_bars(bars, BROKER_SERVER_TZ, args.timezone))
 
     if interval is not None:
         bars = list(resample_bars(bars, interval))
@@ -125,11 +116,11 @@ def main():
     if args.interval:
         print(f"RESAMPLE: {args.interval}")
 
-    if args.timezone:
-        print(f"TIMEZONE: {args.timezone}")
+    if args.timezone is not None:
+        print(f"TIMEZONE: {timezone_name(args.timezone)}")
 
     print("=" * 64)
-    print(f"Timezone: {args.timezone or BROKER_SERVER_TZ}")
+    print(f"Timezone: {BROKER_SERVER_TZ if args.timezone is None else timezone_name(args.timezone)}")
     print(f"Bars:   {len(bars):,}")
     print(f"First:  {bars[0].dt:%Y.%m.%d %H:%M}")
     print(f"Last:   {bars[-1].dt:%Y.%m.%d %H:%M}")
@@ -178,6 +169,7 @@ def parse_args():
 
     parser.add_argument(
         "--timezone",
+        type=timezone_arg,
         default=None,
         metavar="TZ",
         help="Shift from broker-server time (New York + 7h, see domain.broker_clock) "

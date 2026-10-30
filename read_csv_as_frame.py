@@ -37,17 +37,17 @@ Requires pandas (see requirements.txt); activate .venv first.
 import argparse
 import sys
 import time
-from zoneinfo import ZoneInfoNotFoundError
 
 import pandas as pd
 
 from domain.pandas_approach.frames import clean_frame, resample_ohlc
-from domain.broker_clock import BROKER_SERVER_TZ, timezone_by_name
+from domain.broker_clock import BROKER_SERVER_TZ, timezone_name
 from domain.pandas_approach.shift_timezone import shift_timezone
 from domain.sample_size import SampleSize
 from domain.symbol import by_ticker
 from ports.file_system_access.file_system import find_files
 from ports.mt5_file_access import read_frame, write_frame
+from ui.cli_args import timezone_arg
 from ui.frame_table_view import display_frame
 
 
@@ -60,15 +60,6 @@ def main():
     if not paths:
         print(f"ERROR: no csv files found at {args.source!r}", file=sys.stderr)
         return 1
-
-    target_tz = None
-
-    if args.timezone:
-        try:
-            target_tz = timezone_by_name(args.timezone)
-        except ZoneInfoNotFoundError:
-            print(f"ERROR: unknown timezone {args.timezone!r}", file=sys.stderr)
-            return 1
 
     interval = None
 
@@ -105,8 +96,8 @@ def main():
 
     frame = clean_frame(frame)
 
-    if target_tz is not None:
-        frame = shift_timezone(frame, target_tz)
+    if args.timezone is not None:
+        frame = shift_timezone(frame, args.timezone)
 
     if interval is not None:
         frame = resample_ohlc(frame, interval)
@@ -119,11 +110,11 @@ def main():
     if args.interval:
         print(f"RESAMPLE: {args.interval}")
 
-    if args.timezone:
-        print(f"TIMEZONE: {args.timezone}")
+    if args.timezone is not None:
+        print(f"TIMEZONE: {timezone_name(args.timezone)}")
 
     print("=" * 64)
-    print(f"Timezone: {args.timezone or BROKER_SERVER_TZ}")
+    print(f"Timezone: {BROKER_SERVER_TZ if args.timezone is None else timezone_name(args.timezone)}")
     print(f"Bars:   {len(frame):,}")
     print(f"First:  {frame['datetime'].iloc[0]:%Y.%m.%d %H:%M}")
     print(f"Last:   {frame['datetime'].iloc[-1]:%Y.%m.%d %H:%M}")
@@ -166,6 +157,7 @@ def parse_args():
 
     parser.add_argument(
         "--timezone",
+        type=timezone_arg,
         default=None,
         metavar="TZ",
         help="Shift from broker-server time (New York + 7h, see domain.broker_clock) "

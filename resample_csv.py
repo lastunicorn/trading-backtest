@@ -41,21 +41,21 @@ Requires pandas (see requirements.txt); activate .venv first.
 from __future__ import annotations
 
 import argparse
-import sys
 import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, tzinfo
 from pathlib import Path
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 
 from domain.pandas_approach.frames import resample_ohlc
-from domain.broker_clock import timezone_by_name
+from domain.broker_clock import timezone_name
 from domain.pandas_approach.shift_timezone import shift_timezone
 from ports.file_system_access import find_files
 from ports.mt5_file_access import read_frame, write_frame
+from ui.cli_args import timezone_arg
 
 # 90-column rules for the printed report.
 WIDTH = 90
@@ -320,22 +320,8 @@ def main() -> None:
     destination_path = Path(args.destination).resolve()
     destination_timeframe = args.timeframe
 
-    source_tz = None
-    destination_tz = None
-
-    if args.source_timezone:
-        try:
-            source_tz = timezone_by_name(args.source_timezone)
-        except ZoneInfoNotFoundError:
-            print(f"ERROR: unknown timezone {args.source_timezone!r}", file=sys.stderr)
-            sys.exit(1)
-
-    if args.destination_timezone:
-        try:
-            destination_tz = timezone_by_name(args.destination_timezone)
-        except ZoneInfoNotFoundError:
-            print(f"ERROR: unknown timezone {args.destination_timezone!r}", file=sys.stderr)
-            sys.exit(1)
+    source_tz = args.source_timezone
+    destination_tz = args.destination_timezone
 
     if source_tz is not None and destination_tz is None:
         print("INFO: --source-timezone has no effect without --destination-timezone; ignoring it.")
@@ -347,7 +333,7 @@ def main() -> None:
     print("Destination: ", destination_path)
 
     if destination_tz is not None:
-        print(f"Timezone:     {args.source_timezone or 'UTC'} -> {args.destination_timezone}")
+        print(f"Timezone:     {timezone_name(source_tz or DEFAULT_SOURCE_TZ)} -> {timezone_name(destination_tz)}")
 
     # Resample the source M1 data to the desired timeframe and write the output.
 
@@ -398,6 +384,7 @@ def _parse_args() -> argparse.Namespace:
         help="broker timeframe label, e.g. M5")
 
     parser.add_argument("--source-timezone",
+        type=timezone_arg,
         default=None,
         metavar="TZ",
         help="IANA timezone the source's wall-clock datetimes are in, or "
@@ -405,6 +392,7 @@ def _parse_args() -> argparse.Namespace:
              "effect together with --destination-timezone.")
 
     parser.add_argument("--destination-timezone",
+        type=timezone_arg,
         default=None,
         metavar="TZ",
         help="IANA timezone to shift datetimes into before writing, e.g. "
