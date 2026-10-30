@@ -1,6 +1,6 @@
 """Tests for `backtest.build_run_info`."""
 
-from datetime import time
+from datetime import datetime, time
 from zoneinfo import ZoneInfo
 
 from backtest import build_run_info
@@ -8,6 +8,7 @@ from domain.broker_clock import BROKER_SERVER_TZ
 from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest, PositionCloseDelay
 from domain.pandas_approach.cost_model import FixedCost
 from domain.pandas_approach.splits import SplitMode
+from ports.run_environment import GitCommit
 from strategies.rsi_divergence import RsiDivergence
 from tests.domain.pandas_approach.backtest._fakes import ScriptedStrategy, data
 
@@ -58,12 +59,33 @@ def test_records_the_simulation_settings() -> None:
     }
 
 
-def test_records_trade_count_git_and_creation_time() -> None:
-    info = _info(Backtest(ScriptedStrategy([0, 1]), data(10, {})))
+def test_records_the_trade_count() -> None:
+    assert _info(Backtest(ScriptedStrategy([0, 1]), data(10, {})))["trades"] == 2
 
-    assert info["trades"] == 2
+
+def test_records_the_creation_time_from_now_to_the_second() -> None:
+    info = _info(Backtest(ScriptedStrategy([0]), data(10, {})), now=lambda: datetime(2026, 3, 4, 5, 6, 7, 890))
+
+    assert info["created"] == "2026-03-04T05:06:07"
+
+
+def test_records_the_git_commit() -> None:
+    info = _info(Backtest(ScriptedStrategy([0]), data(10, {})), git_commit=lambda: GitCommit("abc1234", dirty=True))
+
+    assert info["git"] == {"commit": "abc1234", "dirty": True}
+
+
+def test_records_unknown_git_state_as_none() -> None:
+    info = _info(Backtest(ScriptedStrategy([0]), data(10, {})), git_commit=lambda: GitCommit(None, dirty=None))
+
+    assert info["git"] == {"commit": None, "dirty": None}
+
+
+def test_reads_the_real_clock_and_repo_by_default() -> None:
+    info = _info(Backtest(ScriptedStrategy([0]), data(10, {})))
+
+    assert datetime.fromisoformat(info["created"])
     assert set(info["git"]) == {"commit", "dirty"}
-    assert "created" in info
 
 
 def test_source_is_recorded_only_when_given() -> None:
