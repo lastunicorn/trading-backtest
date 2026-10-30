@@ -15,8 +15,8 @@ from ports.mt5_file_access.mt5_bar_reader import (
 
 __all__ = ["FRAME_COLUMNS", "read_frame", "write_frame"]
 
-# Column order the pipeline's clean CSVs use. `real_volume` is spelled `volume`
-# in the frame, the name the research scripts already read.
+# Column order of the bar frames used across the repo. `real_volume` is
+# spelled `volume` in the frame.
 FRAME_COLUMNS = (
     "open",
     "high",

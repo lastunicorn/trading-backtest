@@ -2,7 +2,7 @@
 
 Read [how the framework works](README.md#how-it-works) and [how a backtest decides things](README.md#how-a-backtest-decides-things) first.
 
-This guide builds a complete strategy step by step: a **London opening-range breakout**. The code below was run on the canonical dataset and its tests pass.
+This guide builds a complete strategy step by step: a **London opening-range breakout**. The code below was run on the broker MT5 data and its tests pass.
 
 ## Contents
 
@@ -229,10 +229,10 @@ Put a config in `backtests/opening_range_breakout/backtest.json`:
 {
 	"strategy": "opening_range_breakout",
 	"data": {
-		"source": "../../output/research_output_v24_1/EURUSD_M5_CLEAN_2020_2026.csv",
-		"format": "clean-csv",
+		"source": "../../data/eurusd/1min",
+		"format": "metatrader",
 		"symbol": "EURUSD",
-		"timeframe": "5m",
+		"timeframe": "1m",
 		"timezone": "broker"
 	},
 	"out": "../../scratch/backtest_orb"

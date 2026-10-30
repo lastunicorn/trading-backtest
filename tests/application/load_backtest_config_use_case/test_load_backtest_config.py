@@ -50,7 +50,7 @@ def test_errors_name_the_config_file(tmp_path) -> None:
 
 @pytest.mark.parametrize("config, message", [
     ({"strategy": "rsi_divergence", "data": data(format="mt5"), "out": "o"},
-     '"data.format" is "mt5"; choose one of metatrader, dukascopy, clean-csv'),
+     '"data.format" is "mt5"; choose one of metatrader, dukascopy'),
     ({"strategy": "rsi_divergence", "data": data(symbol="EURUSX"), "out": "o"}, '"data.symbol"'),
     ({"strategy": "rsi_divergence", "data": data(timezone="New York"), "out": "o"}, '"data.timezone" is "New York"'),
     ({"strategy": "rsi_divergence", "data": data(timezone="../etc"), "out": "o"}, '"data.timezone" is "../etc"'),

@@ -11,13 +11,11 @@ price disagree on direction. See `domain/divergence.py` for the algorithm.
     python3 rsi_divergence.py data/eurusd/1min --hidden --rsi-length 21
 
 `source` is a folder of raw M1 exports or a single M1 csv file -- resampled to
-M5 through the same shared loader the research pipeline uses
+M5 through the same shared loader the backtests use for MT5 data
 (`application.build_clean_dataset_use_case`), so a scan sees exactly the bars
-the pipeline would. Nothing is written to disk; each divergence prints as
+a backtest would. Nothing is written to disk; each divergence prints as
 "<kind>: <start time> -> <end time>", the two pivot bars the divergence line
 connects, oldest first.
-
-Tooling, not a research stage: versionless and freely editable.
 
 Requires pandas (see requirements.txt); activate .venv first.
 """
@@ -43,8 +41,7 @@ def main() -> int:
     print("=" * WIDTH)
     print("Source:", args.source)
 
-    dataset = build_clean_dataset(args.source, timeframe="M5", progress=print)
-    df = dataset.frame
+    df = build_clean_dataset(args.source, timeframe="M5", progress=print)
 
     print(f"\n{len(df):,} M5 bars, {df['datetime'].min()} -> {df['datetime'].max()}")
 

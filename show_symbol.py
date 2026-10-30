@@ -1,7 +1,7 @@
 """Display every `Symbol` defined in domain.symbol, or just the ones matching
 a ticker/name filter.
 
-Utility, not a research stage -- reads nothing from disk, just prints the
+Utility -- reads nothing from disk, just prints the
 fixed pip/tick specifications domain.symbol defines.
 
     python3 show_symbol.py                # every symbol

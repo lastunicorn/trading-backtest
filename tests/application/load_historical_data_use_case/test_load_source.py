@@ -7,17 +7,9 @@ from domain.broker_clock import BROKER_SERVER_TZ
 from domain.sample_size import SampleSize
 from domain.symbol import EurUsd
 
-from ._fakes import write_clean_csv, write_dukascopy_month, write_mt5_export
+from ._fakes import write_dukascopy_month, write_mt5_export
 
 M5 = SampleSize.Parse("5m")
-
-
-def test_clean_csv_format_reads_the_pipeline_csv(tmp_path) -> None:
-    data = load_source(write_clean_csv(tmp_path / "clean.csv"), SourceFormat.CLEAN_CSV, M5, EurUsd(),
-                       timezone=BROKER_SERVER_TZ)
-
-    assert len(data) == 2
-    assert "spread" not in data.data.columns
 
 
 def test_metatrader_format_reads_mt5_exports(tmp_path) -> None:

@@ -2,7 +2,7 @@
 
 `"strategy": "narrow_asia_fade"` · class `strategies.narrow_asia_fade.NarrowAsiaFade`
 
-The frozen v28 "Candle DNA — Narrow Asia London Fade". It reproduces v28 trade for trade; `tests/strategies/narrow_asia_fade/test_v28_parity.py` checks this on every `pytest` run. It needs broker-server-clock minute bars (M5 as researched) and raises on anything else.
+"Candle DNA — Narrow Asia London Fade": on a day with a narrow Asia range, wait for London to break it, then fade the break back toward the Asia midpoint. It needs broker-server-clock minute bars (M5 as researched) and raises on anything else.
 
 ## Parameters
 
@@ -20,12 +20,10 @@ Each one can be set from a config's `strategy_parameters`.
 
 ## Running it
 
-Run with `"ambiguity": "assume-sl"` and `"resolve_from": "next-bar"` to match v28. `backtests/narrow_asia_fade/backtest.json` does that:
+The strategy was designed with `"ambiguity": "assume-sl"` and `"resolve_from": "next-bar"`. `backtests/narrow_asia_fade/backtest.json` runs it that way:
 
 ```bash
 python3 backtest.py backtests/narrow_asia_fade
 ```
-
-This prints 207 trades, 72.0% win rate, profit factor 1.37, +257.5 net pips — the same as v28.
 
 See also: [Running a backtest](running-a-backtest.md) · [framework overview](README.md)

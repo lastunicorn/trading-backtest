@@ -1,6 +1,6 @@
 """Print an MT5 export to the console, raw or resampled.
 
-Utility, not a research stage: reads via ports.mt5_file_access and either
+Utility: reads via ports.mt5_file_access and either
 displays -- nothing written to disk -- or, with --output, writes the
 processed bars to a CSV.
 

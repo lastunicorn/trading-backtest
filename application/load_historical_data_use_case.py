@@ -1,12 +1,10 @@
 """Load bars from any of the repo's sources into a `HistoricalData`.
 
     from application.load_historical_data_use_case import (
-        SourceFormat, load_clean_csv, load_dukascopy, load_mt5, load_source)
+        SourceFormat, load_dukascopy, load_mt5, load_source)
 
     M5 = SampleSize.Parse("5m")
     data = load_mt5("data/eurusd/1min", M5, EurUsd(), timezone=BROKER_SERVER_TZ, progress=print)
-    data = load_clean_csv("output/research_output_v24_1/EURUSD_M5_CLEAN_2020_2026.csv", M5, EurUsd(),
-                          timezone=BROKER_SERVER_TZ)
     data = load_dukascopy("/data/ducascopy/eurusd/2025", M5, EurUsd(), timezone=ZoneInfo("UTC"))
     data = load_source(path, SourceFormat.METATRADER, M5, symbol, timezone=tz)   # the loader for a format
 
@@ -15,7 +13,6 @@ differences are settled:
 
     format                                   spread unit
     MT4/MT5 exports (and resample_csv output) points
-    pipeline clean CSV (v24 output)           points
     Dukascopy bid/ask pairs                   price
 
 The clock is *not* a property of the format -- MT exports from this repo's
@@ -24,9 +21,9 @@ on New York time -- so every loader takes the source's `timezone` from the
 caller. It labels the bars; nothing is shifted.
 
 Every loader resamples to `timeframe`. That is a no-op when the source is
-already at it, as the clean M5 CSV is for "5m". It is wrong for a timeframe
-*finer* than the source, which no loader can detect -- asking for M1 from an
-M5 file gives the M5 bars back labelled M1.
+already at it, as `resample_csv.py`'s M5 output is for "5m". It is wrong for
+a timeframe *finer* than the source, which no loader can detect -- asking for
+M1 from an M5 file gives the M5 bars back labelled M1.
 """
 
 from __future__ import annotations
@@ -44,7 +41,7 @@ from domain.sample_size import SampleSize
 from domain.symbol import Symbol
 from ports import ducascopy
 
-__all__ = ["SourceFormat", "load_clean_csv", "load_dukascopy", "load_mt5", "load_source"]
+__all__ = ["SourceFormat", "load_dukascopy", "load_mt5", "load_source"]
 
 Progress = Callable[[str], None]
 
@@ -54,7 +51,6 @@ class SourceFormat(Enum):
 
     METATRADER = "metatrader"   # MT4/MT5 exports: a folder of them, or one
     DUKASCOPY = "dukascopy"     # bid/ask pairs: a folder of them, or one file of a pair
-    CLEAN_CSV = "clean-csv"     # the research pipeline's clean CSV (v24 output)
 
 
 def load_source(
@@ -71,8 +67,6 @@ def load_source(
         return load_mt5(source, timeframe, symbol, timezone=timezone, progress=progress)
     if source_format is SourceFormat.DUKASCOPY:
         return load_dukascopy(source, timeframe, symbol, timezone=timezone, progress=progress)
-    if source_format is SourceFormat.CLEAN_CSV:
-        return load_clean_csv(source, timeframe, symbol, timezone=timezone)
     raise ValueError(f"unknown source format {source_format!r}")
 
 
@@ -81,18 +75,11 @@ def load_mt5(
 ) -> HistoricalData:
     """A folder of MT5 exports, or one export, merged and resampled.
 
-    The stage-0 build (`build_clean_dataset`): each file resampled on its own,
+    Built by `build_clean_dataset`: each file resampled on its own,
     then deduplicated across files with the later file winning. A file that
     fails to parse is reported through `progress` and skipped.
     """
-    dataset = build_clean_dataset(source, timeframe=timeframe, progress=progress)
-    return HistoricalData.from_frame(dataset.frame, timeframe, symbol, spread_unit=SpreadUnit.POINTS, timezone=timezone)
-
-
-def load_clean_csv(path, timeframe: SampleSize, symbol: Symbol, *, timezone: tzinfo) -> HistoricalData:
-    """The research pipeline's clean CSV (`datetime,open,high,low,close,...`)."""
-    frame = pd.read_csv(path, parse_dates=["datetime"])
-    frame = resample_ohlc(clean_frame(frame), timeframe)
+    frame = build_clean_dataset(source, timeframe=timeframe, progress=progress)
     return HistoricalData.from_frame(frame, timeframe, symbol, spread_unit=SpreadUnit.POINTS, timezone=timezone)
 
 

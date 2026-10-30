@@ -1,4 +1,4 @@
-"""Dukascopy M1 bid/ask CSV pairs -> a DataFrame in the pipeline's frame shape.
+"""Dukascopy M1 bid/ask CSV pairs -> a DataFrame in the repo's bar-frame shape.
 
 Dukascopy ships one month of data per file, split into a bid file and an ask
 file with matching names apart from the `bid`/`ask` marker
@@ -33,7 +33,7 @@ except ImportError:
 
 __all__ = ["FRAME_COLUMNS", "read_frame", "read_path"]
 
-# Same shape the rest of the pipeline's frames use. tick_volume/volume have no
+# Same shape as the MT5 reader's frames. tick_volume/volume have no
 # source on either side of a Dukascopy export, so they are always empty.
 FRAME_COLUMNS = (
     "open",

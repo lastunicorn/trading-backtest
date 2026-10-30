@@ -12,12 +12,12 @@ and `yearly` label each day with its calendar month ("2024-03") or year
 
 For `dvt`, the research methodology's invariant: calendar days are sorted and sliced
 60 / 20 / 20, never shuffled, and a result only counts when it holds in all
-three. The slicing is v28's `split_dates` exactly (`int(n * 0.6)`,
-`int(n * 0.8)`), so the same days give the same boundaries.
+three. The boundaries are `int(n * 0.6)` and `int(n * 0.8)`, so the same
+days always give the same boundaries.
 
 A trade belongs to the split of the day it *opens* on. Which days are split is
-the caller's choice: every day in the data, or a filtered set, as v28 does
-with the days that have a usable Asia range.
+the caller's choice: every day in the data, or a filtered set, as
+`NarrowAsiaFade` does with the days that have a usable Asia range.
 """
 
 from __future__ import annotations

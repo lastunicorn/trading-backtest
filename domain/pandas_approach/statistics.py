@@ -14,11 +14,8 @@ Only *resolved* trades -- ones with a `net_pips` value -- enter the P&L
 figures. AMBIGUOUS trades under the EXCLUDE policy are counted in
 `trades`/`outcome_*` and reported as `excluded_ambiguous`, but carry no P&L.
 
-The formulas follow v28's `summarize`, `max_drawdown` and
-`max_consecutive_losses`, copied rather than imported (the vNN scripts are
-immutable). Two deliberate differences: a loss is `net_pips <= 0` in the
-streak count too (v28 used `< 0` there but `<= 0` for the loss count), and
-profit factor is NaN rather than inf when there is no P&L at all.
+A loss is `net_pips <= 0`, in the loss count and the losing-streak count
+alike, and profit factor is NaN rather than inf when there is no P&L at all.
 
 Drawdown and streaks follow the trades in `open_dt` order.
 """

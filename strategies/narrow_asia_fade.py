@@ -1,4 +1,4 @@
-"""Candle DNA -- Narrow Asia London Fade: v28's frozen rule set as a `TradingStrategy`.
+"""Candle DNA -- Narrow Asia London Fade, as a `TradingStrategy`.
 
     from strategies.narrow_asia_fade import NarrowAsiaFade
 
@@ -8,7 +8,7 @@ For each weekday, in broker-server time:
 
   1. Asia (02:00-10:00) sets H and L. The day needs nearly all of Asia's bars
      (at most 3 missing) and an Asia range of at most 21.72 pips -- the
-     discovery-Q1 threshold v28 froze.
+     bottom quartile of Asia ranges in the discovery period, then frozen.
   2. From London open (10:00) to study end (14:00, that bar included) the first
      bar to reach H or L is the break. A bar reaching both is ambiguous and the
      day is skipped. The break bar's relative volume (tick volume over its
@@ -20,19 +20,16 @@ For each weekday, in broker-server time:
      Still open after the 14:00 bar, it is closed at that bar's close.
 
 Step 4's exits are the simulator's job. This class only emits the entries,
-with `exit_dt` set to the end of the 14:00 bar. v28 resolved exits from the bar
-after entry and settled a bar touching both SL and TP as a stop, so the parity
-run is `AmbiguityPolicy.ASSUME_SL` with `PositionResolveDelay.NEXT_BAR`:
+with `exit_dt` set to the end of the 14:00 bar. The strategy was designed with
+exits resolved from the bar after entry and a bar touching both SL and TP
+settled as a stop, which is `AmbiguityPolicy.ASSUME_SL` with
+`PositionResolveDelay.NEXT_BAR`:
 
     python3 backtest.py backtests/narrow_asia_fade   # ambiguity assume-sl, resolve_from next-bar
 
-It reproduces v28's RANGE_MULT 1.00 line: 207 trades, 72.0% WR, PF 1.37,
-+257.5 pips.
-
 The windows are broker-server wall-clock times, so the data must be on that
 clock (`BROKER_SERVER_TZ`); anything else raises rather than trading the
-wrong hours. The two live ports -- `Candle_DNA_Narrow_Asia_London_Fade_v1.mq5`
-and `pine version 6.txt` -- must stay in sync with these defaults.
+wrong hours.
 """
 
 from __future__ import annotations
@@ -139,7 +136,7 @@ class NarrowAsiaFade(TradingStrategy):
         return positions
 
     def split_days(self, data: HistoricalData) -> list[date]:
-        """Weekdays with a usable Asia session -- the days v28 cut its 60/20/20 split over."""
+        """Weekdays with a usable Asia session -- the days the 60/20/20 split is cut over."""
         return [asia.day for asia in self._asia_days(data, self._weekdays(data))]
 
     def _asia_days(self, data: HistoricalData, frame: pd.DataFrame) -> Iterator[_AsiaDay]:
@@ -172,7 +169,7 @@ class NarrowAsiaFade(TradingStrategy):
             yield _AsiaDay(days[start], int(start), int(stop), asia_high, asia_low)
 
     def _weekdays(self, data: HistoricalData) -> pd.DataFrame:
-        """The bars v28 studied: Monday-Friday only, on the broker-server clock."""
+        """The bars the strategy trades: Monday-Friday only, on the broker-server clock."""
         if data.timezone != BROKER_SERVER_TZ:
             raise ValueError(
                 f"NarrowAsiaFade's windows are broker-server times; the data is on {data.timezone}"

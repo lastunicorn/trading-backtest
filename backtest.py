@@ -13,13 +13,13 @@ resolved against the config file's own folder, not the working directory:
     {
         "strategy": "narrow_asia_fade",
         "data": {
-            "source": "../../output/research_output_v24_1/EURUSD_M5_CLEAN_2020_2026.csv",
-            "format": "clean-csv",
+            "source": "../../data/eurusd/1min",
+            "format": "metatrader",
             "symbol": "EURUSD",
-            "timeframe": "5m",
+            "timeframe": "1m",
             "timezone": "broker"
         },
-        "out": "../../output/backtest_narrow_asia_fade",
+        "out": "output",
         "timeframe": "5m",
         "ambiguity": "assume-sl",
         "splits": "dvt",
@@ -34,7 +34,7 @@ clock), timezone-aware ones (`ZonedTime`) "HH:MM <zone>" such as
 `data` describes the bars as they are on disk. `source` (a file or a folder)
 and `format` say where they are and how to read them: "metatrader" for MT4/MT5
 exports, "dukascopy" for Dukascopy bid/ask pairs (UTC bars, not broker-server
-time), "clean-csv" for the research pipeline's clean CSV. `symbol` is
+time). `symbol` is
 required; `timeframe` (default "1m") is the bar size of the source, which the
 root `timeframe` -- the size to backtest on -- must be a whole multiple of.
 `timezone` (default "UTC") is the clock the source's timestamps are on: an
@@ -61,11 +61,9 @@ or build a report without writing anything:
 
     from backtest import run_backtest
 
-    run = run_backtest(Backtest(strategy, data), "output/backtest_my_strategy", source="EURUSD_M5_CLEAN.csv")
+    run = run_backtest(Backtest(strategy, data), "output/backtest_my_strategy", source="data/eurusd/1min")
     print(run.report)
     run.result.statistics      # the domain result, as `Backtest.run()` returned it
-
-Tooling, not a research stage: versionless and freely editable.
 """
 
 from __future__ import annotations

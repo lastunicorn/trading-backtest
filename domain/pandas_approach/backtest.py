@@ -22,14 +22,14 @@ The exit rules, all on bid OHLC (see `HistoricalData`):
 - **Hits.** A long hits TP when a bar's high reaches it and SL when its low
   does; a short mirrors that. The fill is the level itself. That includes a bar
   that *gaps* through the level, so SL fills are optimistic after gaps.
-- **Where checking starts** is `PositionResolveDelay`. With NEXT_BAR (the default, and
-  v28's rule) the entry bar is skipped, because an entry at a level *inside*
+- **Where checking starts** is `PositionResolveDelay`. With NEXT_BAR (the default) the
+  entry bar is skipped, because an entry at a level *inside*
   the bar can't tell whether the bar's extremes came before or after the fill.
   ENTRY_BAR is right for entries at the bar's open.
 - **One bar touching both levels** is ambiguous: OHLC can't say which came
   first. `AmbiguityPolicy` decides. EXCLUDE (the repo's research convention)
   closes it as AMBIGUOUS with no price, so it drops out of P&L. ASSUME_SL
-  (v28's rule) and ASSUME_TP settle it as that level.
+  and ASSUME_TP settle it as that level.
 - **Time stop.** With `exit_dt` set, only bars opening before `exit_dt` are
   traded. If none of them hits, the position closes MANUAL_CLOSE at the close
   of the last of them (the price at `exit_dt`), with `close_dt = exit_dt`.

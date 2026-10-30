@@ -2,7 +2,7 @@
 
 `"strategy": "session_breakout"` · class `strategies.session_breakout.SessionBreakout`
 
-The Tokyo/Asian session breakout from `tokyo-session-breakout.md`, ported from `session_breakout_strategy.py`. It matches that script trade for trade. `tests/strategies/session_breakout/test_script_parity.py` runs both on a synthetic M1 random walk on every `pytest` run, and the two also agree on all 912 trades of the canonical 2020–2026 M5 dataset.
+The Tokyo/Asian session breakout from `tokyo-session-breakout.md`, ported from `session_breakout_strategy.py`. It matches that script trade for trade. `tests/strategies/session_breakout/test_script_parity.py` runs both on a synthetic M1 random walk on every `pytest` run, and the two also agreed on all 912 trades of the 2020–2026 broker M5 data.
 
 For each UTC calendar day D:
 
@@ -41,12 +41,10 @@ The script records no price for a force-closed position and leaves those positio
 
 ## Running it
 
-`backtests/session_breakout/backtest.json` runs with the parity settings (`entry-bar`, `exclude`, no costs) on the canonical broker-clock M5 dataset:
+`backtests/session_breakout/backtest.json` runs with the parity settings (`entry-bar`, `exclude`, no costs):
 
 ```bash
 python3 backtest.py backtests/session_breakout
 ```
-
-This prints 912 trades: 534 stop-loss hits, 321 take-profit hits, 32 manual closes and 25 ambiguous trades.
 
 See also: [Running a backtest](running-a-backtest.md) · [framework overview](README.md)

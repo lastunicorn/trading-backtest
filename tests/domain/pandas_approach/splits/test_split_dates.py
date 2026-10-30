@@ -21,7 +21,7 @@ def test_ten_days_split_six_two_two() -> None:
 
 
 @pytest.mark.parametrize("n", [1, 7, 11, 1599, 2001])
-def test_boundaries_match_v28_int_truncation(n: int) -> None:
+def test_boundaries_use_int_truncation(n: int) -> None:
     discovery, validation, test = _counts(split_dates(_days(n)))
 
     assert discovery == int(n * 0.60)

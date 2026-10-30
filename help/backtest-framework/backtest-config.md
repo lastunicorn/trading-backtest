@@ -32,13 +32,13 @@ A config is one JSON object. The root holds the run's settings; the nested `data
 {
 	"strategy": "narrow_asia_fade",
 	"data": {
-		"source": "../../output/research_output_v24_1/EURUSD_M5_CLEAN_2020_2026.csv",
-		"format": "clean-csv",
+		"source": "../../data/eurusd/1min",
+		"format": "metatrader",
 		"symbol": "EURUSD",
-		"timeframe": "5m",
+		"timeframe": "1m",
 		"timezone": "broker"
 	},
-	"out": "../../output/backtest_narrow_asia_fade",
+	"out": "output",
 	"cost": {
 		"commission_pips": 1.7
 	},
@@ -54,14 +54,14 @@ A config is one JSON object. The root holds the run's settings; the nested `data
 | `strategy` | yes | – | A key of `strategies.STRATEGIES`, e.g. `"narrow_asia_fade"`, `"rsi_divergence"`, `"session_breakout"`. |
 | `data` | yes | – | The bars as they are on disk: an object with the `data.*` keys below. |
 | `data.source` | yes | – | A file or a folder of files in `data.format`. |
-| `data.format` | yes | – | How to read `data.source`:<br>`"metatrader"`: MT4/MT5 exports, a folder of them or one file.<br>`"dukascopy"`: Dukascopy bid/ask M1 pairs, a folder of them (searched recursively, so the whole export folder or one year of it) or either file of one pair.<br>`"clean-csv"`: the research pipeline's clean CSV (v24 output). |
+| `data.format` | yes | – | How to read `data.source`:<br>`"metatrader"`: MT4/MT5 exports, a folder of them or one file.<br>`"dukascopy"`: Dukascopy bid/ask M1 pairs, a folder of them (searched recursively, so the whole export folder or one year of it) or either file of one pair. |
 | `data.symbol` | yes | – | Ticker of the source data, for pip size and price precision: `EURUSD`, `GBPUSD`, `AUDUSD`, `NZDUSD`, `USDCAD`, `USDCHF`, `USDJPY`, `XAUUSD`, `XAGUSD`. |
-| `data.timeframe` | no | `"1m"` | Bar size of the source as stored: `"1m"` for raw MT5 exports and Dukascopy, `"5m"` for the pipeline clean CSV. Not read from the files: it is what the root `timeframe` is checked against. |
+| `data.timeframe` | no | `"1m"` | Bar size of the source as stored: `"1m"` for raw MT5 exports and Dukascopy, `"5m"` for `resample_csv.py --timeframe M5` output. Not read from the files: it is what the root `timeframe` is checked against. |
 | `data.timezone` | no | `"UTC"` | The clock the source's timestamps are on: an IANA name (`"UTC"`, `"America/New_York"`, …) or `"broker"` for the MT5 broker-server clock (New York + 7h). It labels the bars and is never inferred from `data.format`: see [Data sources and clocks](running-a-backtest.md#4-data-sources-and-clocks) for the right value per source. Nothing is shifted, so a strategy with wall-clock windows must get data on the clock it expects. |
 | `out` | yes | – | Output directory. Created if missing; existing result files are **overwritten**. What it receives is in [Reading the results](reading-the-backtest-results.md). |
 | `timeframe` | no | `"5m"` | Bar size to test on: `5m`, `15m`, `1h`, `4h`, `1d`… (`m` minutes, `h` hours, `d` days, `w` weeks, `M` months). The source is resampled to it, so it must be a whole multiple of `data.timeframe` (`15m` from `5m`, not `1m` or `7m` from `5m`); anything else is rejected when the config loads (see [Checklist and common mistakes](README.md#checklist-and-common-mistakes)). |
-| `cost` | no | no cost | What each trade pays: an object with the `cost.*` keys below. Leaving it out, or leaving it empty, backtests with **zero cost**; the research pipeline's round-trip friction is `"cost": {"commission_pips": 1.7}`. |
-| `cost.spread` | no | `false` | `true`: charge each trade the spread of the bar where it crosses to the ask, entry for a long and exit for a short (`SpreadCost`). Needs data with a `spread` column: MT5 raw exports or Dukascopy, not the clean CSV. |
+| `cost` | no | no cost | What each trade pays: an object with the `cost.*` keys below. Leaving it out, or leaving it empty, backtests with **zero cost**; `narrow_asia_fade`'s round-trip friction is `"cost": {"commission_pips": 1.7}`. |
+| `cost.spread` | no | `false` | `true`: charge each trade the spread of the bar where it crosses to the ask, entry for a long and exit for a short (`SpreadCost`). Needs data with a `spread` column: MT5 raw exports or Dukascopy, not histdata.com exports. |
 | `cost.commission_pips` | no | `0` | A flat round-trip cost per trade, in pips. Without `cost.spread` it is the whole cost (`FixedCost`); with it, it is added to the spread. |
 | `ambiguity` | no | `"exclude"` | A bar touching both SL and TP: `exclude`, `assume-sl` or `assume-tp`. See [Choosing `resolve_from` and `ambiguity`](running-a-backtest.md#3-choosing-resolve_from-and-ambiguity). |
 | `resolve_from` | no | `"next-bar"` | First bar SL/TP are checked on: `next-bar` or `entry-bar`. See [Choosing `resolve_from` and `ambiguity`](running-a-backtest.md#3-choosing-resolve_from-and-ambiguity). |
@@ -76,10 +76,10 @@ A variant of a strategy only needs `strategy_parameters`; the report header and 
 {
 	"strategy": "narrow_asia_fade",
 	"data": {
-		"source": "../../output/research_output_v24_1/EURUSD_M5_CLEAN_2020_2026.csv",
-		"format": "clean-csv",
+		"source": "../../data/eurusd/1min",
+		"format": "metatrader",
 		"symbol": "EURUSD",
-		"timeframe": "5m",
+		"timeframe": "1m",
 		"timezone": "broker"
 	},
 	"out": "../../scratch/backtest_narrow_asia_fade_1300",

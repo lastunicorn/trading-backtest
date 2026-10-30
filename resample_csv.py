@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 """Resample the raw MT5 M1 exports into one clean CSV on a coarser grid.
 
-Step 1 of `eurusd_local_research_v24_2.py` on its own: read every raw export in
-a folder, convert each to the target timeframe, merge them, drop the timestamps
-that overlapping monthly/yearly exports duplicate, and write the result to a
-single file. The research half of v24.2 -- the range/delay/stop/reward grid --
-is deliberately absent; this script produces a dataset, not a finding.
+Read every raw export in a folder, convert each to the target timeframe,
+merge them, drop the timestamps that overlapping monthly/yearly exports
+duplicate, and write the result to a single file, with a report beside it.
 
     python3 resample_csv.py --source data/eurusd/1min \
         --destination data/eurusd/5min/EURUSD.csv --timeframe M5
@@ -37,10 +35,6 @@ memory is one month rather than the whole history. A file that fails to parse
 is recorded and skipped -- one bad export never aborts the build. Where two
 files cover the same timestamp the later-sorted one wins.
 
-This is tooling, not a research stage: it is versionless and editable. It writes
-the same two outputs as `rebuild_clean_m5.py`; that script differs only in taking
-an output directory (plus `--name`) rather than a single file path.
-
 Requires pandas (see requirements.txt); activate .venv first.
 """
 
@@ -63,7 +57,7 @@ from domain.pandas_approach.shift_timezone import shift_timezone
 from ports.file_system_access import find_files
 from ports.mt5_file_access import read_frame, write_frame
 
-# 90-column rules, matching the reports the pipeline scripts print.
+# 90-column rules for the printed report.
 WIDTH = 90
 
 # `source_tz` default when a caller asks for `destination_tz` without saying
@@ -134,8 +128,8 @@ class ResampleReport:
 def format_quality_report(report: ResampleReport) -> str:
     """Render `report` as the plain-text data-quality report written to disk.
 
-    Same layout as `rebuild_clean_m5.py`: the headline counts, then the
-    failed/skipped files, then one line per successful source file.
+    The headline counts, then the failed/skipped files, then one line per
+    successful source file.
     """
     label = report.timeframe
     lines = [

@@ -16,8 +16,8 @@ bid and buys back at the ask, so it pays the spread once, **at exit**.
 moment falls in. SL/TP are still *triggered* on bid prices; a short's stop that
 the ask would have reached a little earlier is not modelled.
 
-`FixedCost` is the default because the canonical M5 dataset has no `spread`
-column. Its 1.7 pips is the research pipeline's `COST_PIPS`.
+`FixedCost` is the default because not every source has a `spread` column.
+Its 1.7 pips is the round-trip friction the Narrow Asia Fade research assumed.
 """
 
 from __future__ import annotations

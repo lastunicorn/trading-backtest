@@ -38,14 +38,6 @@ def write_mt5_export(path: Path, n: int = 10) -> Path:
     return path
 
 
-def write_clean_csv(path: Path, n: int = 10) -> Path:
-    """The pipeline's clean CSV shape: `datetime` header, float tick_volume, no spread."""
-    frame = _m1(n)[["datetime", "open", "high", "low", "close", "tick_volume"]]
-    frame["tick_volume"] = frame["tick_volume"].astype(float)
-    frame.to_csv(path, index=False)
-    return path
-
-
 def write_dukascopy_month(folder: Path, n: int = 10, spread: float = 0.00002) -> Path:
     """A Dukascopy bid/ask pair for January 2020 (epoch-ms UTC timestamps)."""
     frame = _m1(n)

@@ -51,8 +51,8 @@ class TradingStrategy(ABC):
         """The calendar days the discovery / validation / test split is cut over.
 
         Every day with a bar, by default. Override when the strategy only
-        trades a subset of days -- v28 splits over the days with a usable
-        Asia range -- so the boundaries fall where the research put them.
+        trades a subset of days -- `NarrowAsiaFade` splits over the days with
+        a usable Asia range -- so the boundaries fall between tradable days.
         """
         return data.data["datetime"].dt.date.unique()
 

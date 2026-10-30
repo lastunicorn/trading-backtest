@@ -37,7 +37,7 @@ from domain.sample_size import SampleSize
 from domain.symbol import EurUsd
 from strategies.opening_range_breakout import OpeningRangeBreakout
 
-data = load_source("output/research_output_v24_1/EURUSD_M5_CLEAN_2020_2026.csv", SourceFormat.CLEAN_CSV,
+data = load_source("data/eurusd/1min", SourceFormat.METATRADER,
                    SampleSize.Parse("5m"), EurUsd(), timezone=BROKER_SERVER_TZ)
 backtest = Backtest(
     OpeningRangeBreakout(risk_reward=1.5),
@@ -75,7 +75,7 @@ for rr in (1.0, 1.5, 2.0):
 | at a level inside a bar (breakout, re-cross, limit or stop order) | `next-bar` | the bar's range may have happened before the fill |
 | at a bar's open (signal confirmed on the previous bar) | `entry-bar` | the whole bar happened after the fill |
 
-For `ambiguity`, keep `exclude` unless you are reproducing a study that used another rule, as v28 used `assume-sl`. Then compare the two. If they differ a lot, your stop and target are close enough together that bar size matters; check the `excluded_ambiguous` count.
+For `ambiguity`, keep `exclude` unless you are reproducing a study that used another rule, as `narrow_asia_fade` uses `assume-sl`. Then compare the two. If they differ a lot, your stop and target are close enough together that bar size matters; check the `excluded_ambiguous` count.
 
 ## 4. Data sources and clocks
 
@@ -85,7 +85,6 @@ The clock is not part of the format: two MetaTrader exports can be on different 
 |---|---|---|---|---|
 | this repo's MT5 broker exports (`data/eurusd/1min`), `resample_csv.py` output | `metatrader` | `load_mt5` | points (tick size) | `"broker"` |
 | histdata.com MT exports (`DAT_MT_EURUSD_M1_*.csv`) | `metatrader` | `load_mt5` | none | `"America/New_York"` (week opens Sunday 17:00; broker time − 7h, checked against the broker exports) |
-| Pipeline clean CSV (v24 output) | `clean-csv` | `load_clean_csv` | none | `"broker"` |
 | Dukascopy bid/ask pairs | `dukascopy` | `load_dukascopy` | price units (ask − bid) | `"UTC"`, the only one accepted (the timestamps are epoch milliseconds) |
 
 The loaders convert spread to pips. The **broker-server clock is New York + 7 hours** (GMT+2 in winter, GMT+3 in summer, switching on the US daylight-saving dates), available as `domain.broker_clock.BROKER_SERVER_TZ`. To move a frame between clocks, use `domain.pandas_approach.shift_timezone.shift_timezone`.

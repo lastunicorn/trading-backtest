@@ -60,7 +60,7 @@ Every backtest runs under these rules. Two of them are settings, so pick those d
 
 **A bar touching both SL and TP is ambiguous (`AmbiguityPolicy`, a setting).** OHLC can't say which came first.
 - `EXCLUDE` (default, the research convention) records it as `ambiguous` with no P&L. It is counted, but excluded from every profit figure.
-- `ASSUME_SL` settles it as a stop-loss (v28's rule). `ASSUME_TP` settles it as a take-profit.
+- `ASSUME_SL` settles it as a stop-loss (`narrow_asia_fade`'s rule). `ASSUME_TP` settles it as a take-profit.
 
 **The time stop (`exit_dt`).** `exit_dt` is the moment the position must be flat. Bars opening *before* it are traded. If neither level is hit, the position closes as `manual-close` at the close of the last such bar, with `close_dt = exit_dt`.
 
@@ -93,14 +93,14 @@ Common mistakes:
 | Symptom | Cause |
 |---|---|
 | `ERROR: … windows are broker-server times; the data is on UTC` | a broker-clock strategy on data that isn't on the broker clock: Dukascopy, histdata (`America/New_York`), or a config that left `data.timezone` at its `"UTC"` default. If the files really are broker-server time, set `"timezone": "broker"`; otherwise convert them with `shift_timezone` or use broker MT5 exports |
-| `ERROR: SpreadCost needs a 'spread' column` | `"cost": {"spread": true}` on the clean CSV, which has no spread; drop `spread` and set `commission_pips`, or use MT5/Dukascopy data |
+| `ERROR: SpreadCost needs a 'spread' column` | `"cost": {"spread": true}` on data with no spread, such as histdata.com exports; drop `spread` and set `commission_pips`, or use broker MT5/Dukascopy data |
 | `ERROR: backtest.json: unknown key(s) …` | a misspelt config key; the message lists the allowed ones |
 | `ValueError: long position needs sl < open_price < tp` | the strategy built a position with levels on the wrong side; skip such signals |
 | `'datetime' must be strictly increasing` | the frame needs `clean_frame` before `HistoricalData` |
 | far fewer trades than expected | a fixture or real bar touching a level counts as a hit/break; check the ≥ / ≤ edges |
 | results with times 7 hours off | `data.timezone` doesn't match the files: the broker clock is New York + 7h (`"broker"`), histdata is New York time (`"America/New_York"`) |
 | `ERROR: … "timeframe" … is not a whole multiple of the source's "data.timeframe"` | resampling only coarsens; test on a multiple of the source's bar size, or fix `data.timeframe` if it misstates the source |
-| numbers look wrong on a finer `timeframe` | `data.timeframe` understates the source (e.g. left at the `1m` default for the M5 clean CSV), so the check passed; asking for `1m` from an M5 file returns M5 bars labelled 1m |
+| numbers look wrong on a finer `timeframe` | `data.timeframe` understates the source (e.g. left at the `1m` default for an M5 `resample_csv.py` output), so the check passed; asking for `1m` from an M5 file returns M5 bars labelled 1m |
 
 ---
 
@@ -112,6 +112,6 @@ Common mistakes:
 - [Writing a new strategy](writing-a-strategy.md): the strategy contract, a worked example, registering it for the CLI, parameter variants, tests.
 - [API reference](api-reference.md): every public name, module by module.
 - The strategies:
-  - [Narrow Asia London Fade](strategy-narrow-asia-fade.md) (`narrow_asia_fade`): the frozen v28 strategy.
+  - [Narrow Asia London Fade](strategy-narrow-asia-fade.md) (`narrow_asia_fade`): fade the London break of a narrow Asia range.
   - [RSI Divergence](strategy-rsi-divergence.md) (`rsi_divergence`): regular RSI divergences on M15.
   - [Session Breakout](strategy-session-breakout.md) (`session_breakout`): breakout of the Tokyo/Asian session range, `session_breakout_strategy.py`'s rules.

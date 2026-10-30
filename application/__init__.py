@@ -2,7 +2,7 @@
 
 Where a port knows a file format and `domain/` knows what the data should look
 like, a module in here orchestrates the two end to end -- read the raw exports,
-clean and merge them -- and hands back the numbers a CLI reports. The I/O lives
+clean and merge them -- and hands back the result a CLI prints or writes. The I/O lives
 here so `domain/` can stay a pure, testable core.
 
     from application.build_clean_dataset_use_case import build_clean_dataset
