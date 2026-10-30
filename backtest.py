@@ -71,9 +71,9 @@ from __future__ import annotations
 import argparse
 import json
 import math
-import subprocess
 import sys
 import time
+from collections.abc import Callable
 from dataclasses import asdict, dataclass, is_dataclass
 from datetime import datetime, time as clock_time
 from pathlib import Path
@@ -85,10 +85,10 @@ from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest, BacktestR
 from domain.pandas_approach.splits import SplitMode
 from domain.sample_size import SampleSize
 from domain.symbol import Symbol, by_ticker
+from ports import run_environment
 from ports.backtest_config_access import CONFIG_FILE_NAME, BacktestConfig
+from ports.run_environment import GitCommit
 from strategies import STRATEGIES
-
-_REPO_ROOT = Path(__file__).resolve().parent
 
 # Calendar splits have one row per period, too many for a column each: their
 # table is transposed and shows these metrics only (statistics.csv has them all).
@@ -170,12 +170,23 @@ def run_backtest(backtest: Backtest, out_dir, *, source: str | None = None) -> B
     return BacktestRun(result, run_info, report, paths)
 
 
-def build_run_info(backtest: Backtest, result: BacktestResult, *, source: str | None = None) -> dict:
-    """Provenance for `run.json`: what ran, on what, under which rules, from which commit."""
+def build_run_info(
+    backtest: Backtest,
+    result: BacktestResult,
+    *,
+    source: str | None = None,
+    now: Callable[[], datetime] = run_environment.now,
+    git_commit: Callable[[], GitCommit] = run_environment.git_commit,
+) -> dict:
+    """Provenance for `run.json`: what ran, on what, under which rules, from which commit.
+
+    `now` and `git_commit` read the clock and the repo (`ports.run_environment`);
+    pass fakes to make the record deterministic.
+    """
     data = backtest.data
     strategy = backtest.strategy
     info = {
-        "created": datetime.now().isoformat(timespec="seconds"),
+        "created": now().isoformat(timespec="seconds"),
         "strategy": {
             "name": strategy.name,
             "class": f"{type(strategy).__module__}.{type(strategy).__qualname__}",
@@ -199,7 +210,7 @@ def build_run_info(backtest: Backtest, result: BacktestResult, *, source: str | 
             "splits": backtest.splits.value,
         },
         "trades": len(result.trades),
-        "git": _git_state(),
+        "git": asdict(git_commit()),
     }
     if source is not None:
         info["source"] = source
@@ -336,20 +347,6 @@ def _format(metric: str, value) -> str:
         return f"{value:,.0f}"
     return f"{int(value):,}"
 
-
-def _git_state() -> dict:
-    """The repo's HEAD commit and whether the working tree has changes; None when git is unavailable."""
-    def git(*args: str) -> str | None:
-        try:
-            completed = subprocess.run(
-                ["git", *args], cwd=_REPO_ROOT, capture_output=True, text=True, timeout=10, check=True,
-            )
-        except (OSError, subprocess.SubprocessError):
-            return None
-        return completed.stdout.strip()
-
-    status = git("status", "--porcelain")
-    return {"commit": git("rev-parse", "--short", "HEAD"), "dirty": None if status is None else bool(status)}
 
 
 if __name__ == "__main__":
