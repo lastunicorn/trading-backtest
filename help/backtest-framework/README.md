@@ -28,15 +28,15 @@ HistoricalData ──► TradingStrategy.generate_positions() ──► open Pos
 
 The central idea: **a strategy only decides where to enter.** It returns open positions: entry time and price, side, stop-loss, take-profit, and optionally a time to be flat by. The framework decides how each one ended, subtracts costs, and computes statistics. So the exit logic, the part most likely to hide bugs, is written and tested once, and every strategy is judged by the same rules.
 
-The code is split in three layers:
+The framework follows the repo's [architecture](../architecture.md). Each component has this part in a backtest:
 
-| Layer | Package | Does |
+| Component | Where | Does in a backtest |
 |---|---|---|
+| entry script | `backtest.py` | the command line; `run_backtest()` runs the backtest, records provenance (git commit, time) and writes the report and result files |
+| application | `application/` | validates the config (`load_backtest_config`) and loads the historical data (`load_historical_data_use_case.load_source`) |
+| ports | `ports/` | read the config file, the MT5 and Dukascopy exports, the clock and git |
 | domain | `domain/pandas_approach/`, `domain/broker_clock.py`, `domain/time_window.py`, `domain/sample_size.py`, `domain/symbol.py` | the concepts and all the calculations; no file access, no clock, no git |
-| application | `application/` | loads data from files, records provenance, writes results |
-| strategies | `strategies/` | concrete `TradingStrategy` subclasses and the registry the CLI uses |
-
-`backtest.py` at the repo root is the command-line entry point.
+| strategies | `strategies/` | concrete `TradingStrategy` subclasses and the registry the config's `strategy` key looks up |
 
 Everything is pandas-based. Before running anything, activate the repo's virtual environment:
 
