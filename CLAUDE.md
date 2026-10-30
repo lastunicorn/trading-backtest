@@ -35,15 +35,33 @@ Raw data lives under `data/` (gitignored, local-only); `data/eurusd/1min/EURUSD_
 
 ## Code layout
 
-`ports/`, `domain/`, `application/`, `strategies/` and `ui/` are shared packages; `backtest.py`, `resample_csv.py`, `read_csv_as_frame.py`, `read_csv_as_bars.py`, `rsi_divergence.py`, `session_breakout_strategy.py`, `trading_sessions.py` and `show_symbol.py` are the entry scripts.
+The application has six components. Five are packages (`application/`, `ports/`, `domain/`, `strategies/`, `ui/`); the sixth is the entry scripts at the repo root: `backtest.py`, `resample_csv.py`, `read_csv_as_frame.py`, `read_csv_as_bars.py`, `rsi_divergence.py`, `session_breakout_strategy.py`, `trading_sessions.py` and `show_symbol.py`.
 
-`domain/` holds two parallel approaches: `domain/bar_approach/` (one `Bar` object per candle, stdlib) and `domain/pandas_approach/` (DataFrames). **New work goes in `pandas_approach/`** — it is much faster on the multi-hundred-thousand-bar datasets; `bar_approach/` stays only for the scripts and tests that still use it.
+- **Entry scripts** — one per use case, at the repo root. A script holds that use case's UI and its steps, kept apart in two kinds of function:
+  - `main()` parses the arguments, calls the use case, prints or writes its result and sets the exit code;
+  - the use-case function (`backtest.py`'s `run_backtest()`, `resample_csv.py`'s `resample()`) takes plain values and returns a result. It never prints and never sees `argparse`; progress goes through a callback (`progress=print`).
 
-The split between the packages is the point of the layout:
+  That split is what lets a test import the use case from the script (`tests/backtest/`), and what makes promoting it to `application/` a move rather than a rewrite.
+- **`application/`** — orchestration: code that wires `ports/` and `domain/` (and `strategies/`) into a task. It holds (a) steps shared by more than one use case (`build_clean_dataset`, used by `rsi_divergence.py` and `load_historical_data`), and (b) one use case's steps when they are big enough to deserve their own module and tests (`load_backtest_config`, only used by `backtest.py`). The test is "would the script stop being readable without this?", not only "is it reused?". Modules are named `<task>_use_case.py`.
+- **`ports/`** knows *external resources*: file formats, config files — anything read from or written to outside the process. A port parses records and stops — no cleaning, no deduplication, no resampling, whether it hands back `Bar` objects or a DataFrame. Most ports are **stdlib-only** (no pandas, no numpy), so they run in any sandbox as-is; `mt5_file_access.mt5_frame_reader` is the deliberate exception, using pandas to build the DataFrame directly. A port may import a domain **entity** it parses into (`Bar`, in `domain/bar_approach/bar.py` — the MT5 port parses files into it but does not own it), never domain logic. The clock and git are external resources too; `backtest.py`'s `build_run_info` still reads them directly (a `ports/run_environment/` with `git_commit()` and `now()` is the intended home).
+- **`domain/`** knows *what the data means*: what one OHLC candle is (`bar_approach.bar.Bar`), how bars collapse into a coarser timeframe (`pandas_approach.frames.resample_ohlc`), which of two rows claiming the same timestamp wins, and how a trade is simulated and scored. Non-entity helpers belong here only when they are about trading or market-data concepts (`broker_clock`, `sample_size`, `time_window`); a generic helper lives beside its user — never add a `utils` module. `domain/` never reads or writes files or the clock, which is why `Backtest.run()` is domain but recording a run is not.
+- **`strategies/`** — the strategy plugins: `TradingStrategy` subclasses, pure logic on top of `domain/`, plus the `STRATEGIES` registry in `strategies/__init__.py` through which `application/` and the scripts find them. Adding a strategy touches only this folder (and its tests and help page).
+- **`ui/`** — UI logic reused by more than one entry script: table and report formatting (`bar_window_view.format_table`, `frame_table_view.display_frame`), display windows (`bar_window.BarWindow`), and in future shared argument types and error → exit-code handling. UI used by one script stays in that script.
 
-- **`ports/`** knows *file formats*. A port parses records and stops — no cleaning, no deduplication, no resampling, whether it hands back `Bar` objects or a DataFrame. Most ports are **stdlib-only** (no pandas, no numpy), so they run in any sandbox as-is; `mt5_file_access.mt5_frame_reader` is the deliberate exception, using pandas to build the DataFrame directly. `Bar` itself is a `domain/` entity (`domain/bar_approach/bar.py`) — the MT5 port parses files into it but does not own it.
-- **`domain/`** knows *what the data means*: what one OHLC candle is (`bar_approach.bar.Bar`), how bars collapse into a coarser timeframe (`pandas_approach.frames.resample_ohlc`), which of two rows claiming the same timestamp wins, and how a trade is simulated and scored. `domain/pandas_approach/` is where pandas lives; `domain/bar_approach/bar.py` is stdlib-only, which is what lets `ports/` depend on it. `domain/` never reads or writes files, and never imports `ports/` or `application/`.
-- **`application/`** wires `ports/` and `domain/` into a whole task: read the raw exports, resample and merge, write the result, return the result a CLI prints or writes. The I/O that `domain/` refuses lives here — including the clock and git, which is why `Backtest.run()` is domain but recording a run is not. (A use case whose only caller is one CLI can live in that CLI instead — `resample_csv.py`'s `resample()` and `backtest.py`'s `run_backtest()` do.)
+`domain/` holds two parallel approaches: `domain/bar_approach/` (one `Bar` object per candle, stdlib) and `domain/pandas_approach/` (DataFrames). **New work goes in `pandas_approach/`** — it is much faster on the multi-hundred-thousand-bar datasets; `bar_approach/` stays only for the scripts and tests that still use it. `domain/pandas_approach/` is where pandas lives; `domain/bar_approach/bar.py` is stdlib-only, which is what lets the stdlib ports depend on it.
+
+**Import rules** — the point of the layout. `tests/architecture/test_package_imports.py` enforces them, so a violation fails `pytest`:
+
+| Component | May import |
+|---|---|
+| entry scripts | `application`, `ports`, `domain`, `strategies`, `ui` |
+| `application/` | `ports`, `domain`, `strategies` |
+| `strategies/` | `domain` |
+| `ports/` | domain **entities only** (`PORT_DOMAIN_ENTITIES` in the test; today just `domain.bar_approach.bar`) |
+| `ui/` | `domain` (to format entities) — never `ports` or `application` |
+| `domain/` | nothing in the repo |
+
+Nothing imports an entry script (tests aside); code two scripts need goes in a package. Every component may import its own modules, the stdlib and third-party packages. A new domain entity a port needs goes into `PORT_DOMAIN_ENTITIES`; a new top-level package goes into the test's `PACKAGES` and `ALLOWED_IMPORTS`.
 
 ```
 ports/mt5_file_access/mt5_bar_reader.py   MT5 CSV → `Bar` objects (dt, OHLC, volumes, spread)            [stdlib]
@@ -181,6 +199,8 @@ A strategy with wall-clock session windows (`NarrowAsiaFade`) raises on data tha
 Unit tests live under `tests/`, mirroring the source package layout (`tests/domain/...`, `tests/application/...`, `tests/strategies/...`). `pytest.ini` sets `testpaths = tests`; run everything with `pytest` from the repo root (inside the activated venv). Shared builders for a test directory go in a `_fakes.py` module inside it. A test that needs local-only data must `skipif` the file is absent rather than fail.
 
 For a class or module under test, create a directory named after the file being tested, and inside it one test file per function/method tested (e.g. `domain/trading_session_template.py`'s `TradingSessionTemplate.start_time_on` is tested in `tests/domain/trading_session_template/test_start_time_on.py`). This holds even for small, single-line delegating methods — keep each function's tests isolated rather than folding several into one file. Give every package directory (including `tests/` itself and each subpackage) an `__init__.py`.
+
+`tests/architecture/` checks the [import rules](#code-layout) across the whole repo rather than testing one module; it parses imports with `ast`, so examples in docstrings don't count.
 
 ## Methodology
 
