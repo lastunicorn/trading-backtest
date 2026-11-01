@@ -32,24 +32,30 @@ python -m pytest tests/ -v
 
 ## How to recreate the python virtual environment
 
-Remove the current virtual environment
+Rebuild it after cloning the repo, or after moving or renaming its folder. A virtual environment stores its own absolute path, so a moved `.venv/` stops working.
+
+One-time, if `python3 -m venv` complains that `ensurepip` is not available:
+
+```sh
+sudo apt install python3-venv
+```
+
+Remove the current virtual environment:
 
 ```sh
 rm -rf .venv
 ```
 
-Recreate the virtual environment
+Recreate the virtual environment:
 
 ```sh
 python3 -m venv .venv
 ```
 
-???
+Install the dependencies (`requirements-dev.txt` is `requirements.txt` plus `pytest`):
 
 ```sh
-.venv/bin/pip install -r requirements.txt pytest
+.venv/bin/pip install -r requirements-dev.txt
 ```
 
-Then activate it
-
-- See the "How to run"
+Then activate it, as described in [How to run](#how-to-run).

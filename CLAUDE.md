@@ -15,7 +15,7 @@ Before implementing a request as literally stated, check it against good practic
 
 ## Environment
 
-Use `python3`, not `python` — this machine has only `/usr/bin/python3` (3.12), so bare `python` fails with `command not found`. Inside an activated venv both names work.
+Use `python3`, not `python` — this machine has only `/usr/bin/python3` (3.14), so bare `python` fails with `command not found`. Inside an activated venv both names work.
 
 Requires only `pandas` + `numpy`, installed in the repo-local venv at `.venv/` (gitignored). **Activate it before running anything:**
 
@@ -23,13 +23,16 @@ Requires only `pandas` + `numpy`, installed in the repo-local venv at `.venv/` (
 source .venv/bin/activate      # prompt gains (.venv); `python` and `python3` both work
 ```
 
-Pinned versions live in `requirements.txt` (currently pandas 3.0.5, numpy 2.5.2 on Python 3.12.3). To rebuild the environment from scratch:
+Pinned versions live in `requirements.txt` (currently pandas 3.0.5, numpy 2.5.2 on Python 3.14.4); `requirements-dev.txt` includes it and adds `pytest`. To rebuild the environment from scratch:
 
 ```bash
-sudo apt install python3.12-venv    # one-time; the system Python is PEP 668 "externally managed"
+sudo apt install python3-venv       # one-time; the system Python is PEP 668 "externally managed"
+rm -rf .venv
 python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
+.venv/bin/pip install -r requirements-dev.txt
 ```
+
+A venv hard-codes its absolute path (in `pyvenv.cfg` and every `bin/` script's shebang), so **moving or renaming the repo folder breaks `.venv/`**: rebuild it as above rather than patching it.
 
 Raw data lives under `data/` (gitignored, local-only); `data/eurusd/1min/EURUSD_YYYY_MM.csv` are this repo's monthly MT5 M1 broker exports.
 
