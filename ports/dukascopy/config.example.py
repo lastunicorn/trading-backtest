@@ -4,7 +4,7 @@
 its path is specific to this machine. Copy this file to `config.py` (same
 directory) and point `DATA_DIR` at it:
 
-    cp ports/ducascopy/config.example.py ports/ducascopy/config.py
+    cp ports/dukascopy/config.example.py ports/dukascopy/config.py
 
 `DATA_DIR` is the folder that directly contains the year subfolders
 (`2020/`, `2021/`, ...), each holding `eurusd-m1-bid-*.csv` /
@@ -13,4 +13,4 @@ directory) and point `DATA_DIR` at it:
 
 from pathlib import Path
 
-DATA_DIR = Path("/path/to/ducascopy/eurusd")
+DATA_DIR = Path("/path/to/dukascopy/eurusd")

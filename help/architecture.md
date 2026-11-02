@@ -71,7 +71,7 @@ Ports know *external resources*: file formats, config files, the clock, git. Any
 - A port may import a domain **entity** it parses into, never domain logic. The MT5 port parses files into `Bar` (`domain/bar_approach/bar.py`), but `Bar` belongs to the domain.
 - The clock and git are external resources too: `ports/run_environment/` provides `now()` and `git_commit()`. `backtest.py`'s `build_run_info` takes both as parameters, so tests pass fakes.
 
-Current ports: `mt5_file_access`, `ducascopy`, `file_system_access`, `backtest_config_access`, `run_environment`.
+Current ports: `mt5_file_access`, `dukascopy`, `file_system_access`, `backtest_config_access`, `run_environment`.
 
 ### Domain
 

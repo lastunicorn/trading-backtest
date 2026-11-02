@@ -48,7 +48,7 @@ ports/mt5_file_access/mt5_frame_reader.py MT5 CSV → pandas frame directly, sam
 ports/file_system_access/file_system.py   list the source csv files in a folder (or pass one file through) [stdlib]
 ports/backtest_config_access/backtest_config_reader.py  backtest.py's JSON config → `BacktestConfig` (`read_config`): shape only — keys, JSON types, relative paths [stdlib]
 ports/run_environment/run_environment.py  the wall clock (`now`) and the repo's git state (`git_commit` → `GitCommit(commit, dirty)`), for `run.json` [stdlib]
-ports/ducascopy/ducascopy_frame_reader.py Dukascopy bid/ask M1 pairs → pandas frame (OHLC from bid, spread = ask - bid); `read_frame(year)` from config.DATA_DIR, `read_path(folder or file)` [pandas]
+ports/dukascopy/dukascopy_frame_reader.py Dukascopy bid/ask M1 pairs → pandas frame (OHLC from bid, spread = ask - bid); `read_frame(year)` from config.DATA_DIR, `read_path(folder or file)` [pandas]
 domain/broker_clock.py                    BROKER_SERVER_TZ (New York + 7h), ShiftedZone, timezone_by_name ("broker" or IANA) / timezone_name [stdlib]
 domain/time_window.py                     TimeWindow: daily [start, end) of timezone-aware times, each optional; ZonedTime annotation [stdlib]
 domain/bar_approach/bar.py                the `Bar` entity — one OHLC candle (dt, OHLC, volumes, spread)  [stdlib]

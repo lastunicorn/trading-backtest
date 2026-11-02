@@ -7,16 +7,16 @@ produce one record shape (OHLC from bid, spread derived from ask - bid).
 
 Re-exported so callers can use the short form:
 
-    from ports.ducascopy import read_frame
+    from ports.dukascopy import read_frame
 
     read_frame(2020)      # whole year
     read_frame(2020, 3)   # March 2020 only
     read_path(folder)     # every pair under a folder (or the pair one file belongs to)
 
 The export folder's location is machine-specific and lives in
-`ports/ducascopy/config.py` (gitignored) -- see `config.example.py`.
+`ports/dukascopy/config.py` (gitignored) -- see `config.example.py`.
 """
 
-from ports.ducascopy.ducascopy_frame_reader import FRAME_COLUMNS, read_frame, read_path
+from ports.dukascopy.dukascopy_frame_reader import FRAME_COLUMNS, read_frame, read_path
 
 __all__ = ["FRAME_COLUMNS", "read_frame", "read_path"]

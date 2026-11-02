@@ -1,11 +1,11 @@
-"""Tests for `ports.ducascopy.ducascopy_frame_reader.read_path`."""
+"""Tests for `ports.dukascopy.dukascopy_frame_reader.read_path`."""
 
 from pathlib import Path
 
 import pandas as pd
 import pytest
 
-from ports.ducascopy import FRAME_COLUMNS, read_path
+from ports.dukascopy import FRAME_COLUMNS, read_path
 
 from ._fakes import write_side
 

@@ -8,11 +8,11 @@ side. There is no volume field on either side, and no combined spread column:
 this reader builds one from the two files, which is the only reason it reads
 a pair at all rather than one file at a time.
 
-    from ports.ducascopy import read_frame
+    from ports.dukascopy import read_frame
 
     read_frame(2020)          # every bid/ask pair for 2020, concatenated
     read_frame(2020, 3)       # March 2020 only
-    read_path("/data/ducascopy/eurusd/2026")   # every pair under a folder, or one pair
+    read_path("/data/dukascopy/eurusd/2026")   # every pair under a folder, or one pair
 
 `read_frame` looks in `config.DATA_DIR` (see `config.example.py` --
 `config.py` itself is gitignored, machine-specific) unless `data_dir` is
@@ -27,7 +27,7 @@ from pathlib import Path
 import pandas as pd
 
 try:
-    from ports.ducascopy import config
+    from ports.dukascopy import config
 except ImportError:
     config = None
 
@@ -54,7 +54,7 @@ def _default_data_dir() -> Path:
     if config is None or not hasattr(config, "DATA_DIR"):
         raise RuntimeError(
             "No Dukascopy data directory configured -- copy "
-            "ports/ducascopy/config.example.py to ports/ducascopy/config.py "
+            "ports/dukascopy/config.example.py to ports/dukascopy/config.py "
             "and set DATA_DIR, or pass data_dir= explicitly."
         )
     return Path(config.DATA_DIR)

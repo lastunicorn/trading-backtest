@@ -5,7 +5,7 @@
 
     M5 = SampleSize.Parse("5m")
     data = load_mt5("data/eurusd/1min", M5, EurUsd(), timezone=BROKER_SERVER_TZ, progress=print)
-    data = load_dukascopy("/data/ducascopy/eurusd/2025", M5, EurUsd(), timezone=ZoneInfo("UTC"))
+    data = load_dukascopy("/data/dukascopy/eurusd/2025", M5, EurUsd(), timezone=ZoneInfo("UTC"))
     data = load_source(path, SourceFormat.METATRADER, M5, symbol, timezone=tz)   # the loader for a format
 
 Each format differs in layout and spread unit, and this module is where those
@@ -39,7 +39,7 @@ from domain.pandas_approach.frames import clean_frame, resample_ohlc
 from domain.pandas_approach.historical_data import HistoricalData, SpreadUnit
 from domain.sample_size import SampleSize
 from domain.symbol import Symbol
-from ports import ducascopy
+from ports import dukascopy
 
 __all__ = ["SourceFormat", "load_dukascopy", "load_mt5", "load_source"]
 
@@ -99,7 +99,7 @@ def load_dukascopy(
         raise ValueError(f"Dukascopy bars are UTC (epoch timestamps), not {timezone}")
     if progress is not None:
         progress(f"Reading Dukascopy {source}...")
-    raw = ducascopy.read_path(source).drop(columns=["tick_volume", "volume"])
+    raw = dukascopy.read_path(source).drop(columns=["tick_volume", "volume"])
     frame = resample_ohlc(clean_frame(raw), timeframe)
     return HistoricalData.from_frame(frame, timeframe, symbol, spread_unit=SpreadUnit.PRICE, timezone=timezone)
 

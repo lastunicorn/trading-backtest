@@ -125,7 +125,7 @@ Both in `backtests/`:
 // backtests/rsi_divergence_dukascopy/backtest.json: the same on Dukascopy data, charging the real spread plus a commission
 {
 	"strategy": "rsi_divergence",
-	"data": {"source": "/path/to/ducascopy/eurusd/2025", "format": "dukascopy", "symbol": "EURUSD"},
+	"data": {"source": "/path/to/dukascopy/eurusd/2025", "format": "dukascopy", "symbol": "EURUSD"},
 	"out": "../../scratch/backtest_rsi_duka",
 	"timeframe": "15m",
 	"resolve_from": "entry-bar",
