@@ -1,4 +1,8 @@
-"""Tests for `ports.dukascopy.dukascopy_frame_reader.read_path`."""
+"""Tests for `ports.dukascopy.dukascopy_frame_reader.read_path`.
+
+Finding and pairing the files is `libs.dukascopy_csv`'s and tested there; these cover
+how a pair becomes bars and what `read_path` accepts.
+"""
 
 from pathlib import Path
 
@@ -14,6 +18,55 @@ def _write_pair(data_dir: Path, folder_year: int, year: int, month: int, price: 
     for side in ("bid", "ask"):
         write_side(data_dir, folder_year, side, year, month,
                    {f"{year:04d}-{month:02d}-01 00:00": (price, price, price, price)})
+
+
+def test_ohlc_from_bid_and_spread_averaged_from_ask_minus_bid(tmp_path: Path) -> None:
+    write_side(tmp_path, 2020, "bid", 2020, 1, {"2020-01-01 00:00": (1.1000, 1.1005, 1.0995, 1.1002)})
+    write_side(tmp_path, 2020, "ask", 2020, 1, {"2020-01-01 00:00": (1.1002, 1.1007, 1.0997, 1.1004)})
+
+    result = read_path(tmp_path)
+
+    assert list(result.columns) == ["datetime", *FRAME_COLUMNS]
+    row = result.iloc[0]
+    assert row["datetime"] == pd.Timestamp("2020-01-01 00:00")
+    assert (row["open"], row["high"], row["low"], row["close"]) == pytest.approx((1.1000, 1.1005, 1.0995, 1.1002))
+    assert row["spread"] == pytest.approx(0.0002)
+    assert pd.isna(row["tick_volume"])
+    assert pd.isna(row["volume"])
+
+
+def test_datetime_is_naive_utc(tmp_path: Path) -> None:
+    _write_pair(tmp_path, 2020, 2020, 1, 1.1)
+
+    result = read_path(tmp_path)
+
+    assert result["datetime"].dt.tz is None
+
+
+def test_a_row_present_only_in_bid_keeps_the_bar_with_nan_spread(tmp_path: Path) -> None:
+    write_side(tmp_path, 2020, "bid", 2020, 1, {
+        "2020-01-01 00:00": (1.1000, 1.1005, 1.0995, 1.1002),
+        "2020-01-01 00:01": (1.1002, 1.1006, 1.0998, 1.1003),
+    })
+    write_side(tmp_path, 2020, "ask", 2020, 1, {"2020-01-01 00:00": (1.1002, 1.1007, 1.0997, 1.1004)})
+
+    result = read_path(tmp_path)
+
+    assert len(result) == 2
+    assert pd.isna(result.iloc[1]["spread"])
+    assert result.iloc[1]["close"] == pytest.approx(1.1003)
+
+
+def test_a_row_present_only_in_ask_is_dropped(tmp_path: Path) -> None:
+    write_side(tmp_path, 2020, "bid", 2020, 1, {"2020-01-01 00:00": (1.1, 1.1, 1.1, 1.1)})
+    write_side(tmp_path, 2020, "ask", 2020, 1, {
+        "2020-01-01 00:00": (1.1, 1.1, 1.1, 1.1),
+        "2020-01-01 00:01": (1.2, 1.2, 1.2, 1.2),
+    })
+
+    result = read_path(tmp_path)
+
+    assert list(result["datetime"]) == [pd.Timestamp("2020-01-01 00:00")]
 
 
 def test_a_folder_is_read_recursively_in_calendar_order(tmp_path: Path) -> None:
@@ -51,47 +104,6 @@ def test_either_file_reads_its_pair(tmp_path: Path, side: str) -> None:
     assert result["spread"].iat[0] == pytest.approx(0.0)
 
 
-@pytest.mark.parametrize("side", ["bid", "ask"])
-def test_a_file_without_its_partner_raises(tmp_path: Path, side: str) -> None:
-    write_side(tmp_path, 2020, side, 2020, 1, {"2020-01-01 00:00": (1.1, 1.1, 1.1, 1.1)})
-
-    with pytest.raises(FileNotFoundError, match="without the other side"):
-        read_path(tmp_path)
-
-
-def test_a_partial_month_pairs_on_the_start_date_not_the_download_time(tmp_path: Path) -> None:
-    _write_pair(tmp_path, 2026, 2026, 8, 1.1)
-    folder = tmp_path / "2026"
-    for side, stamp in (("bid", "16-57"), ("ask", "17-14")):
-        write_side(tmp_path, 2026, side, 2026, 9, {"2026-09-01 00:00": (1.2, 1.2, 1.2, 1.2)})
-        (folder / f"eurusd-m1-{side}-2026-09-01-2026-10-01.csv").rename(
-            folder / f"eurusd-m1-{side}-2026-09-01-2026-09-21T{stamp}.csv")
-
-    assert list(read_path(tmp_path)["datetime"]) == [pd.Timestamp("2026-08-01"), pd.Timestamp("2026-09-01")]
-    assert list(read_path(folder / "eurusd-m1-ask-2026-09-01-2026-09-21T17-14.csv")["datetime"]) == [
-        pd.Timestamp("2026-09-01")]
-
-
-def test_other_csv_files_in_the_folder_are_ignored(tmp_path: Path) -> None:
-    _write_pair(tmp_path, 2020, 2020, 1, 1.1)
-    (tmp_path / "notes.csv").write_text("x\n")
-
-    assert len(read_path(tmp_path)) == 1
-
-
 def test_an_empty_folder_raises(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError, match="no Dukascopy"):
         read_path(tmp_path)
-
-
-def test_a_missing_path_raises(tmp_path: Path) -> None:
-    with pytest.raises(FileNotFoundError, match="no Dukascopy export"):
-        read_path(tmp_path / "nope")
-
-
-def test_a_file_that_is_not_a_dukascopy_export_raises(tmp_path: Path) -> None:
-    path = tmp_path / "EURUSD_2020_01.csv"
-    path.write_text("x\n")
-
-    with pytest.raises(ValueError, match="not a Dukascopy export"):
-        read_path(path)

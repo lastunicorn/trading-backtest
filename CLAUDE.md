@@ -38,7 +38,7 @@ Raw data lives under `data/` (gitignored, local-only); `data/eurusd/1min/EURUSD_
 
 ## Code layout
 
-**The architecture is documented in [help/architecture.md](help/architecture.md). Read it before adding a module or moving code between folders, and keep it in sync when the structure changes.** In short: six components, namely the entry scripts at the repo root (one per use case, with `main()` kept apart from the use-case function), `application/` (orchestration), `ports/` (external resources: files, config, clock, git), `domain/` (concepts and calculations, no I/O), `strategies/` (the `TradingStrategy` plugins and the `STRATEGIES` registry) and `ui/` (UI shared by scripts). Their import rules are enforced by `tests/architecture/test_package_imports.py`. **New domain work goes in `domain/pandas_approach/`**, not `bar_approach/`.
+**The architecture is documented in [help/architecture.md](help/architecture.md). Read it before adding a module or moving code between folders, and keep it in sync when the structure changes.** In short: seven components, namely the entry scripts at the repo root (one per use case, with `main()` kept apart from the use-case function), `application/` (orchestration), `ports/` (external resources: files, config, clock, git), `libs/` (application-neutral file-format libraries that import nothing from the repo; only ports use them), `domain/` (concepts and calculations, no I/O), `strategies/` (the `TradingStrategy` plugins and the `STRATEGIES` registry) and `ui/` (UI shared by scripts). Their import rules are enforced by `tests/architecture/test_package_imports.py`. **New domain work goes in `domain/pandas_approach/`**, not `bar_approach/`.
 
 The modules, one line each:
 
@@ -48,7 +48,8 @@ ports/mt5_file_access/mt5_frame_reader.py MT5 CSV → pandas frame directly, sam
 ports/file_system_access/file_system.py   list the source csv files in a folder (or pass one file through) [stdlib]
 ports/backtest_config_access/backtest_config_reader.py  backtest.py's JSON config → `BacktestConfig` (`read_config`): shape only — keys, JSON types, relative paths [stdlib]
 ports/run_environment/run_environment.py  the wall clock (`now`) and the repo's git state (`git_commit` → `GitCommit(commit, dirty)`), for `run.json` [stdlib]
-ports/dukascopy/dukascopy_frame_reader.py Dukascopy bid/ask M1 pairs → pandas frame (OHLC from bid, spread = ask - bid); `read_frame(year)` from config.DATA_DIR, `read_path(folder or file)` [pandas]
+ports/dukascopy/dukascopy_frame_reader.py Dukascopy bid/ask M1 pairs → one bar frame (OHLC from bid, spread = ask - bid): `read_path(folder or one file of a pair)` [pandas]
+libs/dukascopy_csv/                       find (`find_files`), pair (`pair_files`, `find_pair`) and read (`read_file`) Dukascopy exports, one DataFrame per file, all columns kept; nothing from the repo, see its README.md [pandas]
 domain/broker_clock.py                    BROKER_SERVER_TZ (New York + 7h), ShiftedZone, timezone_by_name ("broker" or IANA) / timezone_name [stdlib]
 domain/time_window.py                     TimeWindow: daily [start, end) of timezone-aware times, each optional; ZonedTime annotation [stdlib]
 domain/bar_approach/bar.py                the `Bar` entity — one OHLC candle (dt, OHLC, volumes, spread)  [stdlib]
@@ -104,7 +105,7 @@ python3 read_csv_as_frame.py data/eurusd/1min --timezone UTC                # br
 python3 read_csv_as_frame.py data/eurusd/1min --interval 5m --output scratch/jan_m5.csv  # write instead of display
 ```
 
-`ports/` and `domain/` (and their subpackages), `application/` and `strategies/` are regular packages (each has an `__init__.py`), and the CLIs must stay at the repo root for `ports.*` / `domain.*` / `application.*` / `strategies.*` to resolve from any working directory.
+`ports/`, `domain/` and `libs/` (and their subpackages), `application/` and `strategies/` are regular packages (each has an `__init__.py`), and the CLIs must stay at the repo root for `ports.*` / `domain.*` / `application.*` / `strategies.*` to resolve from any working directory.
 
 ## Backtest framework
 

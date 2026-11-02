@@ -1,22 +1,16 @@
-"""Reads Dukascopy EURUSD M1 bid/ask export pairs into a DataFrame.
+"""Reads Dukascopy M1 bid/ask export pairs into one DataFrame of bars.
 
-A Dukascopy export is one file per side per month
-(`eurusd-m1-bid-2020-01-01-2020-02-01.csv` / `eurusd-m1-ask-...`), so this
-port -- unlike `mt5_file_access` -- necessarily reads two files together to
-produce one record shape (OHLC from bid, spread derived from ask - bid).
+The files themselves are found, paired and read by `libs.dukascopy_csv`; this
+port turns each pair into the repo's bar-frame shape (OHLC from bid, spread
+derived from ask - bid).
 
 Re-exported so callers can use the short form:
 
-    from ports.dukascopy import read_frame
+    from ports.dukascopy import read_path
 
-    read_frame(2020)      # whole year
-    read_frame(2020, 3)   # March 2020 only
     read_path(folder)     # every pair under a folder (or the pair one file belongs to)
-
-The export folder's location is machine-specific and lives in
-`ports/dukascopy/config.py` (gitignored) -- see `config.example.py`.
 """
 
-from ports.dukascopy.dukascopy_frame_reader import FRAME_COLUMNS, read_frame, read_path
+from ports.dukascopy.dukascopy_frame_reader import FRAME_COLUMNS, read_path
 
-__all__ = ["FRAME_COLUMNS", "read_frame", "read_path"]
+__all__ = ["FRAME_COLUMNS", "read_path"]

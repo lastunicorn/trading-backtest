@@ -15,7 +15,7 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
-PACKAGES = ("application", "domain", "ports", "strategies", "ui")
+PACKAGES = ("application", "domain", "libs", "ports", "strategies", "ui")
 SCRIPTS = "scripts"  # the entry scripts at the repo root, as one component
 SCRIPT_MODULES = frozenset(path.stem for path in REPO_ROOT.glob("*.py"))
 
@@ -25,9 +25,10 @@ ALLOWED_IMPORTS = {
     SCRIPTS: {"application", "domain", "ports", "strategies", "ui"},
     "application": {"application", "domain", "ports", "strategies"},
     "strategies": {"strategies", "domain"},
-    "ports": {"ports", "domain"},  # domain entities only, see PORT_DOMAIN_ENTITIES
+    "ports": {"ports", "domain", "libs"},  # domain entities only, see PORT_DOMAIN_ENTITIES
     "ui": {"ui", "domain"},
     "domain": {"domain"},
+    "libs": {"libs"},  # and only its own library, see test_each_library_imports_only_itself
 }
 
 # The domain modules a port may import: entities it parses into, never logic.
@@ -107,4 +108,19 @@ def test_ports_import_only_domain_entities():
 
     entities = ", ".join(sorted(PORT_DOMAIN_ENTITIES))
     assert not violations, (f"ports may import only these domain entities: {entities}\n  "
+                            + "\n  ".join(violations))
+
+
+def test_each_library_imports_only_itself():
+    """A library must stay copyable to another project: no imports from the repo, not even another library."""
+    violations = [
+        describe(path, line, module)
+        for path in source_files("libs")
+        for line, module in imported_modules(path)
+        if component_of(module) == "libs"
+        and module.split(".")[:2] != module_name(path).split(".")[:2]
+        and module != "libs"
+    ]
+
+    assert not violations, ("a library may import only its own modules:\n  "
                             + "\n  ".join(violations))

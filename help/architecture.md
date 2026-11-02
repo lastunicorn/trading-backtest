@@ -14,7 +14,7 @@ How the code is split into components, what each one is responsible for, and whi
 
 ## 1. The components
 
-The application has six components. Five are packages; the sixth is the set of entry scripts at the repo root.
+The application has seven components. Six are packages; the seventh is the set of entry scripts at the repo root.
 
 ```
                    ┌───────────────────────────┐
@@ -27,22 +27,23 @@ The application has six components. Five are packages; the sixth is the set of e
     └──┬───────┬──┘       └─────┬──────┘        └───┬────┘
        ▼       │                │                   │
    ┌───────┐   │                │                   │
-   │ ports │   │                │                   │
-   └───┬───┘   │                │                   │
-       │ entities only          │                   │
+   │ ports │───┼────────────────┼───────────────────┼───────►┌──────┐
+   └───┬───┘   │                │                   │        │ libs │
+       │ entities only          │                   │        └──────┘
        ▼       ▼                ▼                   ▼
    ┌───────────────────────────────────────────────────────┐
    │                         domain                        │
    └───────────────────────────────────────────────────────┘
 ```
 
-*An arrow means "may import". Entry scripts may also import `ports` and `domain` directly (not drawn). Everything points towards `domain/`, which imports nothing in the repo.*
+*An arrow means "may import". Entry scripts may also import `ports` and `domain` directly (not drawn). Everything points towards `domain/`, which imports nothing in the repo. `libs/` imports nothing in the repo either, and only `ports/` imports it.*
 
 | Component | Where | Responsible for |
 |---|---|---|
 | **Entry scripts** | `*.py` at the repo root | one use case each: its UI and its steps |
 | **Application** | `application/` | orchestration shared by use cases, or too big for one script |
 | **Ports** | `ports/` | talking to external resources: files, config, the clock, git |
+| **Libraries** | `libs/` | reusable, application-neutral code for a file format, used by ports |
 | **Domain** | `domain/` | the concepts and the calculations; no I/O |
 | **Strategies** | `strategies/` | the `TradingStrategy` plugins and their registry |
 | **UI** | `ui/` | UI logic reused by more than one entry script |
@@ -71,7 +72,19 @@ Ports know *external resources*: file formats, config files, the clock, git. Any
 - A port may import a domain **entity** it parses into, never domain logic. The MT5 port parses files into `Bar` (`domain/bar_approach/bar.py`), but `Bar` belongs to the domain.
 - The clock and git are external resources too: `ports/run_environment/` provides `now()` and `git_commit()`. `backtest.py`'s `build_run_info` takes both as parameters, so tests pass fakes.
 
+- A port may delegate the format itself to a [library](#libraries) and keep only what is specific to this application. `ports/dukascopy` takes each Dukascopy bid file and ask file from `libs.dukascopy_csv` and decides how they become one bar (OHLC from bid, spread from ask − bid).
+
 Current ports: `mt5_file_access`, `dukascopy`, `file_system_access`, `backtest_config_access`, `run_environment`.
+
+### Libraries
+
+Code that knows a file format, or another external resource, and nothing about this application: no bars, no symbols, no backtests. Another project could copy a library's folder and use it unchanged.
+
+- A library **imports nothing from the repo**, not even another library. Each one depends only on the standard library and third-party packages.
+- **Only ports import libraries.** The port is where the library's general output is turned into what this application needs.
+- One subpackage per library, `libs/<name>/`, with relative imports inside it and a `README.md` describing its API.
+
+Current libraries: `dukascopy_csv` (find, pair and read Dukascopy candle exports, one DataFrame per file).
 
 ### Domain
 
@@ -105,7 +118,8 @@ These rules are the point of the layout. `tests/architecture/test_package_import
 | entry scripts | `application`, `ports`, `domain`, `strategies`, `ui` |
 | `application/` | `ports`, `domain`, `strategies` |
 | `strategies/` | `domain` |
-| `ports/` | domain **entities only**; today just `domain.bar_approach.bar` |
+| `ports/` | domain **entities only** (today just `domain.bar_approach.bar`), `libs` |
+| `libs/` | nothing in the repo; each library only its own modules |
 | `ui/` | `domain` (to format entities); never `ports` or `application` |
 | `domain/` | nothing in the repo |
 
@@ -157,6 +171,7 @@ The split has two benefits:
 | The code… | Goes in |
 |---|---|
 | reads or writes a file, a config, the clock, git | a port: `ports/<resource>/` |
+| …and knows a format any application could use, nothing of this one | a library, `libs/<name>/`, wrapped by a port |
 | defines a market or trading concept, or calculates something from bars | `domain/` (`pandas_approach/` for frame code) |
 | decides where a strategy enters | `strategies/`, registered in `STRATEGIES` |
 | combines ports and domain into a task used by one script | that script's use-case function |

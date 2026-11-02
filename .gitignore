@@ -4,5 +4,4 @@ __pycache__/
 /*_output/
 /output/
 /.pytest_cache/
-/ports/dukascopy/config.py
 /backtests/
