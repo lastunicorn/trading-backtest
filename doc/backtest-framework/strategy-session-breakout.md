@@ -2,7 +2,7 @@
 
 `"strategy": {"name": "session_breakout"}` · class `strategies.session_breakout.SessionBreakout`
 
-The Tokyo/Asian session breakout from `tokyo-session-breakout.md`, ported from `session_breakout_strategy.py`. It matches that script trade for trade. `tests/strategies/session_breakout/test_script_parity.py` runs both on a synthetic M1 random walk on every `pytest` run, and the two also agreed on all 912 trades of the 2020–2026 broker M5 data.
+The Tokyo/Asian session breakout from `tokyo-session-breakout.md`, ported from `session_breakout_strategy.py`, a standalone backtest script since deleted. It matches that script trade for trade: `tests/strategies/session_breakout/test_script_parity.py` checks it on every `pytest` run against the trades the script produced on a synthetic M1 random walk (recorded in `_script_trades.py`), and the two also agreed on all 912 trades of the 2020–2026 broker M5 data.
 
 For each UTC calendar day D:
 

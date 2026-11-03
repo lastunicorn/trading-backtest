@@ -5,8 +5,8 @@ itself (no `test_` prefix), so pytest never collects it.
 `span_days` calendar days from `day` (matching the base class's requirement
 that a subclass's `__post_init__` set `start_dt`/`end_dt`), records every bar
 handed to `_process_bar` before delegating to the base's default body, and
-closes out open positions on `_close_all_positions` the same way
-`session_breakout_strategy.DailySession` does. A test that needs a narrower
+closes out open positions on `_close_all_positions` the same way the removed
+`session_breakout_strategy.DailySession` did. A test that needs a narrower
 or differently-placed window overrides `start_dt`/`end_dt` directly on the
 instance after construction -- they're plain attributes, not derived.
 """

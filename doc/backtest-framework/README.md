@@ -114,4 +114,4 @@ Common mistakes:
 - The strategies:
   - [Narrow Asia London Fade](strategy-narrow-asia-fade.md) (`narrow_asia_fade`): fade the London break of a narrow Asia range.
   - [RSI Divergence](strategy-rsi-divergence.md) (`rsi_divergence`): regular RSI divergences on M15.
-  - [Session Breakout](strategy-session-breakout.md) (`session_breakout`): breakout of the Tokyo/Asian session range, `session_breakout_strategy.py`'s rules.
+  - [Session Breakout](strategy-session-breakout.md) (`session_breakout`): breakout of the Tokyo/Asian session range, the rules of the removed `session_breakout_strategy.py`.

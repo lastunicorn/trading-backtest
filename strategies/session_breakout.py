@@ -1,4 +1,4 @@
-"""Session Breakout: `session_breakout_strategy.py`'s rules as a `TradingStrategy`.
+"""Session Breakout: the removed `session_breakout_strategy.py`'s rules as a `TradingStrategy`.
 
     from strategies.session_breakout import SessionBreakout
 

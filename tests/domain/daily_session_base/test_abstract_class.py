@@ -1,6 +1,6 @@
 """`DailySessionBase` cannot be instantiated directly -- `_process_bar` and
 `_close_all_positions` are abstract, so only a concrete subclass (see
-`FakeDailySession` in `_fakes.py`, or a real one like
+`FakeDailySession` in `_fakes.py`; the only real one was the removed
 `session_breakout_strategy.DailySession`) can be constructed."""
 
 from datetime import date

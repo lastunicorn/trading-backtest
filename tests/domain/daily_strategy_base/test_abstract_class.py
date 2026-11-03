@@ -1,7 +1,7 @@
 """`DailyStrategyBase` cannot be instantiated directly -- `_create_session`
 is abstract, so only a concrete subclass (see `FakeDailyStrategy` in
-`_fakes.py`, or a real one like `session_breakout_strategy.SessionBreakoutStrategy`)
-can be constructed."""
+`_fakes.py`; the only real one was the removed
+`session_breakout_strategy.SessionBreakoutStrategy`) can be constructed."""
 
 import pytest
 
