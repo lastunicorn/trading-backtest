@@ -13,7 +13,7 @@ Each format differs in layout and spread unit, and this module is where those
 differences are settled:
 
     format                                   spread unit
-    MT4/MT5 exports (and resample_csv output) points
+    MT4/MT5 exports                           points
     histdata.com MetaTrader downloads         -- (no spread, no volume)
     Dukascopy bid/ask pairs                   price
 
@@ -24,9 +24,10 @@ caller. It labels the bars; nothing is shifted. A format whose clock is fixed
 (Dukascopy's UTC, histdata's New York time) checks it rather than trusting it.
 
 Every loader resamples to `timeframe`. That is a no-op when the source is
-already at it, as `resample_csv.py`'s M5 output is for "5m". It is wrong for
-a timeframe *finer* than the source, which no loader can detect -- asking for
-M1 from an M5 file gives the M5 bars back labelled M1.
+already at it, as an M5 export (`read_csv_as_frame.py --interval 5m --output`)
+is for "5m". It is wrong for a timeframe *finer* than the source, which no
+loader can detect -- asking for M1 from an M5 file gives the M5 bars back
+labelled M1.
 """
 
 from __future__ import annotations

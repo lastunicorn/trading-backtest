@@ -6,8 +6,4 @@ clean and merge them -- and hands back the result a CLI prints or writes. The I/
 here so `domain/` can stay a pure, testable core.
 
     from application.build_clean_dataset_use_case import build_clean_dataset
-
-`resample_csv.py` used to have its own use-case module here
-(`resample_use_case.py`); since it was the module's only caller, that logic now
-lives directly in the script.
 """

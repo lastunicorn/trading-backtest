@@ -63,7 +63,6 @@ domain/pandas_approach/frames.py          clean a frame (stable sort + dedup), r
 application/build_clean_dataset_use_case.py  folder of exports → one clean, deduplicated frame (in memory)
 read_csv_as_frame.py                      CLI that prints an export as an aligned table, raw or resampled [pandas]
 read_csv_as_bars.py                       the same CLI built on `Bar` streams instead of a frame          [stdlib]
-resample_csv.py                           folder/file of M1 exports → merged CSV on a coarser grid + report
 rsi_divergence.py                         CLI: RSI divergence indicator (regular, optionally hidden) on M5, printed; not the `RsiDivergence` entries [pandas]
 session_breakout_strategy.py              standalone session-breakout backtest; `SessionBreakout` reproduces it trade for trade [stdlib]
 daily_sessions.py                         CLI: per-day open/high/low/close of SESSIONS entries (`--session`, default Asia) on the exports' `--source-timezone` (default broker), printed [stdlib]
@@ -92,17 +91,9 @@ m5 = resample_ohlc(read_frame("data/eurusd/1min/EURUSD_2020_01.csv"), "M5")
 frame = build_clean_dataset("data/eurusd/1min", progress=print)  # every export in the folder, as one frame
 ```
 
-`build_clean_dataset` takes the per-file reader (`read_file`, MT5 by default) and file `pattern` as parameters, which is how `load_histdata` reuses it. It returns the frame and never writes; what happened to each file (rows, skipped lines, errors) goes only to `progress`.
+`build_clean_dataset` takes the per-file reader (`read_file`, MT5 by default) and file `pattern` as parameters, which is how `load_histdata` reuses it. It merges every file's bars (dropping duplicate timestamps, the later file winning) *before* resampling, so a bar spanning two files — a week across a month boundary — gets both files' data. It returns the frame and never writes; what happened to each file (rows, skipped lines, errors) goes only to `progress`; a file that fails to parse is skipped, not fatal.
 
-`resample_csv.py` runs the same build as `build_clean_dataset()` through its own `resample()` function, and — unlike `build_clean_dataset` — does the writing itself. (`resample()` used to live in a separate `application/resample_use_case.py` module; since this script was its only caller, that logic now lives directly in `resample_csv.py`.) It emits two files: the resampled CSV (MT5 export shape, read back with `load_mt5`) and a report beside it named for the CSV (`output_M5.csv` → `output_M5.report.txt`), overwriting an existing file after printing an `INFO:` line. `--source`, `--destination` and `--timeframe` are all required (no defaults). `--source` is a folder of raw M1 exports or a single csv file — the source data must always be M1; `--destination` is a file path, or a directory, in which case it writes `output_<timeframe>.csv` inside it:
-
-```bash
-python3 resample_csv.py --source data/eurusd/1min --destination data/eurusd/5min/EURUSD.csv --timeframe M5
-python3 resample_csv.py --source data/eurusd/1min --destination data/eurusd/15min/EURUSD.csv --timeframe M15
-python3 resample_csv.py --source data/eurusd/1min/EURUSD_2020_01.csv --destination scratch/jan.csv --timeframe M5
-```
-
-`read_csv_as_frame.py`'s `source` is a single file or a folder of exports (`ports.file_system_access.find_files` — a folder is read file-by-file in name order, chronological for this repo's monthly exports). It runs a pandas pipeline: read every file into one frame, clean it up (stable sort + drop duplicate timestamps, `domain.pandas_approach.frames.clean_frame`), optionally shift timezone (`--timezone`, off by default — bars display in raw broker-server time otherwise), optionally resample (`--interval`, via `domain.pandas_approach.frames.resample_ohlc` with plain pandas bucket semantics — see `domain.sample_size.SampleSize` for the `5m`/`4h`/`7d`/`2w`/`3M` syntax), then display or write (`--output`, which always writes the full processed frame regardless of `--rows`/`--all`/`--tail`):
+`read_csv_as_frame.py`'s `source` is a single file or a folder of exports (`ports.file_system_access.find_files` — a folder is read file-by-file in name order, chronological for this repo's monthly exports). It runs a pandas pipeline: read every file into one frame, clean it up (stable sort + drop duplicate timestamps, `domain.pandas_approach.frames.clean_frame`), optionally shift timezone (`--timezone`, off by default, from the exports' clock `--source-timezone`, `broker` by default), optionally resample (`--interval`, via `domain.pandas_approach.frames.resample_ohlc` with plain pandas bucket semantics — see `domain.sample_size.SampleSize` for the `5m`/`4h`/`7d`/`2w`/`3M` syntax), then display or write (`--output`, which always writes the full processed frame regardless of `--rows`/`--all`/`--tail`). `--output` is also how to export a resampled or time-shifted CSV: it writes the MT5 export shape, which `load_mt5` reads back. Unlike `build_clean_dataset`, one unreadable file aborts the run:
 
 ```bash
 python3 read_csv_as_frame.py data/eurusd/1min/EURUSD_2020_01.csv   # first 20 bars (the source arg is required)
@@ -111,6 +102,7 @@ python3 read_csv_as_frame.py data/eurusd/1min/EURUSD_2020_01.csv --all | less
 python3 read_csv_as_frame.py path/to/export.csv --decimals 3
 python3 read_csv_as_frame.py data/eurusd/1min --interval 5m                 # whole folder, resampled to M5
 python3 read_csv_as_frame.py data/eurusd/1min --timezone UTC                # broker-server time -> UTC
+python3 read_csv_as_frame.py path/to/histdata --source-timezone America/New_York --timezone UTC
 python3 read_csv_as_frame.py data/eurusd/1min --interval 5m --output scratch/jan_m5.csv  # write instead of display
 ```
 
@@ -174,7 +166,7 @@ The only CLI argument is a JSON config (or a folder holding `backtest.json`); it
 
 | Source | Loader | Spread unit converted from | Clock (`data.timezone`) |
 |---|---|---|---|
-| this repo's MT5 broker exports, `resample_csv.py` output | `load_mt5` (via `build_clean_dataset`) | points (tick size) | `broker` |
+| this repo's MT5 broker exports, `read_csv_as_frame.py --output` files | `load_mt5` (via `build_clean_dataset`) | points (tick size) | `broker` |
 | histdata.com MT exports (`DAT_MT_EURUSD_M1_*`) | `load_histdata` (volume dropped) | — (no spread column) | `America/New_York` (enforced) |
 | Dukascopy bid/ask pairs | `load_dukascopy` (volume columns dropped) | price (ask − bid) | `UTC` (enforced) |
 
@@ -206,4 +198,3 @@ For a class or module under test, create a directory named after the file being 
 - **histdata.com MT exports (`…/histdata/mt/<year>/DAT_MT_EURUSD_M1_*.csv`) are on New York time, not the broker clock.** Their week opens Sunday 17:00 in both winter and summer, and their July 2025 closes match the broker exports at exactly +7h (median 0.5 pips apart, vs 5+ at +6h/+8h). Before 2026-09-29 `load_mt5` labelled every MT export as broker-server time, so any `backtests/` run on histdata before then (`narrow_asia_fade`'s stored `output/`) had its windows 7 hours off. Clock-agnostic strategies (`rsi_divergence`) are unaffected. Use `"format": "histdata"` with `"timezone": "America/New_York"` for histdata in a backtest config; that loader rejects any other clock. (`"metatrader"` still reads the files, unchecked, with an all-zero `tick_volume`.)
 - Loading bars at a timeframe **finer** than the source silently relabels them: `load_mt5(M5 file, SampleSize.Parse("1m"), ...)` returns the M5 bars labelled 1m. Resampling only ever coarsens.
 - `RsiDivergence` reproduces the entries of `rsi_divergence_strategy.py`, an M15 scan removed in `55eda77`; backtest it with `"timeframe": "15m"`. The root `rsi_divergence.py` is a different script: the plain indicator on **M5**, with no 30/70 band filter, so its divergences are not the strategy's entries.
-- `read_csv_as_frame.py --output` is **not** a substitute for `resample_csv.py`, even though both can write a resampled CSV. `resample_csv.py` resamples each source file individually and dedups the *resampled* rows across files afterward, matching `build_clean_dataset` and its month-boundary tie-break; it's also the only one of the two that writes a `.report.txt` provenance record and that survives a single bad source file (per-file errors are logged, not fatal). `read_csv_as_frame.py` concatenates every raw file first, dedups the *raw M1* rows once, then resamples the whole thing — a different tie-break at month boundaries, no report, and one bad file aborts the run. Use `resample_csv.py` for anything that feeds a backtest; `read_csv_as_frame.py` is for ad hoc inspection.

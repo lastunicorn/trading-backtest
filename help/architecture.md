@@ -50,7 +50,7 @@ The application has seven components. Six are packages; the seventh is the set o
 
 ### Entry scripts
 
-One script per use case, at the repo root: `backtest.py`, `resample_csv.py`, `read_csv_as_frame.py`, `read_csv_as_bars.py`, `rsi_divergence.py`, `session_breakout_strategy.py`, `daily_sessions.py`, `show_symbol.py`. They must stay at the root so that `domain.*`, `ports.*` and the other packages resolve from any working directory.
+One script per use case, at the repo root: `backtest.py`, `read_csv_as_frame.py`, `read_csv_as_bars.py`, `rsi_divergence.py`, `session_breakout_strategy.py`, `daily_sessions.py`, `show_symbol.py`. They must stay at the root so that `domain.*`, `ports.*` and the other packages resolve from any working directory.
 
 A script holds that use case's UI and its steps, kept in separate functions; see [Inside an entry script](#3-inside-an-entry-script).
 
@@ -157,7 +157,7 @@ def run_task(source: Path, timeframe: SampleSize, *, progress=None) -> TaskResul
     return domain_function(data, timeframe)                  # domain
 ```
 
-Examples in the repo: `backtest.py`'s `run_backtest()` and `resample_csv.py`'s `resample()`.
+Examples in the repo: `backtest.py`'s `run_backtest()` and `daily_sessions.py`'s `collect_sessions()`.
 
 The split has two benefits:
 

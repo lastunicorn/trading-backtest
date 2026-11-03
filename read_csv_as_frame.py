@@ -10,6 +10,7 @@ processed data to a CSV.
     python3 read_csv_as_frame.py data/eurusd/1min --interval 5m              # whole folder, resampled to M5
     python3 read_csv_as_frame.py data/eurusd/1min --interval 1w              # resampled to weekly bars
     python3 read_csv_as_frame.py data/eurusd/1min --timezone UTC             # broker-server time -> UTC
+    python3 read_csv_as_frame.py path/to/histdata --source-timezone America/New_York --timezone UTC
     python3 read_csv_as_frame.py data/eurusd/1min --output scratch/jan.csv   # write instead of display
     python3 read_csv_as_frame.py path/to/other.csv --decimals 3
     python3 read_csv_as_frame.py data/eurusd/1min/EURUSD_2020_01.csv --source-symbol EURUSD  # fixed decimals
@@ -18,8 +19,9 @@ processed data to a CSV.
 .find_files) -- a folder's files are read in name order, which is chronological
 for this repo's monthly exports. The pipeline is always: read every file into
 one frame, clean it up (sort, drop duplicate timestamps), optionally shift
-timezone (--timezone; off by default -- bars display in raw broker-server
-time otherwise), optionally resample (--interval), then display or write
+timezone (--timezone, from the exports' own clock, --source-timezone, which
+is broker-server time by default; off by default -- bars display on the
+exports' own clock otherwise), optionally resample (--interval), then display or write
 (--output). See domain.sample_size.SampleSize for the --interval syntax (5m,
 4h, 7d, 2w, 3M, ...); resampling uses plain pandas bucket semantics (see
 domain.pandas_approach.frames.resample_ohlc). Price decimals come from
@@ -97,7 +99,7 @@ def main():
     frame = clean_frame(frame)
 
     if args.timezone is not None:
-        frame = shift_timezone(frame, args.timezone)
+        frame = shift_timezone(frame, args.timezone, from_tz=args.source_timezone)
 
     if interval is not None:
         frame = resample_ohlc(frame, interval)
@@ -111,10 +113,10 @@ def main():
         print(f"RESAMPLE: {args.interval}")
 
     if args.timezone is not None:
-        print(f"TIMEZONE: {timezone_name(args.timezone)}")
+        print(f"TIMEZONE: {timezone_name(args.source_timezone)} -> {timezone_name(args.timezone)}")
 
     print("=" * 64)
-    print(f"Timezone: {BROKER_SERVER_TZ if args.timezone is None else timezone_name(args.timezone)}")
+    print(f"Timezone: {timezone_name(args.timezone or args.source_timezone)}")
     print(f"Bars:   {len(frame):,}")
     print(f"First:  {frame['datetime'].iloc[0]:%Y.%m.%d %H:%M}")
     print(f"Last:   {frame['datetime'].iloc[-1]:%Y.%m.%d %H:%M}")
@@ -160,9 +162,18 @@ def parse_args():
         type=timezone_arg,
         default=None,
         metavar="TZ",
-        help="Shift from broker-server time (New York + 7h, see domain.broker_clock) "
-             "to this IANA timezone before display, e.g. 'UTC', 'Europe/London' "
-             "(omit to keep broker-server time).",
+        help="Shift from --source-timezone to this timezone before display, "
+             "e.g. 'UTC', 'Europe/London', 'broker' (omit to keep the source's clock).",
+    )
+
+    parser.add_argument(
+        "--source-timezone",
+        type=timezone_arg,
+        default=BROKER_SERVER_TZ,
+        metavar="TZ",
+        help="The clock the exports' timestamps are on: 'broker' (New York + 7h, "
+             "see domain.broker_clock) or an IANA name such as 'America/New_York' "
+             "for histdata.com exports (default: broker). Only --timezone uses it.",
     )
 
     parser.add_argument(
