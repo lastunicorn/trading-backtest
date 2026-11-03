@@ -59,10 +59,11 @@ domain/trading_session_template.py        TradingSessionTemplate: a session's da
 domain/trading_session.py                 TradingSession: one dated session window plus the `Bar`s inside it (a `BarBlock`: open/close/high/low) [stdlib]
 domain/bar_approach/bar.py                the `Bar` entity — one OHLC candle (dt, OHLC, volumes, spread)  [stdlib]
 domain/pandas_approach/frames.py          clean a frame (stable sort + dedup), resample it to a coarser timeframe, each bar labelled by its start (a week by its Monday) [pandas]
+domain/pandas_approach/session_ohlc.py    session_ohlc(frame, template, timezone=): per-day open/high/low/close/bar_count of a TradingSessionTemplate's window [pandas]
 application/build_clean_dataset_use_case.py  folder of exports → one clean, deduplicated frame (in memory)
 read_csv.py                               CLI that prints an export as an aligned table, raw or resampled [pandas]
 rsi_divergence.py                         CLI: RSI divergence indicator (regular, optionally hidden) on M5, printed; not the `RsiDivergence` entries [pandas]
-calculate_daily_sessions.py               CLI: per-day open/high/low/close of SESSIONS entries (`--session`, default Asia) on the exports' `--source-timezone` (default broker), printed [stdlib]
+calculate_daily_sessions.py               CLI: per-day open/high/low/close of SESSIONS entries (`--session`, default Asia) on the exports' `--source-timezone` (default broker), via `session_ohlc`, printed [pandas]
 show_symbols.py                           CLI: lists the `Symbol`s in domain.symbol with their pip/tick specs, `--filter` [stdlib]
 ```
 

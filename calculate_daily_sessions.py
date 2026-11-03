@@ -14,11 +14,13 @@ The sessions are the standard ones in `domain.trading_session_template.SESSIONS`
 its own timezone, so DST is resolved per date, and a day is the date the
 session opens on in that zone.
 
-Candles come from the mt5_file_access port (`iterate_bars`), streamed so a
-multi-year folder of M1 exports stays within flat memory. The exports carry no
-timezone: --source-timezone says which clock their timestamps are on, "broker"
-(this repo's MT5 broker-server clock, New York + 7h) by default, or an IANA
-name such as "America/New_York" for histdata.com exports.
+Candles come from the mt5_file_access port (`read_frame`), all files read into
+one frame, sorted, and deduplicated (`clean_frame`: where two files hold the
+same timestamp, the later file wins); `domain.pandas_approach.session_ohlc`
+does the rest. The exports carry no timezone: --source-timezone says which
+clock their timestamps are on, "broker" (this repo's MT5 broker-server clock,
+New York + 7h) by default, or an IANA name such as "America/New_York" for
+histdata.com exports.
 
 Output goes to the console; a file report comes later.
 
@@ -34,16 +36,18 @@ from __future__ import annotations
 import argparse
 import sys
 from collections.abc import Iterable
-from dataclasses import replace
-from datetime import UTC, date as _date, timedelta, tzinfo
+from datetime import tzinfo
 from pathlib import Path
 from zoneinfo import ZoneInfoNotFoundError
 
+import pandas as pd
+
 from domain.broker_clock import BROKER_TZ_NAME, timezone_by_name, timezone_name
-from domain.trading_session import TradingSession
+from domain.pandas_approach.frames import clean_frame
+from domain.pandas_approach.session_ohlc import session_ohlc
 from domain.trading_session_template import ASIA_SESSION, SESSIONS, TradingSessionTemplate
 from ports.file_system_access.file_system import find_files
-from ports.mt5_file_access import Bar, iterate_bars
+from ports.mt5_file_access import read_frame
 
 DEFAULT_SOURCE = "/nfs/YubabaFinance/trading/historical data/arty/eurusd/1min"
 DEFAULT_SESSIONS = [ASIA_SESSION.name]
@@ -103,42 +107,15 @@ def _parse_args() -> argparse.Namespace:
 
 def collect_sessions(
     paths: Iterable[Path], templates: list[TradingSessionTemplate], *, source_timezone: tzinfo
-) -> dict[TradingSessionTemplate, dict[_date, TradingSession]]:
-    """template -> {date the session opens -> that day's `TradingSession`},
-    for every day whose session has at least one bar.
+) -> dict[TradingSessionTemplate, pd.DataFrame]:
+    """template -> its `session_ohlc` frame (date, open, high, low, close,
+    bar_count), one row per day whose session has at least one bar.
 
     `source_timezone` labels the exports' naive timestamps; nothing is shifted.
     """
-    result: dict[TradingSessionTemplate, dict[_date, TradingSession]] = {t: {} for t in templates}
+    frame = clean_frame(pd.concat([read_frame(str(path), strict=False) for path in paths], ignore_index=True))
 
-    for path in paths:
-        for bar in iterate_bars(str(path), strict=False):
-            # Once per bar, to UTC: every session compares in UTC, and a
-            # ShiftedZone (the broker clock) is slow to convert from.
-            bar = replace(bar, dt=bar.dt.replace(tzinfo=source_timezone).astimezone(UTC))
-
-            for template in templates:
-                _add_to_session(result[template], template, bar)
-
-    return {
-        template: {day: session for day, session in days.items() if session.bar_count}
-        for template, days in result.items()
-    }
-
-
-def _add_to_session(days: dict[_date, TradingSession], template: TradingSessionTemplate, bar: Bar) -> None:
-    """Add `bar` to the session it falls in, if any: the one opening on the
-    bar's date in the session's zone, or the day before for a session that
-    wraps past midnight. Each day's session is created the first time a bar
-    could belong to it."""
-    day = bar.dt.astimezone(template.start_time.tzinfo).date()
-
-    for candidate in (day, day - timedelta(days=1)):
-        session = days.get(candidate)
-        if session is None:
-            session = days[candidate] = template.create_session(candidate)
-        if session.add(bar):
-            return
+    return {template: session_ohlc(frame, template, timezone=source_timezone) for template in templates}
 
 
 def window_label(template: TradingSessionTemplate) -> str:
@@ -151,7 +128,7 @@ def window_label(template: TradingSessionTemplate) -> str:
     return f"{template.start_time:%H:%M} {start_zone} - {template.end_time:%H:%M} {end_zone}"
 
 
-def print_session(template: TradingSessionTemplate, days: dict[_date, TradingSession]) -> None:
+def print_session(template: TradingSessionTemplate, days: pd.DataFrame) -> None:
     width = PRICE_DECIMALS + 3  # "1.12112" fits; leaves room for a leading digit
 
     def price(value: float) -> str:
@@ -159,7 +136,7 @@ def print_session(template: TradingSessionTemplate, days: dict[_date, TradingSes
 
     print(f"=== {template.name} session ({window_label(template)}, end exclusive) ===")
 
-    if not days:
+    if days.empty:
         print("  (no bars in window)\n")
         return
 
@@ -168,11 +145,10 @@ def print_session(template: TradingSessionTemplate, days: dict[_date, TradingSes
         f"{'high':>{width}}  {'low':>{width}}  {'bars':>5}"
     )
 
-    for day in sorted(days):
-        block = days[day].bar_block
+    for day in days.itertuples(index=False):
         print(
-            f"{day.isoformat():<10}  {price(block.open_value)}  {price(block.close_value)}  "
-            f"{price(block.high_value)}  {price(block.low_value)}  {block.bar_count:>5}"
+            f"{day.date.isoformat():<10}  {price(day.open)}  {price(day.close)}  "
+            f"{price(day.high)}  {price(day.low)}  {day.bar_count:>5}"
         )
 
     print(f"  {len(days)} session-days\n")
