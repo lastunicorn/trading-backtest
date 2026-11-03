@@ -1,12 +1,12 @@
 """`BarChunks`: split a stream of `Bar` into runs at configurable calendar boundaries.
 
 Stdlib only, and works bar-by-bar on anything iterable -- a list or a
-generator such as `ports.mt5_file_access.iter_bars` -- so a multi-year stream
+generator such as `ports.mt5_file_access.iterate_bars` -- so a multi-year stream
 splits in constant memory without going through pandas.
 
-    from domain.bar_chunks import BarChunks
+    from domain.bar_approach.bar_chunks import BarChunks
 
-    chunks = BarChunks(iter_bars(path), granularity="monthly")
+    chunks = BarChunks(iterate_bars(path), granularity="monthly")
     while chunks.has_more:
         month_bars = list(chunks.iterate())
         ...  # one calendar month's bars, oldest first
