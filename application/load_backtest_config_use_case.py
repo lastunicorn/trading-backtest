@@ -35,7 +35,7 @@ from domain.time_window import ZonedTime
 from ports.backtest_config_access import (
     BacktestConfig,
     CostConfig,
-    DataConfig,
+    DataSourceConfig,
     Fail,
     config_error,
     find_config_file,
@@ -59,8 +59,8 @@ def load_backtest_config(path) -> BacktestConfig:
 
     _check_choice(config.strategy, "strategy", sorted(STRATEGIES), fail)
     _check_choice(config.splits, "splits", [mode.value for mode in SplitMode], fail)
-    _check_data(config.data, fail)
-    _check_simulation(config.simulation, config.data, fail)
+    _check_data_source(config.data_source, fail)
+    _check_simulation(config.simulation, config.data_source, fail)
 
     return dataclasses.replace(
         config, strategy_parameters=_strategy_parameters(config.strategy, config.strategy_parameters, fail))
@@ -73,29 +73,29 @@ def cost_model(cost: CostConfig) -> CostModel:
     return FixedCost(pips=cost.commission_pips)
 
 
-def _check_simulation(simulation: SimulationConfig, data: DataConfig, fail: Fail) -> None:
+def _check_simulation(simulation: SimulationConfig, data_source: DataSourceConfig, fail: Fail) -> None:
     """The `simulation` object names a known policy and delay, and its timeframe coarsens the source's."""
     _check_choice(simulation.ambiguity, "simulation.ambiguity", [policy.value for policy in AmbiguityPolicy], fail)
     _check_choice(simulation.resolve_from, "simulation.resolve_from",
                   [delay.value for delay in PositionCloseDelay], fail)
 
     timeframe = _parse_timeframe(simulation.timeframe, "simulation.timeframe", fail)
-    if not timeframe.can_be_resampled_from(_parse_timeframe(data.timeframe, "data.timeframe", fail)):
+    if not timeframe.can_be_resampled_from(_parse_timeframe(data_source.timeframe, "data_source.timeframe", fail)):
         raise fail(f'"simulation.timeframe" {timeframe} is not a whole multiple of the source\'s '
-                   f'"data.timeframe" {data.timeframe}; resampling only coarsens')
+                   f'"data_source.timeframe" {data_source.timeframe}; resampling only coarsens')
 
 
-def _check_data(data: DataConfig, fail: Fail) -> None:
-    """The `data` object's format, symbol and time zone name things that exist."""
-    _check_choice(data.format, "data.format", [source_format.value for source_format in SourceFormat], fail)
+def _check_data_source(data_source: DataSourceConfig, fail: Fail) -> None:
+    """The `data_source` object's format, symbol and time zone name things that exist."""
+    _check_choice(data_source.format, "data_source.format", [source_format.value for source_format in SourceFormat], fail)
     try:
-        by_ticker(data.symbol)
+        by_ticker(data_source.symbol)
     except ValueError as error:
-        raise fail(f'"data.symbol": {error}') from error
+        raise fail(f'"data_source.symbol": {error}') from error
     try:
-        timezone_by_name(data.timezone)
+        timezone_by_name(data_source.timezone)
     except (KeyError, ValueError) as error:  # ZoneInfoNotFoundError is a KeyError
-        raise fail(f'"data.timezone" is {json.dumps(data.timezone)}: not "broker" or an IANA time zone '
+        raise fail(f'"data_source.timezone" is {json.dumps(data_source.timezone)}: not "broker" or an IANA time zone '
                    f'name such as "UTC" or "America/New_York"') from error
 
 

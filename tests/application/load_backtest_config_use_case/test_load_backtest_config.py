@@ -11,19 +11,19 @@ import pytest
 
 from application.load_backtest_config_use_case import load_backtest_config
 from domain.broker_clock import BROKER_SERVER_TZ
-from ports.backtest_config_access import BacktestConfig, DataConfig, SimulationConfig
+from ports.backtest_config_access import BacktestConfig, DataSourceConfig, SimulationConfig
 from strategies import STRATEGIES
 from strategies.rsi_divergence import RsiDivergence
-from tests.ports.backtest_config_access.backtest_config_reader._fakes import data, write_config
+from tests.ports.backtest_config_access.backtest_config_reader._fakes import data_source, write_config
 
 
 def test_minimal_config_takes_the_defaults(tmp_path) -> None:
-    config = load_backtest_config(write_config(tmp_path, {"strategy": "narrow_asia_fade", "data": data(),
+    config = load_backtest_config(write_config(tmp_path, {"strategy": "narrow_asia_fade", "data_source": data_source(),
                                                           "out": "results"}))
 
     assert config == BacktestConfig(
         strategy="narrow_asia_fade",
-        data=DataConfig(source=tmp_path / "m5.csv", format="metatrader", symbol="EURUSD", timeframe="1m",
+        data_source=DataSourceConfig(path=tmp_path / "m5.csv", format="metatrader", symbol="EURUSD", timeframe="1m",
                         timezone="UTC"),
         out=tmp_path / "results",
         simulation=SimulationConfig(timeframe="5m"),
@@ -31,41 +31,46 @@ def test_minimal_config_takes_the_defaults(tmp_path) -> None:
 
 
 def test_reads_backtest_json_from_a_folder(tmp_path) -> None:
-    write_config(tmp_path, {"strategy": "rsi_divergence", "data": data("m1"), "out": "results"})
+    write_config(tmp_path, {"strategy": "rsi_divergence", "data_source": data_source("m1"), "out": "results"})
 
     assert load_backtest_config(tmp_path).strategy == "rsi_divergence"
 
 
 def test_shape_errors_come_from_the_port(tmp_path) -> None:
     with pytest.raises(ValueError, match='"strategy" is required'):
-        load_backtest_config(write_config(tmp_path, {"data": data(), "out": "o"}))
+        load_backtest_config(write_config(tmp_path, {"data_source": data_source(), "out": "o"}))
 
 
 def test_errors_name_the_config_file(tmp_path) -> None:
-    path = write_config(tmp_path, {"strategy": "nope", "data": data(), "out": "o"})
+    path = write_config(tmp_path, {"strategy": "nope", "data_source": data_source(), "out": "o"})
 
     with pytest.raises(ValueError, match=f"^{path}: "):
         load_backtest_config(path)
 
 
 @pytest.mark.parametrize("config, message", [
-    ({"strategy": "rsi_divergence", "data": data(format="mt5"), "out": "o"},
-     '"data.format" is "mt5"; choose one of metatrader, histdata, dukascopy'),
-    ({"strategy": "rsi_divergence", "data": data(symbol="EURUSX"), "out": "o"}, '"data.symbol"'),
-    ({"strategy": "rsi_divergence", "data": data(timezone="New York"), "out": "o"}, '"data.timezone" is "New York"'),
-    ({"strategy": "rsi_divergence", "data": data(timezone="../etc"), "out": "o"}, '"data.timezone" is "../etc"'),
-    ({"strategy": "rsi_divergence", "data": data(timeframe="1min"), "out": "o"}, '"data.timeframe": invalid'),
-    ({"strategy": "rsi_divergence", "data": data(), "out": "o", "simulation": {"timeframe": "5x"}},
+    ({"strategy": "rsi_divergence", "data_source": data_source(format="mt5"), "out": "o"},
+     '"data_source.format" is "mt5"; choose one of metatrader, histdata, dukascopy'),
+    ({"strategy": "rsi_divergence", "data_source": data_source(symbol="EURUSX"), "out": "o"}, '"data_source.symbol"'),
+    ({"strategy": "rsi_divergence", "data_source": data_source(timezone="New York"), "out": "o"},
+     '"data_source.timezone" is "New York"'),
+    ({"strategy": "rsi_divergence", "data_source": data_source(timezone="../etc"), "out": "o"},
+     '"data_source.timezone" is "../etc"'),
+    ({"strategy": "rsi_divergence", "data_source": data_source(timeframe="1min"), "out": "o"},
+     '"data_source.timeframe": invalid'),
+    ({"strategy": "rsi_divergence", "data_source": data_source(), "out": "o", "simulation": {"timeframe": "5x"}},
      '"simulation.timeframe": invalid'),
-    ({"strategy": "rsi_divergence", "data": data(timeframe="15m"), "out": "o"}, "not a whole multiple"),
-    ({"strategy": "rsi_divergence", "data": data(timeframe="5m"), "out": "o", "simulation": {"timeframe": "7m"}},
+    ({"strategy": "rsi_divergence", "data_source": data_source(timeframe="15m"), "out": "o"}, "not a whole multiple"),
+    ({"strategy": "rsi_divergence", "data_source": data_source(timeframe="5m"), "out": "o",
+      "simulation": {"timeframe": "7m"}},
      '"simulation.timeframe" 7m is not a whole multiple'),
-    ({"strategy": "nope", "data": data(), "out": "o"}, '"strategy" is "nope"'),
-    ({"strategy": "rsi_divergence", "data": data(), "out": "o", "simulation": {"ambiguity": "guess"}},
+    ({"strategy": "nope", "data_source": data_source(), "out": "o"}, '"strategy" is "nope"'),
+    ({"strategy": "rsi_divergence", "data_source": data_source(), "out": "o", "simulation": {"ambiguity": "guess"}},
      '"simulation.ambiguity" is "guess"'),
-    ({"strategy": "rsi_divergence", "data": data(), "out": "o", "simulation": {"resolve_from": "later"}},
+    ({"strategy": "rsi_divergence", "data_source": data_source(), "out": "o", "simulation": {"resolve_from": "later"}},
      '"simulation.resolve_from" is "later"'),
-    ({"strategy": "rsi_divergence", "data": data(), "out": "o", "splits": "weekly"}, '"splits" is "weekly"'),
+    ({"strategy": "rsi_divergence", "data_source": data_source(), "out": "o", "splits": "weekly"},
+     '"splits" is "weekly"'),
 ])
 def test_rejects_invalid_values(tmp_path, config: dict, message: str) -> None:
     with pytest.raises(ValueError, match=message):
@@ -73,12 +78,13 @@ def test_rejects_invalid_values(tmp_path, config: dict, message: str) -> None:
 
 
 def _with_parameters(tmp_path, strategy: str, parameters: dict):
-    return load_backtest_config(write_config(tmp_path, {"strategy": strategy, "data": data(), "out": "o",
+    return load_backtest_config(write_config(tmp_path, {"strategy": strategy, "data_source": data_source(), "out": "o",
                                                         "strategy_parameters": parameters}))
 
 
 def test_strategy_parameters_default_to_none_given(tmp_path) -> None:
-    config = load_backtest_config(write_config(tmp_path, {"strategy": "rsi_divergence", "data": data(), "out": "o"}))
+    config = load_backtest_config(write_config(tmp_path, {"strategy": "rsi_divergence", "data_source": data_source(),
+                                                          "out": "o"}))
 
     assert config.strategy_parameters == {}
 
@@ -132,8 +138,8 @@ def test_rejects_invalid_strategy_parameters(tmp_path, strategy: str, parameters
 
 
 @pytest.mark.parametrize("zone", ["broker", "Broker", "America/New_York", "UTC"])
-def test_data_timezone_takes_broker_or_an_iana_name(tmp_path, zone: str) -> None:
-    config = load_backtest_config(write_config(tmp_path, {"strategy": "rsi_divergence", "data": data(timezone=zone),
-                                                          "out": "o"}))
+def test_data_source_timezone_takes_broker_or_an_iana_name(tmp_path, zone: str) -> None:
+    config = load_backtest_config(write_config(tmp_path, {"strategy": "rsi_divergence",
+                                                          "data_source": data_source(timezone=zone), "out": "o"}))
 
-    assert config.data.timezone == zone
+    assert config.data_source.timezone == zone

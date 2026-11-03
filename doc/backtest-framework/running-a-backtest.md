@@ -20,7 +20,7 @@ python3 backtest.py backtests/narrow_asia_fade/backtest.json
 python3 backtest.py backtests/narrow_asia_fade        # a folder: reads the backtest.json inside it
 ```
 
-Ready-made configs live in `backtests/<name>/backtest.json`. The file's structure, every key with its default, strategy parameter overrides, validation errors and more examples are in [The backtest config file](backtest-config.md). Note that **relative paths (`data.source`, `out`) are resolved against the config file's folder**, not the directory you run from.
+Ready-made configs live in `backtests/<name>/backtest.json`. The file's structure, every key with its default, strategy parameter overrides, validation errors and more examples are in [The backtest config file](backtest-config.md). Note that **relative paths (`data_source.path`, `out`) are resolved against the config file's folder**, not the directory you run from.
 
 ## 2. From Python
 
@@ -81,9 +81,9 @@ For `ambiguity`, keep `exclude` unless you are reproducing a study that used ano
 
 ## 4. Data sources and clocks
 
-The clock is not part of the format: two MetaTrader exports can be on different clocks. Set `data.timezone` (default `"UTC"`) to the clock of the files you point at:
+The clock is not part of the format: two MetaTrader exports can be on different clocks. Set `data_source.timezone` (default `"UTC"`) to the clock of the files you point at:
 
-| Source | `data.format` | Loader | Spread in the file | `data.timezone` |
+| Source | `data_source.format` | Loader | Spread in the file | `data_source.timezone` |
 |---|---|---|---|---|
 | this repo's MT5 broker exports (`data/eurusd/1min`), `read_csv.py --output` files | `metatrader` | `load_mt5` | points (tick size) | `"broker"` |
 | histdata.com MT exports (`DAT_MT_EURUSD_M1_*.csv`) | `histdata` | `load_histdata` (volume dropped: always 0) | none | `"America/New_York"`, the only clock accepted (week opens Sunday 17:00; broker time − 7h, checked against the broker exports) |

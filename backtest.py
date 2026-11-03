@@ -12,8 +12,8 @@ resolved against the config file's own folder, not the working directory:
 
     {
         "strategy": "narrow_asia_fade",
-        "data": {
-            "source": "../../data/eurusd/1min",
+        "data_source": {
+            "path": "../../data/eurusd/1min",
             "format": "metatrader",
             "symbol": "EURUSD",
             "timeframe": "1m",
@@ -34,11 +34,11 @@ the rest keep their defaults. Time fields take "HH:MM" strings (on the data's
 clock), timezone-aware ones (`ZonedTime`) "HH:MM <zone>" such as
 "08:00 Europe/London" or "10:00 broker". A nullable field also takes null.
 
-`data` describes the bars as they are on disk. `source` (a file or a folder)
-and `format` say where they are and how to read them: "metatrader" for MT4/MT5
-exports, "dukascopy" for Dukascopy bid/ask pairs (UTC bars, not broker-server
-time). `symbol` is
-required; `timeframe` (default "1m") is the bar size of the source, which
+`data_source` describes the bars as they are on disk. `path` (a file or a
+folder) and `format` say where they are and how to read them: "metatrader" for
+MT4/MT5 exports, "histdata" for histdata.com downloads (New York time),
+"dukascopy" for Dukascopy bid/ask pairs (UTC bars, not broker-server time).
+`symbol` is required; `timeframe` (default "1m") is the bar size of the source, which
 `simulation.timeframe` -- the size to backtest on -- must be a whole multiple of.
 `timezone` (default "UTC") is the clock the source's timestamps are on: an
 IANA name such as "America/New_York", or "broker" for this repo's MT5
@@ -112,7 +112,7 @@ def main() -> int:
     try:
         config = load_backtest_config(args.config)
         timeframe = SampleSize.Parse(config.simulation.timeframe)
-        symbol = by_ticker(config.data.symbol)
+        symbol = by_ticker(config.data_source.symbol)
     except (ValueError, FileNotFoundError) as error:
         print(f"ERROR: {error}", file=sys.stderr)
         return 1
@@ -143,9 +143,9 @@ def _parse_args() -> argparse.Namespace:
 
 
 def _run(config: BacktestConfig, timeframe: SampleSize, symbol: Symbol) -> BacktestRun:
-    source_format = SourceFormat(config.data.format)
-    data = load_source(config.data.source, source_format, timeframe, symbol,
-                       timezone=timezone_by_name(config.data.timezone), progress=print)
+    source_format = SourceFormat(config.data_source.format)
+    data = load_source(config.data_source.path, source_format, timeframe, symbol,
+                       timezone=timezone_by_name(config.data_source.timezone), progress=print)
 
     backtest = Backtest(
         strategy=STRATEGIES[config.strategy](**config.strategy_parameters),
@@ -155,7 +155,7 @@ def _run(config: BacktestConfig, timeframe: SampleSize, symbol: Symbol) -> Backt
         position_resolve_delay=PositionCloseDelay(config.simulation.resolve_from),
         splits=SplitMode(config.splits),
     )
-    return run_backtest(backtest, config.out, source=f"{config.data.source} ({source_format.value})")
+    return run_backtest(backtest, config.out, source=f"{config.data_source.path} ({source_format.value})")
 
 
 @dataclass(frozen=True)

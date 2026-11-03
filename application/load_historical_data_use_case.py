@@ -52,7 +52,7 @@ Progress = Callable[[str], None]
 
 
 class SourceFormat(Enum):
-    """How a source's files are laid out, which decides the loader. Values are the config's `data.format`."""
+    """How a source's files are laid out, which decides the loader. Values are the config's `data_source.format`."""
 
     METATRADER = "metatrader"   # MT4/MT5 exports: a folder of them, or one
     HISTDATA = "histdata"       # histdata.com MetaTrader downloads: a folder of them, or one

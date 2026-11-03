@@ -228,8 +228,8 @@ Put a config in `backtests/opening_range_breakout/backtest.json`:
 ```json
 {
 	"strategy": "opening_range_breakout",
-	"data": {
-		"source": "../../data/eurusd/1min",
+	"data_source": {
+		"path": "../../data/eurusd/1min",
 		"format": "metatrader",
 		"symbol": "EURUSD",
 		"timeframe": "1m",

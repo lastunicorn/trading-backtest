@@ -3,11 +3,11 @@
     from ports.backtest_config_access import read_config
 
     config = read_config("backtests/narrow_asia_fade")   # the folder's backtest.json
-    config.strategy, config.data.source, config.simulation.timeframe, config.out
+    config.strategy, config.data_source.path, config.simulation.timeframe, config.out
 
 The file format is documented in doc/backtest-framework/backtest-config.md.
 This port checks the file's *shape* only: known keys, JSON types, required
-keys. Relative `data.source` and `out` paths resolve against the config file's
+keys. Relative `data_source.path` and `out` paths resolve against the config file's
 own folder, not the working directory. Violations raise `ValueError` naming
 the file, so a typo fails the run instead of silently falling back to a default.
 
@@ -31,16 +31,16 @@ Fail = Callable[[str], ValueError]
 
 
 @dataclass(frozen=True)
-class DataConfig:
-    """The config's `data` object: where the bars come from and what they are.
+class DataSourceConfig:
+    """The config's `data_source` object: where the bars come from and what they are.
 
-    `source` is already resolved against the config file's folder. `format` is
+    `path` (a file or a folder) is already resolved against the config file's folder. `format` is
     a `SourceFormat` value. `timeframe` is the bar size of the source as
     stored, not the one backtested on. `timezone` is the clock its timestamps
     are on, as `timezone_by_name` reads it ("broker" or an IANA name).
     """
 
-    source: Path
+    path: Path
     format: str
     symbol: str
     timeframe: str = "1m"
@@ -64,7 +64,7 @@ class CostConfig:
 class SimulationConfig:
     """The config's `simulation` object: the rules the positions are traded under.
 
-    `timeframe` is the bar size to backtest on; `data.timeframe` divides it.
+    `timeframe` is the bar size to backtest on; `data_source.timeframe` divides it.
     The `ambiguity` and `resolve_from` defaults are the values of
     `AmbiguityPolicy.EXCLUDE` and `PositionCloseDelay.NEXT_BAR`. `cost` is
     what each trade pays; none by default.
@@ -91,7 +91,7 @@ class BacktestConfig:
     """
 
     strategy: str
-    data: DataConfig
+    data_source: DataSourceConfig
     out: Path
     simulation: SimulationConfig = field(default_factory=SimulationConfig)
     splits: str = "none"
@@ -102,15 +102,15 @@ class BacktestConfig:
 # on purpose: `"commission_pips": true` is a mistake, not 1 pip.
 _CONFIG_KEY_TYPES = {
     "strategy": str,
-    "data": dict,
+    "data_source": dict,
     "out": str,
     "simulation": dict,
     "splits": str,
     "strategy_parameters": dict,
 }
 
-_DATA_KEY_TYPES = {
-    "source": str,
+_DATA_SOURCE_KEY_TYPES = {
+    "path": str,
     "format": str,
     "symbol": str,
     "timeframe": str,
@@ -163,28 +163,28 @@ def read_config(path) -> BacktestConfig:
 
     fail = config_error(file)
     _check_keys(raw, _CONFIG_KEY_TYPES, "", fail)
-    for key in ("strategy", "data", "out"):
+    for key in ("strategy", "data_source", "out"):
         if key not in raw:
             raise fail(f'"{key}" is required')
 
     values = dict(raw)
-    values["data"] = _data_config(file, raw["data"], fail)
+    values["data_source"] = _data_source_config(file, raw["data_source"], fail)
     values["out"] = _relative_to(file, raw["out"])
     if "simulation" in raw:
         values["simulation"] = _simulation_config(raw["simulation"], fail)
     return BacktestConfig(**values)
 
 
-def _data_config(file: Path, raw: dict, fail: Fail) -> DataConfig:
-    """The `data` object, checked, with `source` resolved against the config file's folder."""
-    _check_keys(raw, _DATA_KEY_TYPES, "data.", fail)
-    for key in ("source", "format", "symbol"):
+def _data_source_config(file: Path, raw: dict, fail: Fail) -> DataSourceConfig:
+    """The `data_source` object, checked, with `path` resolved against the config file's folder."""
+    _check_keys(raw, _DATA_SOURCE_KEY_TYPES, "data_source.", fail)
+    for key in ("path", "format", "symbol"):
         if key not in raw:
-            raise fail(f'"data.{key}" is required')
+            raise fail(f'"data_source.{key}" is required')
 
     values = dict(raw)
-    values["source"] = _relative_to(file, raw["source"])
-    return DataConfig(**values)
+    values["path"] = _relative_to(file, raw["path"])
+    return DataSourceConfig(**values)
 
 
 def _simulation_config(raw: dict, fail: Fail) -> SimulationConfig:
@@ -231,7 +231,7 @@ def has_json_type(value, expected: type) -> bool:
 
 
 def _check_keys(raw: dict, key_types: dict[str, type], prefix: str, fail: Fail) -> None:
-    """Reject keys not in `key_types` and values of the wrong JSON type; `prefix` names the nesting ("data.")."""
+    """Reject keys not in `key_types` and values of the wrong JSON type; `prefix` names the nesting ("data_source.")."""
     unknown = sorted(set(raw) - set(key_types))
     if unknown:
         raise fail(f"unknown key(s) {', '.join(prefix + key for key in unknown)}; "
