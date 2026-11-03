@@ -1,13 +1,13 @@
-"""Tests for `trading_sessions.collect_sessions`."""
+"""Tests for `daily_sessions.collect_sessions`."""
 
 from datetime import UTC, date, time
 
 import pytest
 
+from daily_sessions import collect_sessions
 from domain.broker_clock import BROKER_SERVER_TZ
 from domain.trading_session_template import ASIA_SESSION, LONDON_SESSION, TradingSessionTemplate
-from tests.trading_sessions._fakes import export
-from trading_sessions import collect_sessions
+from tests.daily_sessions._fakes import export
 
 
 def _block(tmp_path, bars, template=ASIA_SESSION, source_timezone=BROKER_SERVER_TZ):
