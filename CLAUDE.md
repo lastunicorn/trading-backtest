@@ -55,6 +55,8 @@ libs/metatrader_csv/                      read/write MetaTrader bar exports: `it
 libs/dukascopy_csv/                       find (`find_files`), pair (`pair_files`, `find_pair`) and read (`read_file`) Dukascopy exports, one DataFrame per file, all columns kept; nothing from the repo, see its README.md [pandas]
 domain/broker_clock.py                    BROKER_SERVER_TZ (New York + 7h), ShiftedZone, timezone_by_name ("broker" or IANA) / timezone_name [stdlib]
 domain/time_window.py                     TimeWindow: daily [start, end) of timezone-aware times, each optional; ZonedTime annotation [stdlib]
+domain/trading_session_template.py        TradingSessionTemplate: a session's daily window (zoned start/end, optional name); `create_session(date)`; SESSIONS table (TOKYO_SESSION, ASIA_SESSION, LONDON_SESSION, NEW_YORK_SESSION) [stdlib]
+domain/trading_session.py                 TradingSession: one dated session window plus the `Bar`s inside it (a `BarBlock`: open/close/high/low) [stdlib]
 domain/bar_approach/bar.py                the `Bar` entity — one OHLC candle (dt, OHLC, volumes, spread)  [stdlib]
 domain/bar_approach/resample_bars.py      resample an iterable of `Bar` to a coarser grid, streaming    [stdlib]
 domain/pandas_approach/frames.py          clean a frame (stable sort + dedup), resample it to a coarser timeframe [pandas]
@@ -64,7 +66,7 @@ read_csv_as_bars.py                       the same CLI built on `Bar` streams in
 resample_csv.py                           folder/file of M1 exports → merged CSV on a coarser grid + report
 rsi_divergence.py                         CLI: RSI divergence indicator (regular, optionally hidden) on M5, printed; not the `RsiDivergence` entries [pandas]
 session_breakout_strategy.py              standalone session-breakout backtest; `SessionBreakout` reproduces it trade for trade [stdlib]
-trading_sessions.py                       CLI: per-day open/high/low/close of each session (Tokyo only so far), printed [stdlib]
+trading_sessions.py                       CLI: per-day open/high/low/close of SESSIONS entries (`--session`, default Asia) on the exports' `--source-timezone` (default broker), printed [stdlib]
 show_symbol.py                            CLI: lists the `Symbol`s in domain.symbol with their pip/tick specs, `--filter` [stdlib]
 ```
 

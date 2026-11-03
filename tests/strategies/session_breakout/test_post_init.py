@@ -10,7 +10,7 @@ from strategies.session_breakout import SessionBreakout
 def test_defaults_match_the_script() -> None:
     strategy = SessionBreakout()
 
-    # AsianSessionTemplate, and session_breakout_strategy.py's CLI defaults.
+    # ASIA_SESSION, and session_breakout_strategy.py's CLI defaults.
     assert (strategy.session_start, strategy.session_end) == (time(9, 0), time(18, 0))
     assert strategy.session_timezone == "Asia/Tokyo"
     assert (strategy.max_range_pips, strategy.risk_reward) == (30.0, 1.5)

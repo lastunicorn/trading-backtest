@@ -3,7 +3,7 @@
 from datetime import UTC, date, datetime, time
 from zoneinfo import ZoneInfo
 
-from domain.trading_session_template import LondonSessionTemplate, TradingSessionTemplate
+from domain.trading_session_template import LONDON_SESSION, TradingSessionTemplate
 
 TOKYO = ZoneInfo("Asia/Tokyo")
 LONDON = ZoneInfo("Europe/London")
@@ -11,8 +11,7 @@ WINTER_DATE = date(2026, 1, 15)
 
 
 def test_non_wrapping_session_keeps_the_same_calendar_date() -> None:
-    template = LondonSessionTemplate()
-    session = template.create_session(WINTER_DATE)
+    session = LONDON_SESSION.create_session(WINTER_DATE)
 
     assert session.start_dt_utc() == datetime(2026, 1, 15, 8, 0, tzinfo=UTC)
     assert session.end_dt_utc() == datetime(2026, 1, 15, 16, 30, tzinfo=UTC)

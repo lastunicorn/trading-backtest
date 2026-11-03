@@ -1,6 +1,10 @@
 """`TradingSessionTemplate`: a trading session's daily time window, and nothing
-else -- unlike `tokyo_session.TokyoSession`, a template holds no bars, it just
-describes when a session runs.
+else -- unlike `trading_session.TradingSession`, a template holds no bars, it
+just describes when a session runs; `create_session(date)` makes the
+`TradingSession` for one day.
+
+The standard sessions are module constants (`TOKYO_SESSION`, `ASIA_SESSION`,
+`LONDON_SESSION`, `NEW_YORK_SESSION`), collected by name in `SESSIONS`.
 
 `start_time` and `end_time` each carry their own `tzinfo` and are independently
 sufficient to resolve to UTC -- there is no shared `timezone` field, so a
@@ -9,7 +13,7 @@ Asia-session start paired with a London-session end). Converting a bound to
 UTC needs a specific calendar date whenever its zone observes daylight saving,
 so that conversion is the `start_time_utc()`/`end_time_utc()` methods, not a
 bare property -- there is no single "the UTC start time" for a DST-observing
-session, only "the UTC start time on date X" (see `NewYorkSessionTemplate`).
+session, only "the UTC start time on date X" (see `NEW_YORK_SESSION`).
 
 Stdlib only.
 """
@@ -24,22 +28,25 @@ from domain.trading_session import TradingSession
 
 __all__ = [
     "TradingSessionTemplate",
-    "TokyoSessionTemplate",
-    "AsianSessionTemplate",
-    "LondonSessionTemplate",
-    "NewYorkSessionTemplate",
+    "TOKYO_SESSION",
+    "ASIA_SESSION",
+    "LONDON_SESSION",
+    "NEW_YORK_SESSION",
+    "SESSIONS",
 ]
 
 
 @dataclass(frozen=True)
 class TradingSessionTemplate:
     """A trading session's daily window: a start and an end, each a
-    timezone-aware local time. Frozen -- a template is a fixed description of
-    a session, not something that accumulates state like `TokyoSession` does.
+    timezone-aware local time, plus an optional display name. Frozen -- a
+    template is a fixed description of a session, not something that
+    accumulates bars like `TradingSession` does.
     """
 
     start_time: _time
     end_time: _time
+    name: str | None = None
 
     def __post_init__(self) -> None:
         if self.start_time.tzinfo is None or self.end_time.tzinfo is None:
@@ -81,52 +88,35 @@ class TradingSessionTemplate:
         return TradingSession(start_dt=start_dt_utc, end_dt=end_dt_utc)
 
 
-@dataclass(frozen=True)
-class TokyoSessionTemplate(TradingSessionTemplate):
-    """09:00-15:30 Japan Standard Time -- the Tokyo Stock Exchange's opening
-    and closing bell times (the TSE close moved from 15:00 to 15:30 in
-    November 2024). The TSE actually halts for a lunch break (11:30-12:30),
-    so bell-to-bell isn't continuous trading, but `TradingSessionTemplate`
-    models one window per day -- this is that window's outer bounds, not the
-    rounder 09:00-18:00 sometimes used for the informal FX "Tokyo session".
-    """
+_TOKYO = ZoneInfo("Asia/Tokyo")
+_LONDON = ZoneInfo("Europe/London")
+_NEW_YORK = ZoneInfo("America/New_York")
 
-    start_time: _time = _time(9, 0, tzinfo=ZoneInfo("Asia/Tokyo"))
-    end_time: _time = _time(15, 30, tzinfo=ZoneInfo("Asia/Tokyo"))
+# 09:00-15:30 Japan Standard Time -- the Tokyo Stock Exchange's opening and
+# closing bell times (the TSE close moved from 15:00 to 15:30 in November
+# 2024). The TSE actually halts for a lunch break (11:30-12:30), so
+# bell-to-bell isn't continuous trading, but a template models one window per
+# day -- this is that window's outer bounds, not the FX "Asia session".
+TOKYO_SESSION = TradingSessionTemplate(_time(9, 0, tzinfo=_TOKYO), _time(15, 30, tzinfo=_TOKYO), name="Tokyo")
 
+# 09:00-18:00 Japan Standard Time (00:00-09:00 UTC, no DST) -- the rounder,
+# informal FX "Asia session", as distinct from TOKYO_SESSION's exchange
+# bell-to-bell 09:00-15:30.
+ASIA_SESSION = TradingSessionTemplate(_time(9, 0, tzinfo=_TOKYO), _time(18, 0, tzinfo=_TOKYO), name="Asia")
 
-@dataclass(frozen=True)
-class AsianSessionTemplate(TradingSessionTemplate):
-    """09:00-18:00 Japan Standard Time -- the rounder, informal FX "Asian
-    session" window, as distinct from `TokyoSessionTemplate`'s exchange
-    bell-to-bell 09:00-15:30.
-    """
+# 08:00-16:30 Europe/London -- the London Stock Exchange's official
+# cash-market bell times, not the rounder 08:00-17:00 sometimes used for the
+# informal FX "London session".
+LONDON_SESSION = TradingSessionTemplate(_time(8, 0, tzinfo=_LONDON), _time(16, 30, tzinfo=_LONDON), name="London")
 
-    start_time: _time = _time(9, 0, tzinfo=ZoneInfo("Asia/Tokyo"))
-    end_time: _time = _time(18, 0, tzinfo=ZoneInfo("Asia/Tokyo"))
+# 09:30-16:00 Eastern Time -- the NYSE's official cash-market bell times, not
+# the rounder 08:00-17:00 sometimes used for the informal FX "New York
+# session". 14:30-21:00 UTC under EST, 13:30-20:00 UTC under EDT -- which one
+# applies depends on the date, resolved via the IANA tz database.
+NEW_YORK_SESSION = TradingSessionTemplate(_time(9, 30, tzinfo=_NEW_YORK), _time(16, 0, tzinfo=_NEW_YORK), name="New York")
 
-
-@dataclass(frozen=True)
-class LondonSessionTemplate(TradingSessionTemplate):
-    """08:00-16:30 Europe/London -- the London Stock Exchange's official
-    cash-market bell times, not the rounder 08:00-17:00 sometimes used for
-    the informal FX "London session".
-    """
-
-    start_time: _time = _time(8, 0, tzinfo=ZoneInfo("Europe/London"))
-    end_time: _time = _time(16, 30, tzinfo=ZoneInfo("Europe/London"))
-
-
-@dataclass(frozen=True)
-class NewYorkSessionTemplate(TradingSessionTemplate):
-    """09:30-16:00 Eastern Time -- the NYSE's official cash-market bell times,
-    not the rounder 08:00-17:00 sometimes used for the informal FX "New York
-    session" (which starts 1.5 hours before the NYSE even opens).
-
-    14:30-21:00 UTC under EST, 13:30-20:00 UTC under EDT -- which one applies
-    depends on the date, resolved via the IANA tz database rather than a
-    hardcoded date range.
-    """
-
-    start_time: _time = _time(9, 30, tzinfo=ZoneInfo("America/New_York"))
-    end_time: _time = _time(16, 0, tzinfo=ZoneInfo("America/New_York"))
+# Every standard session by name. A new one must be added here as well as defined.
+SESSIONS: dict[str, TradingSessionTemplate] = {
+    session.name: session
+    for session in (TOKYO_SESSION, ASIA_SESSION, LONDON_SESSION, NEW_YORK_SESSION)
+}

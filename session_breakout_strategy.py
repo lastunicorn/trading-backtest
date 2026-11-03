@@ -1,13 +1,13 @@
 """Backtest of the Tokyo Session Breakout strategy (see tokyo-session-breakout.md).
 Originally scoped to the Tokyo session specifically; the range-setting window
 is now any `TradingSessionTemplate` -- see `_SESSION_TEMPLATE` below, which
-defaults to Tokyo (`TokyoSessionTemplate`) but can be swapped for another
-session's hours.
+defaults to the FX Asia session (`ASIA_SESSION`) but can be swapped for
+another session's hours.
 
 For each calendar day:
 
-  1. The configured session (`_SESSION_TEMPLATE`; defaults to Tokyo,
-     00:00-06:30 UTC / 09:00-15:30 JST bell times) sets H (high) and L (low),
+  1. The configured session (`_SESSION_TEMPLATE`; defaults to the FX Asia
+     session, 09:00-18:00 JST / 00:00-09:00 UTC) sets H (high) and L (low),
      wicks included. If H-L exceeds --max-range-pips, the day is cancelled --
      no trade is evaluated.
   2. From session end until midnight the next day, whichever of H/L is
@@ -53,7 +53,6 @@ from datetime import UTC, date as _date, datetime, time as _time, timedelta
 from pathlib import Path
 from typing import ClassVar, TextIO
 from zoneinfo import ZoneInfo
-from domain.trading_session_template import AsianSessionTemplate
 
 from domain.bar_approach.daily_session_base import DailySessionBase
 from domain.bar_approach.daily_strategy_base import DailyStrategyBase
@@ -62,7 +61,7 @@ from domain.bar_approach.shift_bars import shift_bars
 from domain.broker_clock import BROKER_SERVER_TZ
 from domain.symbol import EURUSD, Symbol
 from domain.trading_session import TradingSession
-from domain.trading_session_template import TradingSessionTemplate, TokyoSessionTemplate, AsianSessionTemplate
+from domain.trading_session_template import ASIA_SESSION, TradingSessionTemplate
 from ports.file_system_access.file_system import find_files
 from ports.mt5_file_access import Bar, iterate_bars
 
@@ -98,8 +97,8 @@ class DailySession(DailySessionBase):
     # ClassVar, not a field: an annotated class-body assignment on a
     # @dataclass becomes an __init__ parameter unless marked ClassVar,
     # which silently shifts every positional argument after it.
-    #_SESSION_TEMPLATE: ClassVar[TradingSessionTemplate] = TokyoSessionTemplate()
-    _SESSION_TEMPLATE: ClassVar[TradingSessionTemplate] = AsianSessionTemplate()
+    #_SESSION_TEMPLATE: ClassVar[TradingSessionTemplate] = TOKYO_SESSION
+    _SESSION_TEMPLATE: ClassVar[TradingSessionTemplate] = ASIA_SESSION
 
     # _SESSION_TEMPLATE: ClassVar[TradingSessionTemplate] = TradingSessionTemplate(
     #     start_time=_time(8, 0, tzinfo=ZoneInfo("America/New_York")),
