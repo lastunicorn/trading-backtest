@@ -25,6 +25,13 @@ def test_records_the_strategy() -> None:
     assert strategy["class"].endswith("_fakes.ScriptedStrategy")
 
 
+def test_records_the_given_strategy_name_instead_of_the_class_name() -> None:
+    strategy = _info(Backtest(ScriptedStrategy([0]), data(10, {})), strategy_name="scripted")["strategy"]
+
+    assert strategy["name"] == "scripted"
+    assert strategy["class"].endswith("_fakes.ScriptedStrategy")
+
+
 def test_records_timezone_aware_times_with_their_zone() -> None:
     strategy = RsiDivergence(start_time=time(8, 0, tzinfo=ZoneInfo("Europe/London")),
                              end_time=time(16, 30, tzinfo=BROKER_SERVER_TZ))

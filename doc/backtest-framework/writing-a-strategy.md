@@ -144,17 +144,17 @@ STRATEGIES: dict[str, type[TradingStrategy]] = {
 }
 ```
 
-The key is the name a config's `strategy` accepts. The CLI builds the class with its default parameters, overridden by the config's `strategy_parameters` (next section).
+The key is the name a config's `strategy.name` takes. The CLI builds the class with its default parameters, overridden by the config's `strategy.parameters` (next section).
 
 ## 4. Variants with different parameters
 
-From the command line, set the fields in the config's `strategy_parameters`. Each dataclass field is a key; the values are checked against the field's type, and the strategy is built once while the config loads, so a `__post_init__` check fails before any data is read:
+From the command line, set the fields in the config's `strategy.parameters`. Each dataclass field is a key; the values are checked against the field's type, and the strategy is built once while the config loads, so a `__post_init__` check fails before any data is read:
 
 ```json
-"strategy_parameters": {"risk_reward": 2.0, "exit_at": "16:00"}
+"strategy": {"name": "opening_range_breakout", "parameters": {"risk_reward": 2.0, "exit_at": "16:00"}}
 ```
 
-The config can set fields typed `int`, `float`, `bool`, `str`, `datetime.time` (as `"HH:MM"`, on the data's clock) and `domain.time_window.ZonedTime` (a timezone-aware time, as `"HH:MM <zone>"`, e.g. `"08:00 Europe/London"`). Any of these can also be `X | None`, which takes `null`. For a time-of-day filter whose bounds carry their own zones, use `ZonedTime | None` fields plus `TimeWindow`, as `RsiDivergence` does. A field of any other type still works from Python but makes the config fail with a clear error; to support it, extend `_strategy_parameters` in `backtest.py`.
+The config can set fields typed `int`, `float`, `bool`, `str`, `datetime.time` (as `"HH:MM"`, on the data's clock) and `domain.time_window.ZonedTime` (a timezone-aware time, as `"HH:MM <zone>"`, e.g. `"08:00 Europe/London"`). Any of these can also be `X | None`, which takes `null`. For a time-of-day filter whose bounds carry their own zones, use `ZonedTime | None` fields plus `TimeWindow`, as `RsiDivergence` does. A field of any other type still works from Python but makes the config fail with a clear error; to support it, extend `_strategy_parameter` in `application/load_backtest_config_use_case.py`.
 
 When a variant is worth keeping under its own name, register a subclass that changes the defaults instead:
 
@@ -227,7 +227,7 @@ Put a config in `backtests/opening_range_breakout/backtest.json`:
 
 ```json
 {
-	"strategy": "opening_range_breakout",
+	"strategy": {"name": "opening_range_breakout"},
 	"data_source": {
 		"path": "../../data/eurusd/1min",
 		"format": "metatrader",

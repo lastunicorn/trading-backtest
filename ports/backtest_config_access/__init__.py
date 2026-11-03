@@ -20,6 +20,7 @@ from ports.backtest_config_access.backtest_config_reader import (
     json_type_name,
     read_config,
     SimulationConfig,
+    StrategyConfig,
 )
 
 __all__ = [
@@ -34,4 +35,5 @@ __all__ = [
     "json_type_name",
     "read_config",
     "SimulationConfig",
+    "StrategyConfig",
 ]

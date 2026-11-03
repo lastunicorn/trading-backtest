@@ -11,7 +11,10 @@ doc/backtest-framework/backtest-config.md); relative paths in it are
 resolved against the config file's own folder, not the working directory:
 
     {
-        "strategy": "narrow_asia_fade",
+        "strategy": {
+            "name": "narrow_asia_fade",
+            "parameters": {"rel_vol_min": 1.8, "study_end": "13:00"}
+        },
         "data_source": {
             "path": "../../data/eurusd/1min",
             "format": "metatrader",
@@ -25,14 +28,14 @@ resolved against the config file's own folder, not the working directory:
             "cost": {"commission_pips": 1.7}
         },
         "out": "output",
-        "splits": "dvt",
-        "strategy_parameters": {"rel_vol_min": 1.8, "study_end": "13:00"}
+        "splits": "dvt"
     }
 
-`strategy_parameters` (optional) overrides the strategy's dataclass fields;
-the rest keep their defaults. Time fields take "HH:MM" strings (on the data's
-clock), timezone-aware ones (`ZonedTime`) "HH:MM <zone>" such as
-"08:00 Europe/London" or "10:00 broker". A nullable field also takes null.
+`strategy.name` is a key of `strategies.STRATEGIES`; `strategy.parameters`
+(optional) overrides the strategy's dataclass fields, the rest keep their
+defaults. Time fields take "HH:MM" strings (on the data's clock),
+timezone-aware ones (`ZonedTime`) "HH:MM <zone>" such as "08:00 Europe/London"
+or "10:00 broker". A nullable field also takes null.
 
 `data_source` describes the bars as they are on disk. `path` (a file or a
 folder) and `format` say where they are and how to read them: "metatrader" for
@@ -68,7 +71,8 @@ or build a report without writing anything:
 
     from backtest import run_backtest
 
-    run = run_backtest(Backtest(strategy, data), "output/backtest_my_strategy", source="data/eurusd/1min")
+    run = run_backtest(Backtest(strategy, data), "output/backtest_my_strategy", source="data/eurusd/1min",
+                       strategy_name="my_strategy")   # optional; default the strategy's own `name`
     print(run.report)
     run.result.statistics      # the domain result, as `Backtest.run()` returned it
 """
@@ -148,14 +152,15 @@ def _run(config: BacktestConfig, timeframe: SampleSize, symbol: Symbol) -> Backt
                        timezone=timezone_by_name(config.data_source.timezone), progress=print)
 
     backtest = Backtest(
-        strategy=STRATEGIES[config.strategy](**config.strategy_parameters),
+        strategy=STRATEGIES[config.strategy.name](**config.strategy.parameters),
         data=data,
         cost_model=cost_model(config.simulation.cost),
         ambiguity_policy=AmbiguityPolicy(config.simulation.ambiguity),
         position_resolve_delay=PositionCloseDelay(config.simulation.resolve_from),
         splits=SplitMode(config.splits),
     )
-    return run_backtest(backtest, config.out, source=f"{config.data_source.path} ({source_format.value})")
+    return run_backtest(backtest, config.out, source=f"{config.data_source.path} ({source_format.value})",
+                        strategy_name=config.strategy.name)
 
 
 @dataclass(frozen=True)
@@ -168,10 +173,15 @@ class BacktestRun:
     paths: list[Path]
 
 
-def run_backtest(backtest: Backtest, out_dir, *, source: str | None = None) -> BacktestRun:
-    """Run `backtest` and write its four result files into `out_dir` (overwriting)."""
+def run_backtest(
+    backtest: Backtest, out_dir, *, source: str | None = None, strategy_name: str | None = None,
+) -> BacktestRun:
+    """Run `backtest` and write its four result files into `out_dir` (overwriting).
+
+    `source` and `strategy_name` are recorded as `build_run_info` describes.
+    """
     result = backtest.run()
-    run_info = build_run_info(backtest, result, source=source)
+    run_info = build_run_info(backtest, result, source=source, strategy_name=strategy_name)
     report = format_report(result, run_info)
     paths = write_results(result, run_info, report, out_dir, price_decimals=backtest.data.symbol.price_decimals)
     return BacktestRun(result, run_info, report, paths)
@@ -182,10 +192,16 @@ def build_run_info(
     result: BacktestResult,
     *,
     source: str | None = None,
+    strategy_name: str | None = None,
     now: Callable[[], datetime] = run_environment.now,
     git_commit: Callable[[], GitCommit] = run_environment.git_commit,
 ) -> dict:
     """Provenance for `run.json`: what ran, on what, under which rules, from which commit.
+
+    `strategy_name` is recorded as `strategy.name`: the CLI passes the config's
+    `strategy.name` (the `STRATEGIES` key), so a run's record names the strategy
+    the way its config does. Without it, the strategy's own `name` (its class
+    name by default) is used. The class is always recorded as `strategy.class`.
 
     `now` and `git_commit` read the clock and the repo (`ports.run_environment`);
     pass fakes to make the record deterministic.
@@ -195,7 +211,7 @@ def build_run_info(
     info = {
         "created": now().isoformat(timespec="seconds"),
         "strategy": {
-            "name": strategy.name,
+            "name": strategy_name if strategy_name is not None else strategy.name,
             "class": f"{type(strategy).__module__}.{type(strategy).__qualname__}",
             "parameters": {key: _parameter_text(value) for key, value in strategy.parameters().items()},
         },

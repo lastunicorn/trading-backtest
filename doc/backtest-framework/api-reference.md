@@ -116,7 +116,7 @@ pandas rejects custom `tzinfo` objects, so don't pass `BROKER_SERVER_TZ` to `tz_
 
 ### `strategies`
 
-**`STRATEGIES`**: `dict[str, type[TradingStrategy]]`, the names a `backtest.py` config's `strategy` key accepts.
+**`STRATEGIES`**: `dict[str, type[TradingStrategy]]`, the names a `backtest.py` config's `strategy.name` accepts.
 
 ## 4. Costs, results, the backtest
 
@@ -176,8 +176,8 @@ All return a `HistoricalData` resampled to `timeframe`, labelled with the requir
 
 ### `backtest` (the CLI module, importable)
 
-- **`run_backtest(backtest, out_dir, *, source=None) -> BacktestRun`**: runs the backtest and writes the four files. `BacktestRun` has `result`, `run_info` (the `run.json` content), `report` (the `statistics.txt` text) and `paths`.
+- **`run_backtest(backtest, out_dir, *, source=None, strategy_name=None) -> BacktestRun`**: runs the backtest and writes the four files. `strategy_name` is recorded as `run.json`'s `strategy.name` and shown in the report header; the CLI passes the config's `strategy.name`, and without it the strategy's own `name` (its class name by default) is used. `BacktestRun` has `result`, `run_info` (the `run.json` content), `report` (the `statistics.txt` text) and `paths`.
 - The three steps it chains, usable on their own:
-  - `build_run_info(backtest, result, *, source=None, now=ports.run_environment.now, git_commit=ports.run_environment.git_commit)`: `now` and `git_commit` are the clock and the repo state recorded as `created` and `git`; pass fakes for a deterministic `run.json`
+  - `build_run_info(backtest, result, *, source=None, strategy_name=None, now=ports.run_environment.now, git_commit=ports.run_environment.git_commit)`: `now` and `git_commit` are the clock and the repo state recorded as `created` and `git`; pass fakes for a deterministic `run.json`
   - `format_report(result, run_info)`
   - `write_results(result, run_info, report, out_dir, *, price_decimals)`

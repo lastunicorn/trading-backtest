@@ -3,15 +3,15 @@
     from application.load_backtest_config_use_case import cost_model, load_backtest_config
 
     config = load_backtest_config("backtests/narrow_asia_fade")   # the folder's backtest.json
-    STRATEGIES[config.strategy](**config.strategy_parameters)     # already the strategy's field types
+    STRATEGIES[config.strategy.name](**config.strategy.parameters)  # already the strategy's field types
     cost_model(config.simulation.cost)                             # the CostModel the config describes
 
 `ports.backtest_config_access.read_config` reads the file and checks its
 shape; this adds what needs the rest of the code base to decide: the strategy
 is registered and its parameters convert to its field types (and build it),
 the source format, symbol and time zone exist, the timeframes fit together,
-and `simulation.ambiguity`/`simulation.resolve_from`/`splits` name a policy or split mode. Every failure is a `ValueError`
-naming the config file.
+and `simulation.ambiguity`/`simulation.resolve_from`/`splits` name a policy or
+split mode. Every failure is a `ValueError` naming the config file.
 """
 
 from __future__ import annotations
@@ -57,13 +57,13 @@ def load_backtest_config(path) -> BacktestConfig:
     config = read_config(file)
     fail = config_error(file)
 
-    _check_choice(config.strategy, "strategy", sorted(STRATEGIES), fail)
+    _check_choice(config.strategy.name, "strategy.name", sorted(STRATEGIES), fail)
     _check_choice(config.splits, "splits", [mode.value for mode in SplitMode], fail)
     _check_data_source(config.data_source, fail)
     _check_simulation(config.simulation, config.data_source, fail)
 
-    return dataclasses.replace(
-        config, strategy_parameters=_strategy_parameters(config.strategy, config.strategy_parameters, fail))
+    parameters = _strategy_parameters(config.strategy.name, config.strategy.parameters, fail)
+    return dataclasses.replace(config, strategy=dataclasses.replace(config.strategy, parameters=parameters))
 
 
 def cost_model(cost: CostConfig) -> CostModel:
@@ -87,7 +87,8 @@ def _check_simulation(simulation: SimulationConfig, data_source: DataSourceConfi
 
 def _check_data_source(data_source: DataSourceConfig, fail: Fail) -> None:
     """The `data_source` object's format, symbol and time zone name things that exist."""
-    _check_choice(data_source.format, "data_source.format", [source_format.value for source_format in SourceFormat], fail)
+    _check_choice(data_source.format, "data_source.format",
+                  [source_format.value for source_format in SourceFormat], fail)
     try:
         by_ticker(data_source.symbol)
     except ValueError as error:
@@ -95,8 +96,8 @@ def _check_data_source(data_source: DataSourceConfig, fail: Fail) -> None:
     try:
         timezone_by_name(data_source.timezone)
     except (KeyError, ValueError) as error:  # ZoneInfoNotFoundError is a KeyError
-        raise fail(f'"data_source.timezone" is {json.dumps(data_source.timezone)}: not "broker" or an IANA time zone '
-                   f'name such as "UTC" or "America/New_York"') from error
+        raise fail(f'"data_source.timezone" is {json.dumps(data_source.timezone)}: not "broker" or an IANA '
+                   f'time zone name such as "UTC" or "America/New_York"') from error
 
 
 def _parse_timeframe(value: str, key: str, fail: Fail) -> SampleSize:
@@ -118,7 +119,7 @@ def _strategy_parameters(name: str, raw: dict, fail: Fail) -> dict[str, object]:
 
     unknown = sorted(set(raw) - set(names))
     if unknown:
-        raise fail(f"{name} has no parameter(s) {', '.join(unknown)}; "
+        raise fail(f'"strategy.parameters": {name} has no parameter(s) {", ".join(unknown)}; '
                    f"its parameters: {', '.join(names) or 'none'}")
 
     converted = {key: _strategy_parameter(key, value, types[key], fail) for key, value in raw.items()}
@@ -126,7 +127,7 @@ def _strategy_parameters(name: str, raw: dict, fail: Fail) -> dict[str, object]:
     try:
         strategy_class(**converted)
     except (TypeError, ValueError) as error:
-        raise fail(f"invalid strategy_parameters for {name}: {error}") from error
+        raise fail(f'invalid "strategy.parameters" for {name}: {error}') from error
     return converted
 
 
@@ -144,9 +145,9 @@ def _strategy_parameter(key: str, value, expected, fail: Fail):
         return _parse_time(key, value, zoned=False, fail=fail)
     if expected in (int, float, bool, str):
         if not has_json_type(value, expected):
-            raise fail(f'strategy parameter "{key}" must be {json_type_name(expected)}, got {json.dumps(value)}')
+            raise fail(f'"strategy.parameters.{key}" must be {json_type_name(expected)}, got {json.dumps(value)}')
         return float(value) if expected is float else value
-    raise fail(f'strategy parameter "{key}" has type {expected}, which a JSON config cannot set')
+    raise fail(f'"strategy.parameters.{key}" has type {expected}, which a JSON config cannot set')
 
 
 def _parse_time(key: str, value, *, zoned: bool, fail: Fail) -> clock_time:
@@ -164,7 +165,7 @@ def _parse_time(key: str, value, *, zoned: bool, fail: Fail) -> clock_time:
             raise ValueError
         return parsed.replace(tzinfo=timezone_by_name(parts[1])) if zoned else parsed
     except (ValueError, ZoneInfoNotFoundError):
-        raise fail(f'strategy parameter "{key}" must be a time {form}, got {json.dumps(value)}') from None
+        raise fail(f'"strategy.parameters.{key}" must be a time {form}, got {json.dumps(value)}') from None
 
 
 def _check_choice(value: str, key: str, choices: list[str], fail: Fail) -> None:

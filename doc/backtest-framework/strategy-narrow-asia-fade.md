@@ -1,12 +1,12 @@
 # Narrow Asia London Fade
 
-`"strategy": "narrow_asia_fade"` · class `strategies.narrow_asia_fade.NarrowAsiaFade`
+`"strategy": {"name": "narrow_asia_fade"}` · class `strategies.narrow_asia_fade.NarrowAsiaFade`
 
 "Candle DNA — Narrow Asia London Fade": on a day with a narrow Asia range, wait for London to break it, then fade the break back toward the Asia midpoint. It needs broker-server-clock minute bars (M5 as researched) and raises on anything else.
 
 ## Parameters
 
-Each one can be set from a config's `strategy_parameters`.
+Each one can be set from a config's `strategy.parameters`.
 
 | Parameter | Default | Meaning |
 |---|---|---|

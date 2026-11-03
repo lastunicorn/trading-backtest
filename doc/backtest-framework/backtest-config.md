@@ -28,13 +28,16 @@ Ready-made configs live in `backtests/<name>/backtest.json`.
 
 A config is one JSON object, grouped by what each setting controls:
 
-- the root names the `strategy` (and its `strategy_parameters`), how to break the statistics down (`splits`) and where to write the results (`out`);
+- `strategy` names the registered strategy to run and overrides its parameters;
 - `data_source` describes the bars as they are on disk;
-- `simulation` holds the rules the positions are traded under: the bar size to test on, how exits are resolved, and in its nested `cost` object what each trade pays.
+- `simulation` holds the rules the positions are traded under: the bar size to test on, how exits are resolved, and in its nested `cost` object what each trade pays;
+- the root keeps how to break the statistics down (`splits`) and where to write the results (`out`).
 
 ```json
 {
-	"strategy": "narrow_asia_fade",
+	"strategy": {
+		"name": "narrow_asia_fade"
+	},
 	"data_source": {
 		"path": "../../data/eurusd/1min",
 		"format": "metatrader",
@@ -59,7 +62,9 @@ A config is one JSON object, grouped by what each setting controls:
 
 | Key | Required | Default | Meaning |
 |---|---|---|---|
-| `strategy` | yes | – | A key of `strategies.STRATEGIES`, e.g. `"narrow_asia_fade"`, `"rsi_divergence"`, `"session_breakout"`. |
+| `strategy` | yes | – | The strategy to run: an object with the `strategy.*` keys below. |
+| `strategy.name` | yes | – | A key of `strategies.STRATEGIES`, e.g. `"narrow_asia_fade"`, `"rsi_divergence"`, `"session_breakout"`. Also recorded as `strategy.name` in `run.json` and shown in the report header. |
+| `strategy.parameters` | no | `{}` | Overrides for the strategy's own parameters (its dataclass fields, listed on each strategy's page); the rest keep their defaults. See [Strategy parameters](#4-strategy-parameters). |
 | `data_source` | yes | – | The bars as they are on disk: an object with the `data_source.*` keys below. |
 | `data_source.path` | yes | – | A file or a folder of files in `data_source.format`. |
 | `data_source.format` | yes | – | How to read `data_source.path`:<br>`"metatrader"`: MT4/MT5 exports, a folder of them or one file.<br>`"histdata"`: histdata.com MetaTrader downloads (`DAT_MT_*.csv`), a folder of them or one file; no volume, no spread, and `data_source.timezone` must be `"America/New_York"`.<br>`"dukascopy"`: Dukascopy bid/ask M1 pairs, a folder of them (searched recursively, so the whole export folder or one year of it) or either file of one pair. |
@@ -75,15 +80,17 @@ A config is one JSON object, grouped by what each setting controls:
 | `simulation.cost.spread` | no | `false` | `true`: charge each trade the spread of the bar where it crosses to the ask, entry for a long and exit for a short (`SpreadCost`). Needs data with a `spread` column: MT5 raw exports or Dukascopy, not histdata.com exports. |
 | `simulation.cost.commission_pips` | no | `0` | A flat round-trip cost per trade, in pips. Without `simulation.cost.spread` it is the whole cost (`FixedCost`); with it, it is added to the spread. |
 | `splits` | no | `"none"` | How the statistics are broken down besides "all" (it groups trades, it changes none of them, so it is not a `simulation` key):<br>`"none"`: only "all".<br>`"dvt"`: the chronological 60/20/20 discovery / validation / test cut, over the strategy's `split_days`.<br>`"monthly"` / `"yearly"`: one group per calendar month (`2024-03`) or year (`2024`), including periods without trades.<br>See [Reading the results](reading-the-backtest-results.md) for how each is reported. |
-| `strategy_parameters` | no | `{}` | Overrides for the strategy's own parameters (its dataclass fields, listed on each strategy's page); the rest keep their defaults. See [Strategy parameters](#4-strategy-parameters). |
 
 ## 4. Strategy parameters
 
-A variant of a strategy only needs `strategy_parameters`; the report header and `run.json` record the full parameter set the run used:
+A variant of a strategy only needs `strategy.parameters`; the report header and `run.json` record the full parameter set the run used:
 
 ```json
 {
-	"strategy": "narrow_asia_fade",
+	"strategy": {
+		"name": "narrow_asia_fade",
+		"parameters": {"study_end": "13:00", "rel_vol_min": 1.8}
+	},
 	"data_source": {
 		"path": "../../data/eurusd/1min",
 		"format": "metatrader",
@@ -92,12 +99,11 @@ A variant of a strategy only needs `strategy_parameters`; the report header and 
 		"timezone": "broker"
 	},
 	"simulation": {"ambiguity": "assume-sl"},
-	"strategy_parameters": {"study_end": "13:00", "rel_vol_min": 1.8},
 	"out": "../../scratch/backtest_narrow_asia_fade_1300"
 }
 ```
 
-Each key is one of the strategy's dataclass fields. Values are written as their JSON type — numbers, whole numbers, `true`/`false` and strings — and time-of-day fields as `"HH:MM"` strings, on the data's clock. Timezone-aware time fields (typed `ZonedTime`, such as RSI divergence's `start_time`) take `"HH:MM <zone>"` instead, where the zone is `"broker"` or an IANA name: `"08:00 Europe/London"`. A field that can be `None` (typed `X | None`) also takes `null`. Which types a strategy field may have to be settable from a config is in [Writing a new strategy](writing-a-strategy.md).
+Each key of `strategy.parameters` is one of the strategy's dataclass fields. Values are written as their JSON type — numbers, whole numbers, `true`/`false` and strings — and time-of-day fields as `"HH:MM"` strings, on the data's clock. Timezone-aware time fields (typed `ZonedTime`, such as RSI divergence's `start_time`) take `"HH:MM <zone>"` instead, where the zone is `"broker"` or an IANA name: `"08:00 Europe/London"`. A field that can be `None` (typed `X | None`) also takes `null`. Which types a strategy field may have to be settable from a config is in [Writing a new strategy](writing-a-strategy.md).
 
 ## 5. Validation
 
@@ -124,7 +130,7 @@ Both in `backtests/`:
 ```json
 // backtests/rsi_divergence_15m/backtest.json: M15 bars rebuilt from raw M1 exports; entries are at a bar's open
 {
-	"strategy": "rsi_divergence",
+	"strategy": {"name": "rsi_divergence"},
 	"data_source": {"path": "../../data/eurusd/1min", "format": "metatrader", "symbol": "EURUSD", "timezone": "broker"},
 	"simulation": {"timeframe": "15m", "resolve_from": "entry-bar"},
 	"out": "../../scratch/backtest_rsi_divergence"
@@ -132,7 +138,7 @@ Both in `backtests/`:
 
 // backtests/rsi_divergence_dukascopy/backtest.json: the same on Dukascopy data, charging the real spread plus a commission
 {
-	"strategy": "rsi_divergence",
+	"strategy": {"name": "rsi_divergence"},
 	"data_source": {"path": "/path/to/dukascopy/eurusd/2025", "format": "dukascopy", "symbol": "EURUSD"},
 	"simulation": {
 		"timeframe": "15m",

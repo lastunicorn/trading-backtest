@@ -1,12 +1,12 @@
 # RSI Divergence
 
-`"strategy": "rsi_divergence"` · class `strategies.rsi_divergence.RsiDivergence`
+`"strategy": {"name": "rsi_divergence"}` · class `strategies.rsi_divergence.RsiDivergence`
 
 Regular RSI divergences that leave the 30/70 band. It enters at the open of the bar after the pivot is confirmed, with the stop beyond the pivot's price extreme and the target at `risk_reward` × risk. Built on M15. Timezone-agnostic unless you give it an entry window.
 
 ## Parameters
 
-Each one can be set from a config's `strategy_parameters`.
+Each one can be set from a config's `strategy.parameters`.
 
 | Parameter | Default | Meaning |
 |---|---|---|
@@ -25,7 +25,10 @@ Each one can be set from a config's `strategy_parameters`.
 Each bound carries its own timezone, so `"08:00 Europe/London"` stays 08:00 London through daylight saving, whatever clock the data is on. The zone is `"broker"` or an IANA name. A time without a zone is rejected:
 
 ```json
-"strategy_parameters": {"start_time": "08:00 Europe/London", "end_time": "12:00 Europe/London"}
+"strategy": {
+	"name": "rsi_divergence",
+	"parameters": {"start_time": "08:00 Europe/London", "end_time": "12:00 Europe/London"}
+}
 ```
 
 - Either bound may be `null` (the default) or left out. With only `start_time`, the window runs to midnight in its zone. With only `end_time`, it runs from midnight.

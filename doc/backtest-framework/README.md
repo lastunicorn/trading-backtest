@@ -36,7 +36,7 @@ The framework follows the repo's [architecture](../architecture.md). Each compon
 | application | `application/` | validates the config (`load_backtest_config`) and loads the historical data (`load_historical_data_use_case.load_source`) |
 | ports | `ports/` | read the config file, the MT5 and Dukascopy exports, the clock and git |
 | domain | `domain/pandas_approach/`, `domain/broker_clock.py`, `domain/time_window.py`, `domain/sample_size.py`, `domain/symbol.py` | the concepts and all the calculations; no file access, no clock, no git |
-| strategies | `strategies/` | concrete `TradingStrategy` subclasses and the registry the config's `strategy` key looks up |
+| strategies | `strategies/` | concrete `TradingStrategy` subclasses and the registry the config's `strategy.name` looks up |
 
 Everything is pandas-based. Before running anything, activate the repo's virtual environment:
 

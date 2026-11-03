@@ -21,3 +21,10 @@ def test_written_files_match_the_returned_run(tmp_path) -> None:
     assert (tmp_path / "statistics.txt").read_text() == run.report
     assert json.loads((tmp_path / "run.json").read_text()) == json.loads(json.dumps(run.run_info, default=str))
 
+
+
+def test_the_strategy_name_reaches_the_record_and_the_report(tmp_path) -> None:
+    run = run_backtest(Backtest(ScriptedStrategy([0]), data(10, {})), tmp_path, strategy_name="scripted")
+
+    assert run.run_info["strategy"]["name"] == "scripted"
+    assert "BACKTEST -- scripted" in run.report

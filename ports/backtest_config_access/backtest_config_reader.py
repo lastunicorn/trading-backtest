@@ -3,7 +3,7 @@
     from ports.backtest_config_access import read_config
 
     config = read_config("backtests/narrow_asia_fade")   # the folder's backtest.json
-    config.strategy, config.data_source.path, config.simulation.timeframe, config.out
+    config.strategy.name, config.data_source.path, config.simulation.timeframe, config.out
 
 The file format is documented in doc/backtest-framework/backtest-config.md.
 This port checks the file's *shape* only: known keys, JSON types, required
@@ -28,6 +28,20 @@ from typing import Callable
 CONFIG_FILE_NAME = "backtest.json"
 
 Fail = Callable[[str], ValueError]
+
+
+@dataclass(frozen=True)
+class StrategyConfig:
+    """The config's `strategy` object: which registered strategy runs, and with what.
+
+    `name` is a key of `strategies.STRATEGIES`. `parameters` is its
+    constructor arguments: raw JSON values from `read_config`, converted to the
+    strategy's field types (a "HH:MM" string becomes a `datetime.time`) by
+    `load_backtest_config`.
+    """
+
+    name: str
+    parameters: dict[str, object] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -84,29 +98,28 @@ class BacktestConfig:
     config file's folder. `simulation` holds the trading rules (bar size,
     exits, costs); `splits` is a `SplitMode` value, default "none", and only
     groups the statistics.
-
-    `strategy_parameters` is the strategy's constructor arguments: raw JSON
-    values from `read_config`, converted to the strategy's field types (a
-    "HH:MM" string becomes a `datetime.time`) by `load_backtest_config`.
     """
 
-    strategy: str
+    strategy: StrategyConfig
     data_source: DataSourceConfig
     out: Path
     simulation: SimulationConfig = field(default_factory=SimulationConfig)
     splits: str = "none"
-    strategy_parameters: dict[str, object] = field(default_factory=dict)
 
 
 # The JSON type each config key must have. bool is kept apart from the numbers
 # on purpose: `"commission_pips": true` is a mistake, not 1 pip.
 _CONFIG_KEY_TYPES = {
-    "strategy": str,
+    "strategy": dict,
     "data_source": dict,
     "out": str,
     "simulation": dict,
     "splits": str,
-    "strategy_parameters": dict,
+}
+
+_STRATEGY_KEY_TYPES = {
+    "name": str,
+    "parameters": dict,
 }
 
 _DATA_SOURCE_KEY_TYPES = {
@@ -168,11 +181,20 @@ def read_config(path) -> BacktestConfig:
             raise fail(f'"{key}" is required')
 
     values = dict(raw)
+    values["strategy"] = _strategy_config(raw["strategy"], fail)
     values["data_source"] = _data_source_config(file, raw["data_source"], fail)
     values["out"] = _relative_to(file, raw["out"])
     if "simulation" in raw:
         values["simulation"] = _simulation_config(raw["simulation"], fail)
     return BacktestConfig(**values)
+
+
+def _strategy_config(raw: dict, fail: Fail) -> StrategyConfig:
+    """The `strategy` object, checked; its parameters stay raw JSON values."""
+    _check_keys(raw, _STRATEGY_KEY_TYPES, "strategy.", fail)
+    if "name" not in raw:
+        raise fail('"strategy.name" is required')
+    return StrategyConfig(**raw)
 
 
 def _data_source_config(file: Path, raw: dict, fail: Fail) -> DataSourceConfig:

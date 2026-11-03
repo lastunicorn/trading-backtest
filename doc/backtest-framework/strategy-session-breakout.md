@@ -1,6 +1,6 @@
 # Session Breakout
 
-`"strategy": "session_breakout"` · class `strategies.session_breakout.SessionBreakout`
+`"strategy": {"name": "session_breakout"}` · class `strategies.session_breakout.SessionBreakout`
 
 The Tokyo/Asian session breakout from `tokyo-session-breakout.md`, ported from `session_breakout_strategy.py`. It matches that script trade for trade. `tests/strategies/session_breakout/test_script_parity.py` runs both on a synthetic M1 random walk on every `pytest` run, and the two also agreed on all 912 trades of the 2020–2026 broker M5 data.
 
@@ -15,7 +15,7 @@ The session windows are converted to the data's clock, so the strategy runs on b
 
 ## Parameters
 
-Each one can be set from a config's `strategy_parameters`.
+Each one can be set from a config's `strategy.parameters`.
 
 | Parameter | Default | Meaning |
 |---|---|---|
