@@ -19,6 +19,7 @@ from ports.backtest_config_access.backtest_config_reader import (
     has_json_type,
     json_type_name,
     read_config,
+    SimulationConfig,
 )
 
 __all__ = [
@@ -32,4 +33,5 @@ __all__ = [
     "has_json_type",
     "json_type_name",
     "read_config",
+    "SimulationConfig",
 ]

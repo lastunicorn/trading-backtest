@@ -48,7 +48,7 @@ source .venv/bin/activate
 
 ## How a backtest decides things
 
-Every backtest runs under these rules. Two of them are settings, so pick those deliberately for each strategy (see [Choosing `resolve_from` and `ambiguity`](running-a-backtest.md#3-choosing-resolve_from-and-ambiguity)).
+Every backtest runs under these rules. Two of them are settings (the config's `simulation.resolve_from` and `simulation.ambiguity`), so pick those deliberately for each strategy (see [Choosing `resolve_from` and `ambiguity`](running-a-backtest.md#3-choosing-resolve_from-and-ambiguity)).
 
 **Prices are bid.** The bars hold bid OHLC. Stop-loss and take-profit hits are checked against those prices.
 
@@ -66,7 +66,7 @@ Every backtest runs under these rules. Two of them are settings, so pick those d
 
 **End of data.** If the bars run out before a hit or the time stop, the position closes as `end-of-data` at the last bar's close.
 
-**Costs are always subtracted.** Every P&L figure is net of the cost model. `FixedCost` charges a flat amount per trade (default 1.7 pips). `SpreadCost` charges the spread of the bar where the trade crosses to the ask: entry for a long, exit for a short. A config picks between them with `cost.spread`, and `cost.commission_pips` is the flat amount; a config without `cost` charges nothing.
+**Costs are always subtracted.** Every P&L figure is net of the cost model. `FixedCost` charges a flat amount per trade (default 1.7 pips). `SpreadCost` charges the spread of the bar where the trade crosses to the ask: entry for a long, exit for a short. A config picks between them with `simulation.cost.spread`, and `simulation.cost.commission_pips` is the flat amount; a config without `simulation.cost` charges nothing.
 
 **A win means net pips > 0 after costs.** That is not the same as `take-profit-hit`: a take-profit smaller than the cost is still a loss. The report shows both views, as outcome counts and as the win/loss split.
 
@@ -81,11 +81,11 @@ Every backtest runs under these rules. Two of them are settings, so pick those d
 Before trusting a result:
 
 - [ ] **No look-ahead.** Each entry uses only bars up to its own.
-- [ ] **The right `resolve_from`** for how the strategy enters ([Choosing `resolve_from` and `ambiguity`](running-a-backtest.md#3-choosing-resolve_from-and-ambiguity)).
+- [ ] **The right `simulation.resolve_from`** for how the strategy enters ([Choosing `resolve_from` and `ambiguity`](running-a-backtest.md#3-choosing-resolve_from-and-ambiguity)).
 - [ ] **Costs included.** Never analyse `gross_pips` as if it were the result.
 - [ ] **All three splits positive** (run with `"splits": "dvt"`). One good split is noise. Parameters were chosen on discovery only.
 - [ ] **Enough trades per split** for the numbers to mean something.
-- [ ] **`excluded_ambiguous` is small.** If not, compare `"ambiguity": "assume-sl"` against `"assume-tp"`.
+- [ ] **`excluded_ambiguous` is small.** If not, compare `simulation.ambiguity` `"assume-sl"` against `"assume-tp"`.
 - [ ] **`run.json` kept with the results**, and the working tree committed (`"dirty": false`).
 
 Common mistakes:
@@ -93,14 +93,14 @@ Common mistakes:
 | Symptom | Cause |
 |---|---|
 | `ERROR: … windows are broker-server times; the data is on UTC` | a broker-clock strategy on data that isn't on the broker clock: Dukascopy, histdata (`America/New_York`), or a config that left `data.timezone` at its `"UTC"` default. If the files really are broker-server time, set `"timezone": "broker"`; otherwise convert them with `shift_timezone` or use broker MT5 exports |
-| `ERROR: SpreadCost needs a 'spread' column` | `"cost": {"spread": true}` on data with no spread, such as histdata.com exports; drop `spread` and set `commission_pips`, or use broker MT5/Dukascopy data |
-| `ERROR: backtest.json: unknown key(s) …` | a misspelt config key; the message lists the allowed ones |
+| `ERROR: SpreadCost needs a 'spread' column` | `"simulation": {"cost": {"spread": true}}` on data with no spread, such as histdata.com exports; drop `spread` and set `commission_pips`, or use broker MT5/Dukascopy data |
+| `ERROR: backtest.json: unknown key(s) …` | a misspelt config key, or a `simulation` key (`timeframe`, `ambiguity`, `resolve_from`, `cost`) written at the root; the message lists the allowed ones |
 | `ValueError: long position needs sl < open_price < tp` | the strategy built a position with levels on the wrong side; skip such signals |
 | `'datetime' must be strictly increasing` | the frame needs `clean_frame` before `HistoricalData` |
 | far fewer trades than expected | a fixture or real bar touching a level counts as a hit/break; check the ≥ / ≤ edges |
 | results with times 7 hours off | `data.timezone` doesn't match the files: the broker clock is New York + 7h (`"broker"`), histdata is New York time (`"America/New_York"`; with `"format": "histdata"` any other clock is rejected) |
-| `ERROR: … "timeframe" … is not a whole multiple of the source's "data.timeframe"` | resampling only coarsens; test on a multiple of the source's bar size, or fix `data.timeframe` if it misstates the source |
-| numbers look wrong on a finer `timeframe` | `data.timeframe` understates the source (e.g. left at the `1m` default for an M5 file written by `read_csv.py --interval 5m --output`), so the check passed; asking for `1m` from an M5 file returns M5 bars labelled 1m |
+| `ERROR: … "simulation.timeframe" … is not a whole multiple of the source's "data.timeframe"` | resampling only coarsens; test on a multiple of the source's bar size, or fix `data.timeframe` if it misstates the source |
+| numbers look wrong on a finer `simulation.timeframe` | `data.timeframe` understates the source (e.g. left at the `1m` default for an M5 file written by `read_csv.py --interval 5m --output`), so the check passed; asking for `1m` from an M5 file returns M5 bars labelled 1m |
 
 ---
 

@@ -70,6 +70,8 @@ for rr in (1.0, 1.5, 2.0):
 
 ## 3. Choosing `resolve_from` and `ambiguity`
 
+These are the config's `simulation.resolve_from` and `simulation.ambiguity`.
+
 | Your entry happens… | `resolve_from` | Why |
 |---|---|---|
 | at a level inside a bar (breakout, re-cross, limit or stop order) | `next-bar` | the bar's range may have happened before the fill |

@@ -7,7 +7,7 @@
 The only argument is a JSON config file, or a folder holding one named
 `backtest.json`. Every setting lives in the config (read by
 `application.load_backtest_config_use_case.load_backtest_config`; see
-help/backtest-framework/backtest-config.md); relative paths in it are
+doc/backtest-framework/backtest-config.md); relative paths in it are
 resolved against the config file's own folder, not the working directory:
 
     {
@@ -19,9 +19,12 @@ resolved against the config file's own folder, not the working directory:
             "timeframe": "1m",
             "timezone": "broker"
         },
+        "simulation": {
+            "timeframe": "5m",
+            "ambiguity": "assume-sl",
+            "cost": {"commission_pips": 1.7}
+        },
         "out": "output",
-        "timeframe": "5m",
-        "ambiguity": "assume-sl",
         "splits": "dvt",
         "strategy_parameters": {"rel_vol_min": 1.8, "study_end": "13:00"}
     }
@@ -35,11 +38,15 @@ clock), timezone-aware ones (`ZonedTime`) "HH:MM <zone>" such as
 and `format` say where they are and how to read them: "metatrader" for MT4/MT5
 exports, "dukascopy" for Dukascopy bid/ask pairs (UTC bars, not broker-server
 time). `symbol` is
-required; `timeframe` (default "1m") is the bar size of the source, which the
-root `timeframe` -- the size to backtest on -- must be a whole multiple of.
+required; `timeframe` (default "1m") is the bar size of the source, which
+`simulation.timeframe` -- the size to backtest on -- must be a whole multiple of.
 `timezone` (default "UTC") is the clock the source's timestamps are on: an
 IANA name such as "America/New_York", or "broker" for this repo's MT5
 broker-server clock (New York + 7h). It labels the bars; nothing is shifted.
+
+`simulation` holds the rules the positions are traded under: `timeframe`
+(default "5m"), `ambiguity` (default "exclude"), `resolve_from` (default
+"next-bar") and `cost` (`spread`, `commission_pips`; no cost by default).
 
 `splits` (default "none") breaks the statistics down by group as well as
 overall: "dvt" for the 60/20/20 discovery / validation / test cut, "monthly"
@@ -104,7 +111,7 @@ def main() -> int:
 
     try:
         config = load_backtest_config(args.config)
-        timeframe = SampleSize.Parse(config.timeframe)
+        timeframe = SampleSize.Parse(config.simulation.timeframe)
         symbol = by_ticker(config.data.symbol)
     except (ValueError, FileNotFoundError) as error:
         print(f"ERROR: {error}", file=sys.stderr)
@@ -143,9 +150,9 @@ def _run(config: BacktestConfig, timeframe: SampleSize, symbol: Symbol) -> Backt
     backtest = Backtest(
         strategy=STRATEGIES[config.strategy](**config.strategy_parameters),
         data=data,
-        cost_model=cost_model(config.cost),
-        ambiguity_policy=AmbiguityPolicy(config.ambiguity),
-        position_resolve_delay=PositionCloseDelay(config.resolve_from),
+        cost_model=cost_model(config.simulation.cost),
+        ambiguity_policy=AmbiguityPolicy(config.simulation.ambiguity),
+        position_resolve_delay=PositionCloseDelay(config.simulation.resolve_from),
         splits=SplitMode(config.splits),
     )
     return run_backtest(backtest, config.out, source=f"{config.data.source} ({source_format.value})")
@@ -207,8 +214,8 @@ def build_run_info(
             },
             "ambiguity_policy": backtest.ambiguity_policy.value,
             "position_resolve_delay": backtest.position_resolve_delay.value,
-            "splits": backtest.splits.value,
         },
+        "splits": backtest.splits.value,
         "trades": len(result.trades),
         "git": asdict(git_commit()),
     }
@@ -243,7 +250,7 @@ def format_report(result: BacktestResult, run_info: dict) -> str:
         "",
     ]
 
-    mode = SplitMode(sim["splits"])
+    mode = SplitMode(run_info["splits"])
     if mode in _PERIOD_SPLITS:
         lines += _period_table(result.statistics)
         lines += ["", _period_verdict(result.statistics, mode)]

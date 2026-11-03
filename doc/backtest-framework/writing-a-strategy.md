@@ -40,7 +40,7 @@ Optional overrides:
 Create `strategies/opening_range_breakout.py`:
 
 ```python
-"""London opening-range breakout -- the worked example from help/writing-a-strategy.md."""
+"""London opening-range breakout -- the worked example from doc/backtest-framework/writing-a-strategy.md."""
 
 from __future__ import annotations
 
@@ -114,7 +114,7 @@ class OpeningRangeBreakout(TradingStrategy):
 Things this example gets right, and every strategy should:
 
 - **No look-ahead.** The opening range uses only bars before `range_end`, and the entry is the first bar that breaks it.
-- **Entry at the level.** The fill is inside the breaking bar, so this strategy should run with `"resolve_from": "next-bar"` (the default).
+- **Entry at the level.** The fill is inside the breaking bar, so this strategy should run with `simulation.resolve_from` `"next-bar"` (the default).
 - **Valid levels.** `Position` checks that `sl < open_price < tp` for a long and the reverse for a short, and raises otherwise. Skip a signal whose levels would be invalid rather than letting it raise.
 - **A time stop.** `exit_dt` flattens the trade at 18:00 instead of leaving it open for days.
 - **A `tag`.** It becomes a column in `positions.csv` that you can group results by later.

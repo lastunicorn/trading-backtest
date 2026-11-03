@@ -3,9 +3,9 @@
     from ports.backtest_config_access import read_config
 
     config = read_config("backtests/narrow_asia_fade")   # the folder's backtest.json
-    config.strategy, config.data.source, config.out, config.strategy_parameters
+    config.strategy, config.data.source, config.simulation.timeframe, config.out
 
-The file format is documented in help/backtest-framework/backtest-config.md.
+The file format is documented in doc/backtest-framework/backtest-config.md.
 This port checks the file's *shape* only: known keys, JSON types, required
 keys. Relative `data.source` and `out` paths resolve against the config file's
 own folder, not the working directory. Violations raise `ValueError` naming
@@ -61,14 +61,29 @@ class CostConfig:
 
 
 @dataclass(frozen=True)
+class SimulationConfig:
+    """The config's `simulation` object: the rules the positions are traded under.
+
+    `timeframe` is the bar size to backtest on; `data.timeframe` divides it.
+    The `ambiguity` and `resolve_from` defaults are the values of
+    `AmbiguityPolicy.EXCLUDE` and `PositionCloseDelay.NEXT_BAR`. `cost` is
+    what each trade pays; none by default.
+    """
+
+    timeframe: str = "5m"
+    ambiguity: str = "exclude"
+    resolve_from: str = "next-bar"
+    cost: CostConfig = field(default_factory=CostConfig)
+
+
+@dataclass(frozen=True)
 class BacktestConfig:
     """The settings of one CLI run, as written in its JSON config.
 
     Field names are the JSON keys. `out` is already resolved against the
-    config file's folder. `timeframe` is the bar size to backtest on;
-    `data.timeframe` divides it. The `ambiguity` and `resolve_from` defaults
-    are the values of `AmbiguityPolicy.EXCLUDE` and `PositionCloseDelay.NEXT_BAR`;
-    `splits` is a `SplitMode` value, default "none".
+    config file's folder. `simulation` holds the trading rules (bar size,
+    exits, costs); `splits` is a `SplitMode` value, default "none", and only
+    groups the statistics.
 
     `strategy_parameters` is the strategy's constructor arguments: raw JSON
     values from `read_config`, converted to the strategy's field types (a
@@ -78,10 +93,7 @@ class BacktestConfig:
     strategy: str
     data: DataConfig
     out: Path
-    timeframe: str = "5m"
-    cost: CostConfig = field(default_factory=CostConfig)
-    ambiguity: str = "exclude"
-    resolve_from: str = "next-bar"
+    simulation: SimulationConfig = field(default_factory=SimulationConfig)
     splits: str = "none"
     strategy_parameters: dict[str, object] = field(default_factory=dict)
 
@@ -92,10 +104,7 @@ _CONFIG_KEY_TYPES = {
     "strategy": str,
     "data": dict,
     "out": str,
-    "timeframe": str,
-    "cost": dict,
-    "ambiguity": str,
-    "resolve_from": str,
+    "simulation": dict,
     "splits": str,
     "strategy_parameters": dict,
 }
@@ -106,6 +115,13 @@ _DATA_KEY_TYPES = {
     "symbol": str,
     "timeframe": str,
     "timezone": str,
+}
+
+_SIMULATION_KEY_TYPES = {
+    "timeframe": str,
+    "ambiguity": str,
+    "resolve_from": str,
+    "cost": dict,
 }
 
 _COST_KEY_TYPES = {
@@ -154,8 +170,8 @@ def read_config(path) -> BacktestConfig:
     values = dict(raw)
     values["data"] = _data_config(file, raw["data"], fail)
     values["out"] = _relative_to(file, raw["out"])
-    if "cost" in raw:
-        values["cost"] = _cost_config(raw["cost"], fail)
+    if "simulation" in raw:
+        values["simulation"] = _simulation_config(raw["simulation"], fail)
     return BacktestConfig(**values)
 
 
@@ -171,14 +187,23 @@ def _data_config(file: Path, raw: dict, fail: Fail) -> DataConfig:
     return DataConfig(**values)
 
 
+def _simulation_config(raw: dict, fail: Fail) -> SimulationConfig:
+    """The `simulation` object, checked, with its `cost` object read too."""
+    _check_keys(raw, _SIMULATION_KEY_TYPES, "simulation.", fail)
+    values = dict(raw)
+    if "cost" in raw:
+        values["cost"] = _cost_config(raw["cost"], fail)
+    return SimulationConfig(**values)
+
+
 def _cost_config(raw: dict, fail: Fail) -> CostConfig:
-    """The `cost` object, checked, with `commission_pips` as a float."""
-    _check_keys(raw, _COST_KEY_TYPES, "cost.", fail)
+    """The `simulation.cost` object, checked, with `commission_pips` as a float."""
+    _check_keys(raw, _COST_KEY_TYPES, "simulation.cost.", fail)
     values = dict(raw)
     if "commission_pips" in raw:
         values["commission_pips"] = float(raw["commission_pips"])
         if values["commission_pips"] < 0:
-            raise fail(f'"cost.commission_pips" cannot be negative, got {raw["commission_pips"]}')
+            raise fail(f'"simulation.cost.commission_pips" cannot be negative, got {raw["commission_pips"]}')
     return CostConfig(**values)
 
 

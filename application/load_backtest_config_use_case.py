@@ -4,13 +4,13 @@
 
     config = load_backtest_config("backtests/narrow_asia_fade")   # the folder's backtest.json
     STRATEGIES[config.strategy](**config.strategy_parameters)     # already the strategy's field types
-    cost_model(config.cost)                                        # the CostModel the config describes
+    cost_model(config.simulation.cost)                             # the CostModel the config describes
 
 `ports.backtest_config_access.read_config` reads the file and checks its
 shape; this adds what needs the rest of the code base to decide: the strategy
 is registered and its parameters convert to its field types (and build it),
 the source format, symbol and time zone exist, the timeframes fit together,
-and `ambiguity`/`resolve_from`/`splits` name a policy or split mode. Every failure is a `ValueError`
+and `simulation.ambiguity`/`simulation.resolve_from`/`splits` name a policy or split mode. Every failure is a `ValueError`
 naming the config file.
 """
 
@@ -42,6 +42,7 @@ from ports.backtest_config_access import (
     has_json_type,
     json_type_name,
     read_config,
+    SimulationConfig,
 )
 from strategies import STRATEGIES
 
@@ -57,25 +58,31 @@ def load_backtest_config(path) -> BacktestConfig:
     fail = config_error(file)
 
     _check_choice(config.strategy, "strategy", sorted(STRATEGIES), fail)
-    _check_choice(config.ambiguity, "ambiguity", [policy.value for policy in AmbiguityPolicy], fail)
-    _check_choice(config.resolve_from, "resolve_from", [delay.value for delay in PositionCloseDelay], fail)
     _check_choice(config.splits, "splits", [mode.value for mode in SplitMode], fail)
     _check_data(config.data, fail)
-
-    timeframe = _parse_timeframe(config.timeframe, "timeframe", fail)
-    if not timeframe.can_be_resampled_from(_parse_timeframe(config.data.timeframe, "data.timeframe", fail)):
-        raise fail(f'"timeframe" {timeframe} is not a whole multiple of the source\'s '
-                   f'"data.timeframe" {config.data.timeframe}; resampling only coarsens')
+    _check_simulation(config.simulation, config.data, fail)
 
     return dataclasses.replace(
         config, strategy_parameters=_strategy_parameters(config.strategy, config.strategy_parameters, fail))
 
 
 def cost_model(cost: CostConfig) -> CostModel:
-    """The `CostModel` a config's `cost` object describes: `SpreadCost` with `spread`, else `FixedCost`."""
+    """The `CostModel` a config's `simulation.cost` object describes: `SpreadCost` with `spread`, else `FixedCost`."""
     if cost.spread:
         return SpreadCost(commission_pips=cost.commission_pips)
     return FixedCost(pips=cost.commission_pips)
+
+
+def _check_simulation(simulation: SimulationConfig, data: DataConfig, fail: Fail) -> None:
+    """The `simulation` object names a known policy and delay, and its timeframe coarsens the source's."""
+    _check_choice(simulation.ambiguity, "simulation.ambiguity", [policy.value for policy in AmbiguityPolicy], fail)
+    _check_choice(simulation.resolve_from, "simulation.resolve_from",
+                  [delay.value for delay in PositionCloseDelay], fail)
+
+    timeframe = _parse_timeframe(simulation.timeframe, "simulation.timeframe", fail)
+    if not timeframe.can_be_resampled_from(_parse_timeframe(data.timeframe, "data.timeframe", fail)):
+        raise fail(f'"simulation.timeframe" {timeframe} is not a whole multiple of the source\'s '
+                   f'"data.timeframe" {data.timeframe}; resampling only coarsens')
 
 
 def _check_data(data: DataConfig, fail: Fail) -> None:

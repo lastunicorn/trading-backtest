@@ -48,15 +48,18 @@ def test_records_the_data() -> None:
 def test_records_the_simulation_settings() -> None:
     backtest = Backtest(
         ScriptedStrategy([0]), data(10, {}), cost_model=FixedCost(pips=1.2),
-        ambiguity_policy=AmbiguityPolicy.ASSUME_SL, position_resolve_delay=PositionCloseDelay.ENTRY_BAR, splits=SplitMode.YEARLY,
+        ambiguity_policy=AmbiguityPolicy.ASSUME_SL, position_resolve_delay=PositionCloseDelay.ENTRY_BAR,
     )
 
     assert _info(backtest)["simulation"] == {
         "cost_model": {"class": "FixedCost", "pips": 1.2},
         "ambiguity_policy": "assume-sl",
         "position_resolve_delay": "entry-bar",
-        "splits": "yearly",
     }
+
+
+def test_records_the_split_mode_beside_the_simulation() -> None:
+    assert _info(Backtest(ScriptedStrategy([0]), data(10, {}), splits=SplitMode.YEARLY))["splits"] == "yearly"
 
 
 def test_records_the_trade_count() -> None:

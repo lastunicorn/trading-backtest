@@ -26,7 +26,11 @@ Ready-made configs live in `backtests/<name>/backtest.json`.
 
 ## 2. Structure
 
-A config is one JSON object. The root holds the run's settings; the nested `data` object describes the bars as they are on disk, and the nested `cost` object what each trade pays:
+A config is one JSON object, grouped by what each setting controls:
+
+- the root names the `strategy` (and its `strategy_parameters`), how to break the statistics down (`splits`) and where to write the results (`out`);
+- `data` describes the bars as they are on disk;
+- `simulation` holds the rules the positions are traded under: the bar size to test on, how exits are resolved, and in its nested `cost` object what each trade pays.
 
 ```json
 {
@@ -38,12 +42,16 @@ A config is one JSON object. The root holds the run's settings; the nested `data
 		"timeframe": "1m",
 		"timezone": "broker"
 	},
-	"out": "output",
-	"cost": {
-		"commission_pips": 1.7
+	"simulation": {
+		"timeframe": "5m",
+		"ambiguity": "assume-sl",
+		"resolve_from": "next-bar",
+		"cost": {
+			"commission_pips": 1.7
+		}
 	},
-	"ambiguity": "assume-sl",
-	"resolve_from": "next-bar"
+	"splits": "dvt",
+	"out": "output"
 }
 ```
 
@@ -56,16 +64,17 @@ A config is one JSON object. The root holds the run's settings; the nested `data
 | `data.source` | yes | – | A file or a folder of files in `data.format`. |
 | `data.format` | yes | – | How to read `data.source`:<br>`"metatrader"`: MT4/MT5 exports, a folder of them or one file.<br>`"histdata"`: histdata.com MetaTrader downloads (`DAT_MT_*.csv`), a folder of them or one file; no volume, no spread, and `data.timezone` must be `"America/New_York"`.<br>`"dukascopy"`: Dukascopy bid/ask M1 pairs, a folder of them (searched recursively, so the whole export folder or one year of it) or either file of one pair. |
 | `data.symbol` | yes | – | Ticker of the source data, for pip size and price precision: `EURUSD`, `GBPUSD`, `AUDUSD`, `NZDUSD`, `USDCAD`, `USDCHF`, `USDJPY`, `XAUUSD`, `XAGUSD`. |
-| `data.timeframe` | no | `"1m"` | Bar size of the source as stored: `"1m"` for raw MT5 exports and Dukascopy, `"5m"` for a `read_csv.py --interval 5m --output` file. Not read from the files: it is what the root `timeframe` is checked against. |
+| `data.timeframe` | no | `"1m"` | Bar size of the source as stored: `"1m"` for raw MT5 exports and Dukascopy, `"5m"` for a `read_csv.py --interval 5m --output` file. Not read from the files: it is what `simulation.timeframe` is checked against. |
 | `data.timezone` | no | `"UTC"` | The clock the source's timestamps are on: an IANA name (`"UTC"`, `"America/New_York"`, …) or `"broker"` for the MT5 broker-server clock (New York + 7h). It labels the bars and is never inferred from `data.format`: see [Data sources and clocks](running-a-backtest.md#4-data-sources-and-clocks) for the right value per source. Nothing is shifted, so a strategy with wall-clock windows must get data on the clock it expects. |
 | `out` | yes | – | Output directory. Created if missing; existing result files are **overwritten**. What it receives is in [Reading the results](reading-the-backtest-results.md). |
-| `timeframe` | no | `"5m"` | Bar size to test on: `5m`, `15m`, `1h`, `4h`, `1d`… (`m` minutes, `h` hours, `d` days, `w` weeks, `M` months). The source is resampled to it, so it must be a whole multiple of `data.timeframe` (`15m` from `5m`, not `1m` or `7m` from `5m`); anything else is rejected when the config loads (see [Checklist and common mistakes](README.md#checklist-and-common-mistakes)). |
-| `cost` | no | no cost | What each trade pays: an object with the `cost.*` keys below. Leaving it out, or leaving it empty, backtests with **zero cost**; `narrow_asia_fade`'s round-trip friction is `"cost": {"commission_pips": 1.7}`. |
-| `cost.spread` | no | `false` | `true`: charge each trade the spread of the bar where it crosses to the ask, entry for a long and exit for a short (`SpreadCost`). Needs data with a `spread` column: MT5 raw exports or Dukascopy, not histdata.com exports. |
-| `cost.commission_pips` | no | `0` | A flat round-trip cost per trade, in pips. Without `cost.spread` it is the whole cost (`FixedCost`); with it, it is added to the spread. |
-| `ambiguity` | no | `"exclude"` | A bar touching both SL and TP: `exclude`, `assume-sl` or `assume-tp`. See [Choosing `resolve_from` and `ambiguity`](running-a-backtest.md#3-choosing-resolve_from-and-ambiguity). |
-| `resolve_from` | no | `"next-bar"` | First bar SL/TP are checked on: `next-bar` or `entry-bar`. See [Choosing `resolve_from` and `ambiguity`](running-a-backtest.md#3-choosing-resolve_from-and-ambiguity). |
-| `splits` | no | `"none"` | How the statistics are broken down besides "all":<br>`"none"`: only "all".<br>`"dvt"`: the chronological 60/20/20 discovery / validation / test cut, over the strategy's `split_days`.<br>`"monthly"` / `"yearly"`: one group per calendar month (`2024-03`) or year (`2024`), including periods without trades.<br>See [Reading the results](reading-the-backtest-results.md) for how each is reported. |
+| `simulation` | no | all defaults | The rules the positions are traded under: an object with the `simulation.*` keys below. |
+| `simulation.timeframe` | no | `"5m"` | Bar size to test on: `5m`, `15m`, `1h`, `4h`, `1d`… (`m` minutes, `h` hours, `d` days, `w` weeks, `M` months). The source is resampled to it, so it must be a whole multiple of `data.timeframe` (`15m` from `5m`, not `1m` or `7m` from `5m`); anything else is rejected when the config loads (see [Checklist and common mistakes](README.md#checklist-and-common-mistakes)). |
+| `simulation.ambiguity` | no | `"exclude"` | A bar touching both SL and TP: `exclude`, `assume-sl` or `assume-tp`. See [Choosing `resolve_from` and `ambiguity`](running-a-backtest.md#3-choosing-resolve_from-and-ambiguity). |
+| `simulation.resolve_from` | no | `"next-bar"` | First bar SL/TP are checked on: `next-bar` or `entry-bar`. See [Choosing `resolve_from` and `ambiguity`](running-a-backtest.md#3-choosing-resolve_from-and-ambiguity). |
+| `simulation.cost` | no | no cost | What each trade pays: an object with the `simulation.cost.*` keys below. Leaving it out, or leaving it empty, backtests with **zero cost**; `narrow_asia_fade`'s round-trip friction is `"cost": {"commission_pips": 1.7}`. |
+| `simulation.cost.spread` | no | `false` | `true`: charge each trade the spread of the bar where it crosses to the ask, entry for a long and exit for a short (`SpreadCost`). Needs data with a `spread` column: MT5 raw exports or Dukascopy, not histdata.com exports. |
+| `simulation.cost.commission_pips` | no | `0` | A flat round-trip cost per trade, in pips. Without `simulation.cost.spread` it is the whole cost (`FixedCost`); with it, it is added to the spread. |
+| `splits` | no | `"none"` | How the statistics are broken down besides "all" (it groups trades, it changes none of them, so it is not a `simulation` key):<br>`"none"`: only "all".<br>`"dvt"`: the chronological 60/20/20 discovery / validation / test cut, over the strategy's `split_days`.<br>`"monthly"` / `"yearly"`: one group per calendar month (`2024-03`) or year (`2024`), including periods without trades.<br>See [Reading the results](reading-the-backtest-results.md) for how each is reported. |
 | `strategy_parameters` | no | `{}` | Overrides for the strategy's own parameters (its dataclass fields, listed on each strategy's page); the rest keep their defaults. See [Strategy parameters](#4-strategy-parameters). |
 
 ## 4. Strategy parameters
@@ -82,9 +91,9 @@ A variant of a strategy only needs `strategy_parameters`; the report header and 
 		"timeframe": "1m",
 		"timezone": "broker"
 	},
-	"out": "../../scratch/backtest_narrow_asia_fade_1300",
-	"ambiguity": "assume-sl",
-	"strategy_parameters": {"study_end": "13:00", "rel_vol_min": 1.8}
+	"simulation": {"ambiguity": "assume-sl"},
+	"strategy_parameters": {"study_end": "13:00", "rel_vol_min": 1.8},
+	"out": "../../scratch/backtest_narrow_asia_fade_1300"
 }
 ```
 
@@ -94,17 +103,17 @@ Each key is one of the strategy's dataclass fields. Values are written as their 
 
 The config is checked before any data is read. Any of these prints `ERROR: <file>: …` and exits with code 1, rather than quietly running on a default:
 
-- an unknown key (a typo such as `"ambigutiy"`);
+- an unknown key (a typo such as `"ambigutiy"`, or a `simulation` key such as `"timeframe"` written at the root);
 - a value of the wrong JSON type;
 - a missing required key, or an invalid choice;
-- a `timeframe` that isn't a whole multiple of `data.timeframe`;
+- a `simulation.timeframe` that isn't a whole multiple of `data.timeframe`;
 - a strategy parameter the strategy doesn't have or rejects (e.g. a negative `risk_reward`).
 
 The same happens when the data and the strategy don't fit together:
 
 - a broker-clock strategy on data whose `data.timezone` isn't `"broker"`;
 - an invalid `data.timezone`, or a Dukascopy source with a non-UTC `data.timezone`;
-- `"cost": {"spread": true}` without a spread column;
+- `"simulation": {"cost": {"spread": true}}` without a spread column;
 - a missing source, or an incomplete Dukascopy bid/ask pair;
 - an unknown timeframe or symbol.
 
@@ -117,19 +126,20 @@ Both in `backtests/`:
 {
 	"strategy": "rsi_divergence",
 	"data": {"source": "../../data/eurusd/1min", "format": "metatrader", "symbol": "EURUSD", "timezone": "broker"},
-	"out": "../../scratch/backtest_rsi_divergence",
-	"timeframe": "15m",
-	"resolve_from": "entry-bar"
+	"simulation": {"timeframe": "15m", "resolve_from": "entry-bar"},
+	"out": "../../scratch/backtest_rsi_divergence"
 }
 
 // backtests/rsi_divergence_dukascopy/backtest.json: the same on Dukascopy data, charging the real spread plus a commission
 {
 	"strategy": "rsi_divergence",
 	"data": {"source": "/path/to/dukascopy/eurusd/2025", "format": "dukascopy", "symbol": "EURUSD"},
-	"out": "../../scratch/backtest_rsi_duka",
-	"timeframe": "15m",
-	"resolve_from": "entry-bar",
-	"cost": {"spread": true, "commission_pips": 0.2}
+	"simulation": {
+		"timeframe": "15m",
+		"resolve_from": "entry-bar",
+		"cost": {"spread": true, "commission_pips": 0.2}
+	},
+	"out": "../../scratch/backtest_rsi_duka"
 }
 ```
 

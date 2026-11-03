@@ -81,4 +81,4 @@ One row per trade, sorted by entry time:
 
 ## `run.json`
 
-Provenance: strategy name, class and parameters; data symbol, timeframe, clock, first/last bar and bar count; cost model, ambiguity and resolve-from settings; trade count; git commit and whether the working tree had uncommitted changes; creation time; source. Keep it with the results, so any number can be traced back to exactly what produced it.
+Provenance: strategy name, class and parameters; data symbol, timeframe, clock, first/last bar and bar count; under `simulation`, the cost model, ambiguity and resolve-from settings; the `splits` mode; trade count; git commit and whether the working tree had uncommitted changes; creation time; source. Keep it with the results, so any number can be traced back to exactly what produced it.

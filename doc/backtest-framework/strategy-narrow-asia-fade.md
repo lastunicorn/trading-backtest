@@ -20,7 +20,7 @@ Each one can be set from a config's `strategy_parameters`.
 
 ## Running it
 
-The strategy was designed with `"ambiguity": "assume-sl"` and `"resolve_from": "next-bar"`. `backtests/narrow_asia_fade/backtest.json` runs it that way:
+The strategy was designed with `"simulation": {"ambiguity": "assume-sl", "resolve_from": "next-bar"}`. `backtests/narrow_asia_fade/backtest.json` runs it that way:
 
 ```bash
 python3 backtest.py backtests/narrow_asia_fade

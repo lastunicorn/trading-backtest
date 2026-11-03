@@ -11,7 +11,7 @@ import pytest
 
 from application.load_backtest_config_use_case import load_backtest_config
 from domain.broker_clock import BROKER_SERVER_TZ
-from ports.backtest_config_access import BacktestConfig, DataConfig
+from ports.backtest_config_access import BacktestConfig, DataConfig, SimulationConfig
 from strategies import STRATEGIES
 from strategies.rsi_divergence import RsiDivergence
 from tests.ports.backtest_config_access.backtest_config_reader._fakes import data, write_config
@@ -26,7 +26,7 @@ def test_minimal_config_takes_the_defaults(tmp_path) -> None:
         data=DataConfig(source=tmp_path / "m5.csv", format="metatrader", symbol="EURUSD", timeframe="1m",
                         timezone="UTC"),
         out=tmp_path / "results",
-        timeframe="5m",
+        simulation=SimulationConfig(timeframe="5m"),
     )
 
 
@@ -55,12 +55,16 @@ def test_errors_name_the_config_file(tmp_path) -> None:
     ({"strategy": "rsi_divergence", "data": data(timezone="New York"), "out": "o"}, '"data.timezone" is "New York"'),
     ({"strategy": "rsi_divergence", "data": data(timezone="../etc"), "out": "o"}, '"data.timezone" is "../etc"'),
     ({"strategy": "rsi_divergence", "data": data(timeframe="1min"), "out": "o"}, '"data.timeframe": invalid'),
-    ({"strategy": "rsi_divergence", "data": data(), "out": "o", "timeframe": "5x"}, '"timeframe": invalid'),
+    ({"strategy": "rsi_divergence", "data": data(), "out": "o", "simulation": {"timeframe": "5x"}},
+     '"simulation.timeframe": invalid'),
     ({"strategy": "rsi_divergence", "data": data(timeframe="15m"), "out": "o"}, "not a whole multiple"),
-    ({"strategy": "rsi_divergence", "data": data(timeframe="5m"), "out": "o", "timeframe": "7m"}, "not a whole multiple"),
+    ({"strategy": "rsi_divergence", "data": data(timeframe="5m"), "out": "o", "simulation": {"timeframe": "7m"}},
+     '"simulation.timeframe" 7m is not a whole multiple'),
     ({"strategy": "nope", "data": data(), "out": "o"}, '"strategy" is "nope"'),
-    ({"strategy": "rsi_divergence", "data": data(), "out": "o", "ambiguity": "guess"}, '"ambiguity"'),
-    ({"strategy": "rsi_divergence", "data": data(), "out": "o", "resolve_from": "later"}, '"resolve_from"'),
+    ({"strategy": "rsi_divergence", "data": data(), "out": "o", "simulation": {"ambiguity": "guess"}},
+     '"simulation.ambiguity" is "guess"'),
+    ({"strategy": "rsi_divergence", "data": data(), "out": "o", "simulation": {"resolve_from": "later"}},
+     '"simulation.resolve_from" is "later"'),
     ({"strategy": "rsi_divergence", "data": data(), "out": "o", "splits": "weekly"}, '"splits" is "weekly"'),
 ])
 def test_rejects_invalid_values(tmp_path, config: dict, message: str) -> None:

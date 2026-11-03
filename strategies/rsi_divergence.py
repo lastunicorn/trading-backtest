@@ -39,10 +39,10 @@ If price has already run past the pivot extreme by the entry bar's open, the
 stop would sit on the wrong side of the entry; that signal is skipped.
 
 Entries are at a bar's *open*, so the entry bar's range all happened after the
-fill: run it with `"resolve_from": "entry-bar"`. The default next-bar rule would
+fill: run it with `simulation.resolve_from` "entry-bar". The default next-bar rule would
 ignore a stop or target hit on the entry bar itself.
 
-    python3 backtest.py backtests/rsi_divergence_15m     # timeframe 15m, resolve_from entry-bar
+    python3 backtest.py backtests/rsi_divergence_15m     # simulation: timeframe 15m, resolve_from entry-bar
 
 Timezone-agnostic without an entry window: RSI and pivots depend on bar order,
 not the clock. With one, the data's `timezone` must be right, since the window

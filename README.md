@@ -6,9 +6,9 @@ Each entry script (script that can be run by itself) is placed in the root of th
 
 ## Architecture
 
-The code is split into seven components: the entry scripts, `application/`, `ports/`, `libs/`, `domain/`, `strategies/` and `ui/`. There are rules about which component may import which. See [help/architecture.md](help/architecture.md) for what goes where and why.
+The code is split into seven components: the entry scripts, `application/`, `ports/`, `libs/`, `domain/`, `strategies/` and `ui/`. There are rules about which component may import which. See [doc/architecture.md](doc/architecture.md) for what goes where and why.
 
-The backtest framework has its own documentation in [help/backtest-framework/](help/backtest-framework/README.md).
+The backtest framework has its own documentation in [doc/backtest-framework/](doc/backtest-framework/README.md).
 
 ## How to run
 

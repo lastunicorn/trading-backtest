@@ -18,7 +18,7 @@ For each calendar day D (a UTC date):
 Step 4's exits are the simulator's job; this class emits the entries with
 `exit_dt` at the session's end on D+1. The script checks SL/TP on the trigger
 bar itself, settles a bar touching both as ambiguous and charges no costs, so
-the parity run is `resolve_from` entry-bar, `ambiguity` exclude, `cost_pips` 0:
+the parity run's `simulation` is `resolve_from` entry-bar, `ambiguity` exclude, `cost.commission_pips` 0:
 
     python3 backtest.py backtests/session_breakout
 
