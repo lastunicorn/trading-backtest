@@ -1,4 +1,4 @@
-"""Build one clean dataset out of a folder of MT5 exports, in memory.
+"""Build one clean dataset out of a folder of MetaTrader-style exports, in memory.
 
 Pick the source files, resample each M1 export to the target timeframe on its
 own, concatenate, and drop the timestamps that overlapping monthly/yearly
@@ -29,12 +29,17 @@ __all__ = ["build_clean_dataset"]
 
 Progress = Callable[[str], None]
 
+# Reads one source file into a raw bar frame: (path, *, strict, on_skip) -> frame.
+FileReader = Callable[..., pd.DataFrame]
+
 
 def build_clean_dataset(
     input_directory,
     *,
     timeframe: str | SampleSize = "M5",
     skip_parts: Sequence[str] = (),
+    pattern: str = "*.csv",
+    read_file: FileReader = read_frame,
     progress: Progress | None = None,
 ) -> pd.DataFrame:
     """Convert every csv in `input_directory` to `timeframe` bars and merge them.
@@ -49,10 +54,16 @@ def build_clean_dataset(
     output rather than a raw export (see `find_files`). Empty by default: a
     caller whose folder mixes the two passes its own list.
 
+    pattern -- which files in the folder are source files (see `find_files`).
+
+    read_file -- the port that reads one file, called as
+    `read_file(path, strict=False, on_skip=...)`. MT5 exports by default;
+    `ports.histdata_file_access.read_frame` for histdata downloads.
+
     progress -- called with one human-readable line per file; pass `print` for a
     CLI, leave it None for library use.
     """
-    files = find_files(input_directory, skip_parts=skip_parts)
+    files = find_files(input_directory, pattern=pattern, skip_parts=skip_parts)
     say = progress or (lambda _message: None)
     say(f"Found {len(files)} candidate source CSV files.")
 
@@ -67,7 +78,7 @@ def build_clean_dataset(
             skipped += 1
 
         try:
-            source = read_frame(path, strict=False, on_skip=count_skip)
+            source = read_file(path, strict=False, on_skip=count_skip)
             # The port only parses -- sorting and same-file dedup are this
             # module's decision, so they happen here rather than in the port.
             if not source.empty:

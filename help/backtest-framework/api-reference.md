@@ -168,8 +168,9 @@ pandas rejects custom `tzinfo` objects, so don't pass `BROKER_SERVER_TZ` to `tz_
 | Function | Reads |
 |---|---|
 | `load_mt5(source, timeframe, symbol, *, timezone, progress=None)` | a folder of MT5 exports or one export; resampled per file and deduplicated across files |
+| `load_histdata(source, timeframe, symbol, *, timezone, progress=None)` | a folder of histdata.com MetaTrader downloads (`DAT_MT_*.csv`, the `.txt` gap reports ignored) or one download; built like `load_mt5`; no volume or spread columns; `timezone` must keep New York's clock (`ValueError` otherwise) |
 | `load_dukascopy(source, timeframe, symbol, *, timezone, progress=None)` | Dukascopy bid/ask pairs under a folder (recursively), or the pair one file belongs to; pairs match on instrument and start date; no volume columns; `timezone` must be UTC (`ValueError` otherwise) |
-| `load_source(source, source_format, timeframe, symbol, *, timezone, progress=None)` | the loader for `source_format`, a `SourceFormat`: `METATRADER` → `load_mt5`, `DUKASCOPY` → `load_dukascopy` |
+| `load_source(source, source_format, timeframe, symbol, *, timezone, progress=None)` | the loader for `source_format`, a `SourceFormat`: `METATRADER` → `load_mt5`, `HISTDATA` → `load_histdata`, `DUKASCOPY` → `load_dukascopy` |
 
 All return a `HistoricalData` resampled to `timeframe`, labelled with the required `timezone` (the clock the source is on; never assumed, never shifted). Pass `progress=print` to see one line per file.
 

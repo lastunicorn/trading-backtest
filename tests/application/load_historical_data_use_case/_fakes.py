@@ -47,3 +47,14 @@ def write_dukascopy_month(folder: Path, n: int = 10, spread: float = 0.00002) ->
     bid.to_csv(folder / "eurusd-m1-bid-2020-01-01-2020-02-01.csv", index=False)
     ask.to_csv(folder / "eurusd-m1-ask-2020-01-01-2020-02-01.csv", index=False)
     return folder
+
+
+def write_histdata_export(path: Path, n: int = 10) -> Path:
+    """A histdata.com MetaTrader M1 download: headerless, comma-separated, volume always 0."""
+    frame = _m1(n)
+    lines = [
+        f"{r.datetime:%Y.%m.%d},{r.datetime:%H:%M},{r.open:.6f},{r.high:.6f},{r.low:.6f},{r.close:.6f},0"
+        for r in frame.itertuples()
+    ]
+    path.write_text("\n".join(lines) + "\n")
+    return path

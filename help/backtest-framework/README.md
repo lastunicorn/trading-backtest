@@ -98,7 +98,7 @@ Common mistakes:
 | `ValueError: long position needs sl < open_price < tp` | the strategy built a position with levels on the wrong side; skip such signals |
 | `'datetime' must be strictly increasing` | the frame needs `clean_frame` before `HistoricalData` |
 | far fewer trades than expected | a fixture or real bar touching a level counts as a hit/break; check the ≥ / ≤ edges |
-| results with times 7 hours off | `data.timezone` doesn't match the files: the broker clock is New York + 7h (`"broker"`), histdata is New York time (`"America/New_York"`) |
+| results with times 7 hours off | `data.timezone` doesn't match the files: the broker clock is New York + 7h (`"broker"`), histdata is New York time (`"America/New_York"`; with `"format": "histdata"` any other clock is rejected) |
 | `ERROR: … "timeframe" … is not a whole multiple of the source's "data.timeframe"` | resampling only coarsens; test on a multiple of the source's bar size, or fix `data.timeframe` if it misstates the source |
 | numbers look wrong on a finer `timeframe` | `data.timeframe` understates the source (e.g. left at the `1m` default for an M5 `resample_csv.py` output), so the check passed; asking for `1m` from an M5 file returns M5 bars labelled 1m |
 

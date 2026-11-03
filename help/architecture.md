@@ -68,13 +68,13 @@ The question is "would the script stop being readable without this module?", not
 Ports know *external resources*: file formats, config files, the clock, git. Anything read from or written to outside the process goes through a port.
 
 - A port **parses records and stops**. No cleaning, no deduplication, no resampling, whether it hands back `Bar` objects or a DataFrame. That is the domain's job.
-- Most ports are **stdlib-only** (no pandas, no numpy), so they run anywhere as-is. `mt5_file_access.mt5_frame_reader` and the Dukascopy reader are the deliberate exceptions: they build a DataFrame directly.
+- Most ports are **stdlib-only** (no pandas, no numpy), so they run anywhere as-is. `mt5_file_access.mt5_frame_reader`, the histdata reader and the Dukascopy reader are the deliberate exceptions: they build a DataFrame directly.
 - A port may import a domain **entity** it parses into, never domain logic. The MT5 port parses files into `Bar` (`domain/bar_approach/bar.py`), but `Bar` belongs to the domain.
 - The clock and git are external resources too: `ports/run_environment/` provides `now()` and `git_commit()`. `backtest.py`'s `build_run_info` takes both as parameters, so tests pass fakes.
 
-- A port may delegate the format itself to a [library](#libraries) and keep only what is specific to this application. `ports/dukascopy` takes each Dukascopy bid file and ask file from `libs.dukascopy_csv` and decides how they become one bar (OHLC from bid, spread from ask − bid). `ports/mt5_file_access` takes MetaTrader records and frames from `libs.metatrader_csv` and turns them into `Bar`s and the repo's frame shape (a blank volume is 0, a headerless 8-column export ends in the spread).
+- A port may delegate the format itself to a [library](#libraries) and keep only what is specific to this application. `ports/dukascopy` takes each Dukascopy bid file and ask file from `libs.dukascopy_csv` and decides how they become one bar (OHLC from bid, spread from ask − bid). `ports/mt5_file_access` takes MetaTrader records and frames from `libs.metatrader_csv` and turns them into `Bar`s and the repo's frame shape (a blank volume is 0, a headerless 8-column export ends in the spread). `ports/histdata_file_access` reads histdata.com's downloads through the same library: same format, but its files name their own conventions (the always-zero volume is dropped, the clock is New York time, only `DAT_MT_*.csv` files are sources).
 
-Current ports: `mt5_file_access`, `dukascopy`, `file_system_access`, `backtest_config_access`, `run_environment`.
+Current ports: `mt5_file_access`, `histdata_file_access`, `dukascopy`, `file_system_access`, `backtest_config_access`, `run_environment`.
 
 ### Libraries
 
