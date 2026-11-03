@@ -63,8 +63,8 @@ application/build_clean_dataset_use_case.py  folder of exports → one clean, de
 read_csv.py                               CLI that prints an export as an aligned table, raw or resampled [pandas]
 rsi_divergence.py                         CLI: RSI divergence indicator (regular, optionally hidden) on M5, printed; not the `RsiDivergence` entries [pandas]
 session_breakout_strategy.py              standalone session-breakout backtest; `SessionBreakout` reproduces it trade for trade [stdlib]
-daily_sessions.py                         CLI: per-day open/high/low/close of SESSIONS entries (`--session`, default Asia) on the exports' `--source-timezone` (default broker), printed [stdlib]
-show_symbol.py                            CLI: lists the `Symbol`s in domain.symbol with their pip/tick specs, `--filter` [stdlib]
+calculate_daily_sessions.py               CLI: per-day open/high/low/close of SESSIONS entries (`--session`, default Asia) on the exports' `--source-timezone` (default broker), printed [stdlib]
+show_symbols.py                           CLI: lists the `Symbol`s in domain.symbol with their pip/tick specs, `--filter` [stdlib]
 ```
 
 ```python

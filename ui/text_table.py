@@ -6,7 +6,7 @@
         print(line)
 
 Knows nothing about bars or frames -- callers turn their data into rows of
-strings first (`frame_table_view`, `show_symbol.py`).
+strings first (`frame_table_view`, `show_symbols.py`).
 """
 
 

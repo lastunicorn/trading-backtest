@@ -1,4 +1,4 @@
-"""Builders for the `daily_sessions.py` tests: tiny headerless MT5 exports."""
+"""Builders for the `calculate_daily_sessions.py` tests: tiny headerless MT5 exports."""
 
 from pathlib import Path
 

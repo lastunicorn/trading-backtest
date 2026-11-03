@@ -190,7 +190,7 @@ def parse_args():
         default=None,
         metavar="TICKER",
         help="Symbol whose tick size sets price decimals for display and "
-             "--output, e.g. 'EURUSD', 'XAUUSD' (see show_symbol.py for the "
+             "--output, e.g. 'EURUSD', 'XAUUSD' (see show_symbols.py for the "
              "full list; omit for default number formatting, unless "
              "--decimals is set).",
     )

@@ -23,10 +23,10 @@ name such as "America/New_York" for histdata.com exports.
 Output goes to the console; a file report comes later.
 
 Usage:
-    python3 daily_sessions.py                                  # data/eurusd/1min
-    python3 daily_sessions.py data/eurusd/1min/EURUSD_2020_01.csv
-    python3 daily_sessions.py data/eurusd/1min --session London --session "New York"
-    python3 daily_sessions.py path/to/histdata --source-timezone America/New_York
+    python3 calculate_daily_sessions.py                                  # data/eurusd/1min
+    python3 calculate_daily_sessions.py data/eurusd/1min/EURUSD_2020_01.csv
+    python3 calculate_daily_sessions.py data/eurusd/1min --session London --session "New York"
+    python3 calculate_daily_sessions.py path/to/histdata --source-timezone America/New_York
 """
 
 from __future__ import annotations

@@ -94,7 +94,7 @@ XAUUSD = Symbol("Gold / U.S. Dollar", "XAUUSD", pip_size=0.1, tick_size=0.01, ca
 XAGUSD = Symbol("Silver / U.S. Dollar", "XAGUSD", pip_size=0.01, tick_size=0.001, category=SymbolCategory.COMMODITY)
 
 # Every known symbol by ticker: what `by_ticker`, config validation and
-# `show_symbol.py` see. A new symbol must be added here as well as defined.
+# `show_symbols.py` see. A new symbol must be added here as well as defined.
 SYMBOLS: dict[str, Symbol] = {
     symbol.ticker: symbol
     for symbol in (EURUSD, GBPUSD, AUDUSD, NZDUSD, USDCAD, USDCHF, USDJPY, XAUUSD, XAGUSD)

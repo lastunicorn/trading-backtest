@@ -4,9 +4,9 @@ a ticker/name filter.
 Utility -- reads nothing from disk, just prints the
 fixed pip/tick specifications domain.symbol defines.
 
-    python3 show_symbol.py                # every symbol
-    python3 show_symbol.py --filter jpy    # ticker or name contains "jpy" (case-insensitive)
-    python3 show_symbol.py --filter dollar
+    python3 show_symbols.py                # every symbol
+    python3 show_symbols.py --filter jpy    # ticker or name contains "jpy" (case-insensitive)
+    python3 show_symbols.py --filter dollar
 
 Lists `domain.symbol.SYMBOLS`, so a symbol registered there shows up here
 with nothing to update.

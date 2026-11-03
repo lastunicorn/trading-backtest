@@ -1,11 +1,11 @@
-"""Tests for `daily_sessions.window_label`."""
+"""Tests for `calculate_daily_sessions.window_label`."""
 
 from datetime import time
 from zoneinfo import ZoneInfo
 
 from domain.broker_clock import BROKER_SERVER_TZ
 from domain.trading_session_template import ASIA_SESSION, TradingSessionTemplate
-from daily_sessions import window_label
+from calculate_daily_sessions import window_label
 
 
 def test_one_zone_is_named_once() -> None:
