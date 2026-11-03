@@ -8,9 +8,8 @@ fixed pip/tick specifications domain.symbol defines.
     python3 show_symbol.py --filter jpy    # ticker or name contains "jpy" (case-insensitive)
     python3 show_symbol.py --filter dollar
 
-New `Symbol` subclasses in domain.symbol are picked up automatically -- this
-walks `Symbol.__subclasses__()` rather than keeping its own list, so there's
-nothing to update here when a symbol is added there.
+Lists `domain.symbol.SYMBOLS`, so a symbol registered there shows up here
+with nothing to update.
 
 Stdlib only.
 """
@@ -18,7 +17,7 @@ Stdlib only.
 import argparse
 import sys
 
-from domain.symbol import Symbol
+from domain.symbol import SYMBOLS
 from ui.bar_window_view import format_table
 
 
@@ -57,9 +56,8 @@ def parse_args():
 
 
 def get_all_symbols():
-    """Every concrete `Symbol` subclass in domain.symbol, instantiated and
-    sorted by ticker."""
-    return sorted((cls() for cls in Symbol.__subclasses__()), key=lambda symbol: symbol.ticker)
+    """Every symbol in `domain.symbol.SYMBOLS`, sorted by ticker."""
+    return sorted(SYMBOLS.values(), key=lambda symbol: symbol.ticker)
 
 
 def matches(symbol, text):

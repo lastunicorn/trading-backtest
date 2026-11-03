@@ -24,7 +24,7 @@ from domain.pandas_approach.historical_data import HistoricalData
 from domain.pandas_approach.position import PositionOutcome
 from domain.pandas_approach.shift_timezone import shift_timezone
 from domain.sample_size import SampleSize
-from domain.symbol import EurUsd
+from domain.symbol import EURUSD
 from session_breakout_strategy import SessionBreakoutStrategy
 from strategies.session_breakout import SessionBreakout
 
@@ -77,7 +77,7 @@ def _script_trades(frame: pd.DataFrame, max_range_pips: float, risk_reward: floa
 
 
 def _port_trades(frame: pd.DataFrame, max_range_pips: float, risk_reward: float) -> list[tuple]:
-    data = HistoricalData(frame, SampleSize.Parse("1m"), EurUsd())
+    data = HistoricalData(frame, SampleSize.Parse("1m"), EURUSD)
     backtest = Backtest(
         SessionBreakout(max_range_pips=max_range_pips, risk_reward=risk_reward),
         data,

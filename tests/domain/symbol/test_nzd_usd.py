@@ -1,20 +1,15 @@
-"""Tests for `NzdUsd`'s frozen specification."""
+"""Tests for `NZDUSD`'s frozen specification."""
 
-from domain.symbol import NzdUsd, Symbol, SymbolCategory
-
-
-def test_is_a_symbol() -> None:
-    assert isinstance(NzdUsd(), Symbol)
+from domain.symbol import NZDUSD, SymbolCategory
 
 
 def test_specification() -> None:
-    nzd_usd = NzdUsd()
-    assert nzd_usd.name == "New Zealand Dollar / U.S. Dollar"
-    assert nzd_usd.ticker == "NZDUSD"
-    assert nzd_usd.pip_size == 0.0001
-    assert nzd_usd.tick_size == 0.00001
-    assert nzd_usd.category == SymbolCategory.FOREX
+    assert NZDUSD.name == "New Zealand Dollar / U.S. Dollar"
+    assert NZDUSD.ticker == "NZDUSD"
+    assert NZDUSD.pip_size == 0.0001
+    assert NZDUSD.tick_size == 0.00001
+    assert NZDUSD.category == SymbolCategory.FOREX
 
 
 def test_price_decimals() -> None:
-    assert NzdUsd().price_decimals == 5
+    assert NZDUSD.price_decimals == 5

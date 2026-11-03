@@ -13,7 +13,7 @@ import pandas as pd
 
 from domain.pandas_approach.historical_data import HistoricalData
 from domain.sample_size import SampleSize
-from domain.symbol import EurUsd
+from domain.symbol import EURUSD
 
 MONDAY = date(2026, 1, 5)
 ASIA = (1.1000, 1.1005, 1.0995, 1.1000, 10)
@@ -49,4 +49,4 @@ def day_frame(day: date = MONDAY, overrides: dict[str, tuple] | None = None,
 
 def data(*frames: pd.DataFrame, **kwargs) -> HistoricalData:
     frame = pd.concat(frames or [day_frame()], ignore_index=True)
-    return HistoricalData(frame, kwargs.pop("timeframe", SampleSize.Parse("5m")), EurUsd(), **kwargs)
+    return HistoricalData(frame, kwargs.pop("timeframe", SampleSize.Parse("5m")), EURUSD, **kwargs)

@@ -8,7 +8,7 @@ from domain.pandas_approach.historical_data import HistoricalData
 from domain.pandas_approach.position import Position
 from domain.pandas_approach.trading_strategy import TradingStrategy
 from domain.sample_size import SampleSize
-from domain.symbol import EurUsd
+from domain.symbol import EURUSD
 
 
 @dataclass(frozen=True)
@@ -31,4 +31,4 @@ def data_over(stamps: list[str]) -> HistoricalData:
         "datetime": pd.to_datetime(stamps),
         "open": [1.1] * n, "high": [1.1] * n, "low": [1.1] * n, "close": [1.1] * n,
     })
-    return HistoricalData(frame, SampleSize.Parse("5m"), EurUsd())
+    return HistoricalData(frame, SampleSize.Parse("5m"), EURUSD)

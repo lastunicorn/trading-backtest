@@ -5,7 +5,7 @@ import pandas as pd
 from domain.pandas_approach.historical_data import HistoricalData
 from domain.pandas_approach.position import Position, PositionOutcome, Side, positions_to_frame
 from domain.sample_size import SampleSize
-from domain.symbol import EurUsd
+from domain.symbol import EURUSD
 
 T0 = pd.Timestamp("2026-01-05 10:00")
 
@@ -25,7 +25,7 @@ def data(spreads: list[float] | None = None, n: int = 4) -> HistoricalData:
     })
     if spreads is not None:
         frame["spread"] = spreads
-    return HistoricalData(frame, SampleSize.Parse("5m"), EurUsd())
+    return HistoricalData(frame, SampleSize.Parse("5m"), EURUSD)
 
 
 def trades(*sides_open_close: tuple[Side, int, int]) -> pd.DataFrame:

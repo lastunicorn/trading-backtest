@@ -3,7 +3,7 @@
 import pandas as pd
 
 from domain.pandas_approach.historical_data import HistoricalData
-from domain.symbol import EurUsd
+from domain.symbol import EURUSD
 
 from ._fakes import M5, bars
 
@@ -11,7 +11,7 @@ T0 = pd.Timestamp("2026-01-05 00:00")
 
 
 def _data() -> HistoricalData:
-    return HistoricalData(bars(3), M5, EurUsd())  # bars at 00:00, 00:05, 00:10
+    return HistoricalData(bars(3), M5, EURUSD)  # bars at 00:00, 00:05, 00:10
 
 
 def test_bar_open_time_maps_to_that_bar() -> None:

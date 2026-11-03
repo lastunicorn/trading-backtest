@@ -2,7 +2,7 @@
 
 import pytest
 
-from domain.symbol import EurUsd, Symbol, SymbolCategory
+from domain.symbol import EURUSD, Symbol, SymbolCategory
 
 
 def _symbol(pip_size: float) -> Symbol:
@@ -27,8 +27,8 @@ def test_scales_with_pip_size() -> None:
 
 
 def test_zero_difference_is_zero_pips() -> None:
-    assert EurUsd().to_pips(0.0) == 0.0
+    assert EURUSD.to_pips(0.0) == 0.0
 
 
 def test_negative_difference_stays_negative() -> None:
-    assert EurUsd().to_pips(-0.0010) == pytest.approx(-10.0)
+    assert EURUSD.to_pips(-0.0010) == pytest.approx(-10.0)

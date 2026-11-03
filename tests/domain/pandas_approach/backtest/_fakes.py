@@ -18,7 +18,7 @@ from domain.pandas_approach.historical_data import HistoricalData
 from domain.pandas_approach.position import Position, Side
 from domain.pandas_approach.trading_strategy import TradingStrategy
 from domain.sample_size import SampleSize
-from domain.symbol import EurUsd
+from domain.symbol import EURUSD
 
 FIRST_DAY = pd.Timestamp("2026-01-05")
 QUIET = (1.1000, 1.1005, 1.0995, 1.1000)
@@ -38,7 +38,7 @@ def data(days: int, results: dict[int, str]) -> HistoricalData:
         for k, bar in enumerate([QUIET, second, QUIET, QUIET, QUIET, QUIET]):
             rows.append((day(i) + pd.Timedelta(hours=10, minutes=5 * k), *bar))
     frame = pd.DataFrame(rows, columns=["datetime", "open", "high", "low", "close"])
-    return HistoricalData(frame, SampleSize.Parse("5m"), EurUsd())
+    return HistoricalData(frame, SampleSize.Parse("5m"), EURUSD)
 
 
 class ScriptedStrategy(TradingStrategy):
@@ -77,7 +77,7 @@ def bars(*rows: tuple[float, float, float, float]) -> HistoricalData:
     """M5 bars from `T0`, one (open, high, low, close) tuple each."""
     frame = pd.DataFrame(rows, columns=["open", "high", "low", "close"])
     frame.insert(0, "datetime", pd.date_range(T0, periods=len(rows), freq="5min"))
-    return HistoricalData(frame, SampleSize.Parse("5m"), EurUsd())
+    return HistoricalData(frame, SampleSize.Parse("5m"), EURUSD)
 
 
 class Replay(TradingStrategy):

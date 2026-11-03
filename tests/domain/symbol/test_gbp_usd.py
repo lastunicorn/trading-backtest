@@ -1,20 +1,15 @@
-"""Tests for `GbpUsd`'s frozen specification."""
+"""Tests for `GBPUSD`'s frozen specification."""
 
-from domain.symbol import GbpUsd, Symbol, SymbolCategory
-
-
-def test_is_a_symbol() -> None:
-    assert isinstance(GbpUsd(), Symbol)
+from domain.symbol import GBPUSD, SymbolCategory
 
 
 def test_specification() -> None:
-    gbp_usd = GbpUsd()
-    assert gbp_usd.name == "British Pound / U.S. Dollar"
-    assert gbp_usd.ticker == "GBPUSD"
-    assert gbp_usd.pip_size == 0.0001
-    assert gbp_usd.tick_size == 0.00001
-    assert gbp_usd.category == SymbolCategory.FOREX
+    assert GBPUSD.name == "British Pound / U.S. Dollar"
+    assert GBPUSD.ticker == "GBPUSD"
+    assert GBPUSD.pip_size == 0.0001
+    assert GBPUSD.tick_size == 0.00001
+    assert GBPUSD.category == SymbolCategory.FOREX
 
 
 def test_price_decimals() -> None:
-    assert GbpUsd().price_decimals == 5
+    assert GBPUSD.price_decimals == 5

@@ -1,20 +1,15 @@
-"""Tests for `AudUsd`'s frozen specification."""
+"""Tests for `AUDUSD`'s frozen specification."""
 
-from domain.symbol import AudUsd, Symbol, SymbolCategory
-
-
-def test_is_a_symbol() -> None:
-    assert isinstance(AudUsd(), Symbol)
+from domain.symbol import AUDUSD, SymbolCategory
 
 
 def test_specification() -> None:
-    aud_usd = AudUsd()
-    assert aud_usd.name == "Australian Dollar / U.S. Dollar"
-    assert aud_usd.ticker == "AUDUSD"
-    assert aud_usd.pip_size == 0.0001
-    assert aud_usd.tick_size == 0.00001
-    assert aud_usd.category == SymbolCategory.FOREX
+    assert AUDUSD.name == "Australian Dollar / U.S. Dollar"
+    assert AUDUSD.ticker == "AUDUSD"
+    assert AUDUSD.pip_size == 0.0001
+    assert AUDUSD.tick_size == 0.00001
+    assert AUDUSD.category == SymbolCategory.FOREX
 
 
 def test_price_decimals() -> None:
-    assert AudUsd().price_decimals == 5
+    assert AUDUSD.price_decimals == 5

@@ -4,6 +4,9 @@ observed, or any strategy; it's the constant a strategy consults to convert a
 raw price difference into pips (`to_pips`) or to format a price to the
 instrument's native precision (`price_decimals`, derived from `tick_size`).
 
+The known instruments are module constants (`EURUSD`, `USDJPY`, ...),
+collected by ticker in `SYMBOLS`, which `by_ticker` looks up.
+
 Frozen, like `TradingSessionTemplate` -- a symbol's specification doesn't
 change once defined. `price_decimals` is a `cached_property` rather than a
 plain `property`: it's derived from `tick_size` via `Decimal`, which is
@@ -24,15 +27,16 @@ from functools import cached_property
 __all__ = [
     "Symbol",
     "SymbolCategory",
-    "EurUsd",
-    "GbpUsd",
-    "AudUsd",
-    "NzdUsd",
-    "UsdCad",
-    "UsdChf",
-    "UsdJpy",
-    "XauUsd",
-    "XagUsd",
+    "EURUSD",
+    "GBPUSD",
+    "AUDUSD",
+    "NZDUSD",
+    "USDCAD",
+    "USDCHF",
+    "USDJPY",
+    "XAUUSD",
+    "XAGUSD",
+    "SYMBOLS",
     "by_ticker",
 ]
 
@@ -69,127 +73,37 @@ class Symbol:
         return -Decimal(str(self.tick_size)).as_tuple().exponent
 
 
-class EurUsd(Symbol):
-    def __init__(self) -> None:
-        super().__init__(
-            name="Euro / U.S. Dollar",
-            ticker="EURUSD",
-            pip_size=0.0001,
-            tick_size=0.00001,
-            category=SymbolCategory.FOREX,
-        )
+EURUSD = Symbol("Euro / U.S. Dollar", "EURUSD", pip_size=0.0001, tick_size=0.00001, category=SymbolCategory.FOREX)
+GBPUSD = Symbol("British Pound / U.S. Dollar", "GBPUSD", pip_size=0.0001, tick_size=0.00001, category=SymbolCategory.FOREX)
+AUDUSD = Symbol("Australian Dollar / U.S. Dollar", "AUDUSD", pip_size=0.0001, tick_size=0.00001, category=SymbolCategory.FOREX)
+NZDUSD = Symbol("New Zealand Dollar / U.S. Dollar", "NZDUSD", pip_size=0.0001, tick_size=0.00001, category=SymbolCategory.FOREX)
+USDCAD = Symbol("U.S. Dollar / Canadian Dollar", "USDCAD", pip_size=0.0001, tick_size=0.00001, category=SymbolCategory.FOREX)
+USDCHF = Symbol("U.S. Dollar / Swiss Franc", "USDCHF", pip_size=0.0001, tick_size=0.00001, category=SymbolCategory.FOREX)
 
+# JPY pairs quote two decimals fewer than the others -- a pip is the 2nd
+# decimal (0.01), not the 4th, and the tradeable tick is the 3rd.
+USDJPY = Symbol("U.S. Dollar / Japanese Yen", "USDJPY", pip_size=0.01, tick_size=0.001, category=SymbolCategory.FOREX)
 
-class GbpUsd(Symbol):
-    def __init__(self) -> None:
-        super().__init__(
-            name="British Pound / U.S. Dollar",
-            ticker="GBPUSD",
-            pip_size=0.0001,
-            tick_size=0.00001,
-            category=SymbolCategory.FOREX,
-        )
+# Metals have no cross-broker-standard "pip" the way FX pairs do -- unlike a
+# currency pair's pip, which is fixed by convention, a metal's is effectively
+# whatever the quoting broker's price precision implies. These follow the
+# common MT5 default (gold quoted to 2 decimals, pip = the 1st of those, tick
+# = the 2nd; silver one decimal deeper); adjust to match your actual
+# broker/data source if it differs.
+XAUUSD = Symbol("Gold / U.S. Dollar", "XAUUSD", pip_size=0.1, tick_size=0.01, category=SymbolCategory.COMMODITY)
+XAGUSD = Symbol("Silver / U.S. Dollar", "XAGUSD", pip_size=0.01, tick_size=0.001, category=SymbolCategory.COMMODITY)
 
-
-class AudUsd(Symbol):
-    def __init__(self) -> None:
-        super().__init__(
-            name="Australian Dollar / U.S. Dollar",
-            ticker="AUDUSD",
-            pip_size=0.0001,
-            tick_size=0.00001,
-            category=SymbolCategory.FOREX,
-        )
-
-
-class NzdUsd(Symbol):
-    def __init__(self) -> None:
-        super().__init__(
-            name="New Zealand Dollar / U.S. Dollar",
-            ticker="NZDUSD",
-            pip_size=0.0001,
-            tick_size=0.00001,
-            category=SymbolCategory.FOREX,
-        )
-
-
-class UsdCad(Symbol):
-    def __init__(self) -> None:
-        super().__init__(
-            name="U.S. Dollar / Canadian Dollar",
-            ticker="USDCAD",
-            pip_size=0.0001,
-            tick_size=0.00001,
-            category=SymbolCategory.FOREX,
-        )
-
-
-class UsdChf(Symbol):
-    def __init__(self) -> None:
-        super().__init__(
-            name="U.S. Dollar / Swiss Franc",
-            ticker="USDCHF",
-            pip_size=0.0001,
-            tick_size=0.00001,
-            category=SymbolCategory.FOREX,
-        )
-
-
-class UsdJpy(Symbol):
-    def __init__(self) -> None:
-        # JPY pairs quote two decimals fewer than the others -- a pip is the
-        # 2nd decimal (0.01), not the 4th, and the tradeable tick is the 3rd.
-        super().__init__(
-            name="U.S. Dollar / Japanese Yen",
-            ticker="USDJPY",
-            pip_size=0.01,
-            tick_size=0.001,
-            category=SymbolCategory.FOREX,
-        )
-
-
-class XauUsd(Symbol):
-    def __init__(self) -> None:
-        # Metals have no cross-broker-standard "pip" the way FX pairs do --
-        # unlike a currency pair's pip, which is fixed by convention, a
-        # metal's is effectively whatever the quoting broker's price
-        # precision implies. These follow the common MT5 default (gold
-        # quoted to 2 decimals, pip = the 1st of those, tick = the 2nd);
-        # adjust to match your actual broker/data source if it differs.
-        super().__init__(
-            name="Gold / U.S. Dollar",
-            ticker="XAUUSD",
-            pip_size=0.1,
-            tick_size=0.01,
-            category=SymbolCategory.COMMODITY,
-        )
-
-
-class XagUsd(Symbol):
-    def __init__(self) -> None:
-        # See XauUsd's note on metals having no standard pip convention.
-        # Silver commonly quotes one decimal deeper than gold (3 vs 2).
-        super().__init__(
-            name="Silver / U.S. Dollar",
-            ticker="XAGUSD",
-            pip_size=0.01,
-            tick_size=0.001,
-            category=SymbolCategory.COMMODITY,
-        )
+# Every known symbol by ticker: what `by_ticker`, config validation and
+# `show_symbol.py` see. A new symbol must be added here as well as defined.
+SYMBOLS: dict[str, Symbol] = {
+    symbol.ticker: symbol
+    for symbol in (EURUSD, GBPUSD, AUDUSD, NZDUSD, USDCAD, USDCHF, USDJPY, XAUUSD, XAGUSD)
+}
 
 
 def by_ticker(ticker: str) -> Symbol:
-    """Look up a concrete `Symbol` subclass by its ticker (case-insensitive).
-
-    Walks `Symbol.__subclasses__()` the same way `show_symbol.py` lists
-    every symbol, so a new symbol added there is found here too with
-    nothing to update.
-    """
-    ticker = ticker.upper()
-
-    for cls in Symbol.__subclasses__():
-        instance = cls()
-        if instance.ticker == ticker:
-            return instance
-
-    raise ValueError(f"unknown symbol ticker {ticker!r}")
+    """Look up a symbol in `SYMBOLS` by its ticker (case-insensitive)."""
+    try:
+        return SYMBOLS[ticker.upper()]
+    except KeyError:
+        raise ValueError(f"unknown symbol ticker {ticker!r}") from None

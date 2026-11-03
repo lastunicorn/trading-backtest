@@ -60,13 +60,13 @@ from domain.bar_approach.daily_strategy_base import DailyStrategyBase
 from domain.bar_approach.position import Outcome, PendingPosition, Position
 from domain.bar_approach.shift_bars import shift_bars
 from domain.broker_clock import BROKER_SERVER_TZ
-from domain.symbol import EurUsd, Symbol
+from domain.symbol import EURUSD, Symbol
 from domain.trading_session import TradingSession
 from domain.trading_session_template import TradingSessionTemplate, TokyoSessionTemplate, AsianSessionTemplate
 from ports.file_system_access.file_system import find_files
 from ports.mt5_file_access import Bar, iterate_bars
 
-_SYMBOL: Symbol = EurUsd()
+_SYMBOL: Symbol = EURUSD
 
 
 @dataclass

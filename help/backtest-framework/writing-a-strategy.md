@@ -181,7 +181,7 @@ import pytest
 from domain.pandas_approach.historical_data import HistoricalData
 from domain.pandas_approach.position import Side
 from domain.sample_size import SampleSize
-from domain.symbol import EurUsd
+from domain.symbol import EURUSD
 from strategies.opening_range_breakout import OpeningRangeBreakout
 
 RANGE_BAR = (1.1000, 1.1005, 1.0995, 1.1000)  # sets the opening range: 1.0995-1.1005
@@ -197,7 +197,7 @@ def _data(overrides: dict[str, tuple]) -> HistoricalData:
     rows = [bars.get(t.strftime("%H:%M"), QUIET) for t in stamps]
     frame = pd.DataFrame(rows, columns=["open", "high", "low", "close"])
     frame.insert(0, "datetime", stamps)
-    return HistoricalData(frame, SampleSize.Parse("5m"), EurUsd())
+    return HistoricalData(frame, SampleSize.Parse("5m"), EURUSD)
 
 
 def test_break_above_the_opening_range_is_a_long_at_its_high() -> None:

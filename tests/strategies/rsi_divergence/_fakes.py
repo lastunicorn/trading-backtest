@@ -13,7 +13,7 @@ from domain.broker_clock import BROKER_SERVER_TZ
 from domain.pandas_approach.divergence import Category, Direction, Divergence
 from domain.pandas_approach.historical_data import HistoricalData
 from domain.sample_size import SampleSize
-from domain.symbol import EurUsd
+from domain.symbol import EURUSD
 
 T0 = pd.Timestamp("2026-01-05 00:00")
 PIVOT = 20     # the newer pivot bar
@@ -36,7 +36,7 @@ def data(n: int = 60, *, pivot_low: float = 1.0980, pivot_high: float = 1.1020,
     })
     frame.loc[PIVOT, ["low", "high"]] = [pivot_low, pivot_high]
     frame.loc[ENTRY, "open"] = entry_open
-    return HistoricalData(frame, SampleSize.Parse("15m"), EurUsd(), timezone)
+    return HistoricalData(frame, SampleSize.Parse("15m"), EURUSD, timezone)
 
 
 def divergence(direction: Direction, start_value: float, end_value: float,

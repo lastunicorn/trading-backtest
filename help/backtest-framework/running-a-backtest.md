@@ -34,11 +34,11 @@ from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest, PositionR
 from domain.pandas_approach.cost_model import FixedCost
 from domain.pandas_approach.splits import SplitMode
 from domain.sample_size import SampleSize
-from domain.symbol import EurUsd
+from domain.symbol import EURUSD
 from strategies.opening_range_breakout import OpeningRangeBreakout
 
 data = load_source("data/eurusd/1min", SourceFormat.METATRADER,
-                   SampleSize.Parse("5m"), EurUsd(), timezone=BROKER_SERVER_TZ)
+                   SampleSize.Parse("5m"), EURUSD, timezone=BROKER_SERVER_TZ)
 backtest = Backtest(
     OpeningRangeBreakout(risk_reward=1.5),
     data,

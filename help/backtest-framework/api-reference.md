@@ -53,7 +53,7 @@ Extra columns are kept. The constructor only **validates**, and raises `ValueErr
 
 ### `domain.symbol`
 
-**`Symbol`**: an instrument's constants: `ticker`, `pip_size`, `tick_size`, `to_pips(price_diff)`, `price_decimals`. Concrete classes: `EurUsd()`, `GbpUsd()`, `UsdJpy()`, `XauUsd()`, …; `by_ticker("EURUSD")` looks one up.
+**`Symbol`**: an instrument's constants: `ticker`, `pip_size`, `tick_size`, `to_pips(price_diff)`, `price_decimals`. Instances: `EURUSD`, `GBPUSD`, `USDJPY`, `XAUUSD`, …, all in `SYMBOLS` by ticker; `by_ticker("EURUSD")` looks one up.
 
 ### `domain.broker_clock`
 

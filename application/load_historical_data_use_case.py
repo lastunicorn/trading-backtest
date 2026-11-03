@@ -4,9 +4,9 @@
         SourceFormat, load_dukascopy, load_histdata, load_mt5, load_source)
 
     M5 = SampleSize.Parse("5m")
-    data = load_mt5("data/eurusd/1min", M5, EurUsd(), timezone=BROKER_SERVER_TZ, progress=print)
-    data = load_dukascopy("/data/dukascopy/eurusd/2025", M5, EurUsd(), timezone=ZoneInfo("UTC"))
-    data = load_histdata(".../histdata/mt/2025", M5, EurUsd(), timezone=ZoneInfo("America/New_York"))
+    data = load_mt5("data/eurusd/1min", M5, EURUSD, timezone=BROKER_SERVER_TZ, progress=print)
+    data = load_dukascopy("/data/dukascopy/eurusd/2025", M5, EURUSD, timezone=ZoneInfo("UTC"))
+    data = load_histdata(".../histdata/mt/2025", M5, EURUSD, timezone=ZoneInfo("America/New_York"))
     data = load_source(path, SourceFormat.METATRADER, M5, symbol, timezone=tz)   # the loader for a format
 
 Each format differs in layout and spread unit, and this module is where those

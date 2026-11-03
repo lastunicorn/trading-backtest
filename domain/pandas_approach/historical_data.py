@@ -2,9 +2,9 @@
 
     from domain.pandas_approach.historical_data import HistoricalData, SpreadUnit
     from domain.sample_size import SampleSize
-    from domain.symbol import EurUsd
+    from domain.symbol import EURUSD
 
-    data = HistoricalData.from_frame(frame, SampleSize.Parse("5m"), EurUsd(), spread_unit=SpreadUnit.POINTS)
+    data = HistoricalData.from_frame(frame, SampleSize.Parse("5m"), EURUSD, spread_unit=SpreadUnit.POINTS)
     data.data            # the frame
     data.start_dt, data.end_dt, len(data)
     data.locate([t1, t2])  # row index of the bar each time falls in

@@ -1,20 +1,15 @@
-"""Tests for `EurUsd`'s frozen specification."""
+"""Tests for `EURUSD`'s frozen specification."""
 
-from domain.symbol import EurUsd, Symbol, SymbolCategory
-
-
-def test_is_a_symbol() -> None:
-    assert isinstance(EurUsd(), Symbol)
+from domain.symbol import EURUSD, SymbolCategory
 
 
 def test_specification() -> None:
-    eur_usd = EurUsd()
-    assert eur_usd.name == "Euro / U.S. Dollar"
-    assert eur_usd.ticker == "EURUSD"
-    assert eur_usd.pip_size == 0.0001
-    assert eur_usd.tick_size == 0.00001
-    assert eur_usd.category == SymbolCategory.FOREX
+    assert EURUSD.name == "Euro / U.S. Dollar"
+    assert EURUSD.ticker == "EURUSD"
+    assert EURUSD.pip_size == 0.0001
+    assert EURUSD.tick_size == 0.00001
+    assert EURUSD.category == SymbolCategory.FOREX
 
 
 def test_price_decimals() -> None:
-    assert EurUsd().price_decimals == 5
+    assert EURUSD.price_decimals == 5
