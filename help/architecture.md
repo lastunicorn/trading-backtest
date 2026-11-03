@@ -72,7 +72,7 @@ Ports know *external resources*: file formats, config files, the clock, git. Any
 - A port may import a domain **entity** it parses into, never domain logic. The MT5 port parses files into `Bar` (`domain/bar_approach/bar.py`), but `Bar` belongs to the domain.
 - The clock and git are external resources too: `ports/run_environment/` provides `now()` and `git_commit()`. `backtest.py`'s `build_run_info` takes both as parameters, so tests pass fakes.
 
-- A port may delegate the format itself to a [library](#libraries) and keep only what is specific to this application. `ports/dukascopy` takes each Dukascopy bid file and ask file from `libs.dukascopy_csv` and decides how they become one bar (OHLC from bid, spread from ask − bid).
+- A port may delegate the format itself to a [library](#libraries) and keep only what is specific to this application. `ports/dukascopy` takes each Dukascopy bid file and ask file from `libs.dukascopy_csv` and decides how they become one bar (OHLC from bid, spread from ask − bid). `ports/mt5_file_access` takes MetaTrader records and frames from `libs.metatrader_csv` and turns them into `Bar`s and the repo's frame shape (a blank volume is 0, a headerless 8-column export ends in the spread).
 
 Current ports: `mt5_file_access`, `dukascopy`, `file_system_access`, `backtest_config_access`, `run_environment`.
 
@@ -84,7 +84,7 @@ Code that knows a file format, or another external resource, and nothing about t
 - **Only ports import libraries.** The port is where the library's general output is turned into what this application needs.
 - One subpackage per library, `libs/<name>/`, with relative imports inside it and a `README.md` describing its API.
 
-Current libraries: `dukascopy_csv` (find, pair and read Dukascopy candle exports, one DataFrame per file).
+Current libraries: `dukascopy_csv` (find, pair and read Dukascopy candle exports, one DataFrame per file) and `metatrader_csv` (read and write MetaTrader bar exports, as records or a DataFrame).
 
 ### Domain
 

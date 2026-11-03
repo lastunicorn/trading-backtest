@@ -43,12 +43,14 @@ Raw data lives under `data/` (gitignored, local-only); `data/eurusd/1min/EURUSD_
 The modules, one line each:
 
 ```
-ports/mt5_file_access/mt5_bar_reader.py   MT5 CSV → `Bar` objects (dt, OHLC, volumes, spread)            [stdlib]
-ports/mt5_file_access/mt5_frame_reader.py MT5 CSV → pandas frame directly, same fields                  [pandas]
+ports/mt5_file_access/mt5_bar_reader.py   MT5 CSV ↔ `Bar` objects (dt, OHLC, volumes, spread), via libs.metatrader_csv records [stdlib]
+ports/mt5_file_access/mt5_frame_reader.py MT5 CSV ↔ the repo's bar frame, same fields, via libs.metatrader_csv frames [pandas]
+ports/mt5_file_access/export_conventions.py  this repo's reading of the format: a headerless 8-column export ends in the spread
 ports/file_system_access/file_system.py   list the source csv files in a folder (or pass one file through) [stdlib]
 ports/backtest_config_access/backtest_config_reader.py  backtest.py's JSON config → `BacktestConfig` (`read_config`): shape only — keys, JSON types, relative paths [stdlib]
 ports/run_environment/run_environment.py  the wall clock (`now`) and the repo's git state (`git_commit` → `GitCommit(commit, dirty)`), for `run.json` [stdlib]
 ports/dukascopy/dukascopy_frame_reader.py Dukascopy bid/ask M1 pairs → one bar frame (OHLC from bid, spread = ask - bid): `read_path(folder or one file of a pair)` [pandas]
+libs/metatrader_csv/                      read/write MetaTrader bar exports: `iterate_records`/`read_records`/`write_records` (stdlib) and `read_frame`/`write_frame` (pandas), `sniff_layout`; blank volumes stay None/NA; nothing from the repo, see its README.md
 libs/dukascopy_csv/                       find (`find_files`), pair (`pair_files`, `find_pair`) and read (`read_file`) Dukascopy exports, one DataFrame per file, all columns kept; nothing from the repo, see its README.md [pandas]
 domain/broker_clock.py                    BROKER_SERVER_TZ (New York + 7h), ShiftedZone, timezone_by_name ("broker" or IANA) / timezone_name [stdlib]
 domain/time_window.py                     TimeWindow: daily [start, end) of timezone-aware times, each optional; ZonedTime annotation [stdlib]
@@ -69,7 +71,7 @@ for bar in iterate_bars(path):  # generator — constant memory; use on multi-mi
     ...
 ```
 
-The reader detects the separator (comma/tab/semicolon) and handles both headerless exports and `<DATE>`-style MT5 headers. `strict=True` (default) raises `BarParseError` on a malformed line; `strict=False` skips it and reports via an `on_skip` callback. `detect_layout(path)` reports which fields an export carries without parsing it.
+The format itself is `libs.metatrader_csv`: it detects the separator (comma/tab/semicolon), handles both headerless exports and `<DATE>`-style MT5 headers, and returns blank volumes as None/NA; the port fills them with 0 and builds `Bar`s or the repo's frame. `strict=True` (default for bars, `False` for `read_frame`) raises `BarParseError` (an alias of `MetatraderParseError`) on a malformed line; `strict=False` skips it and reports via an `on_skip` callback (exact line numbers for bars, best-effort for frames). `libs.metatrader_csv.sniff_layout(path)` reports which fields an export carries without parsing it.
 
 Everything after parsing is `domain/` (concepts) and `application/` (use cases):
 
