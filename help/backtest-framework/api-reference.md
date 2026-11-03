@@ -49,7 +49,7 @@ Extra columns are kept. The constructor only **validates**, and raises `ValueErr
 
 ### `domain.sample_size`
 
-**`SampleSize(amount, unit)`**: a bar size. `SampleSize.Parse("15m")` builds one: `m` minutes, `h` hours, `d` days, `w` weeks, `M` months (case-sensitive). `str(size)` gives `"15m"` back, and `size.to_pandas_rule()` gives the pandas resample rule (`"15min"`).
+**`SampleSize(amount, unit)`**: a bar size. `SampleSize.Parse("15m")` builds one: `m` minutes, `h` hours, `d` days, `w` weeks, `M` months (case-sensitive). `str(size)` gives `"15m"` back, and `size.to_pandas_rule()` gives the pandas resample rule (`"15min"`; weeks are hours, `"1w"` → `"168h"`, resampled from a Monday so each week is labelled by its Monday).
 
 ### `domain.symbol`
 

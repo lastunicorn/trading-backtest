@@ -5,16 +5,13 @@
     display_frame(frame, rows=20, tail=False, decimals=5)
     display_frame(frame, rows=20, tail=False, decimals=None)  # default number formatting
 
-Unlike `ui.bar_window_view` (built for `BarWindow`'s constant-memory
-streaming), this operates on a frame already fully materialized in memory --
-selecting first/last/all rows is a plain `head`/`tail`/no-op slice. Reuses
-`ui.bar_window_view.format_table` for the actual column alignment, since that
-helper is Bar-agnostic.
+The frame is already in memory, so selecting the first/last/all rows is a
+plain `head`/`tail`/no-op slice. Column alignment is `ui.text_table.format_table`.
 """
 
 import pandas as pd
 
-from ui.bar_window_view import format_table
+from ui.text_table import format_table
 
 
 def display_frame(frame, *, rows, tail, decimals):

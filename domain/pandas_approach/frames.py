@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from domain.sample_size import SampleSize
+from domain.sample_size import SampleSize, SampleUnit
 
 __all__ = ["clean_frame", "resample_ohlc"]
 
@@ -34,6 +34,11 @@ _PANDAS_RULES = {
     "M30": "30min",
     "H1": "1h",
 }
+
+# The Monday weeks are counted from (the one on or before the Unix epoch), so a
+# week starts on a Monday and a multi-week bar ("2w") covers the same weeks
+# whatever the data's first day.
+_WEEK_ORIGIN = pd.Timestamp("1969-12-29")
 
 _OHLC = [
     "open",
@@ -72,8 +77,11 @@ def resample_ohlc(frame: pd.DataFrame, timeframe: str | SampleSize = "M5") -> pd
     """Collapse bars onto a coarser grid: OHLC by first/max/min/last.
 
     `timeframe` is a broker label ("M5", "H1"), mapped to the pandas resample
-    rule here, or a `SampleSize`, which supplies its own. Volumes sum, spread averages. Bins with no source bar
-    are dropped rather than emitted as gaps.
+    rule here, or a `SampleSize`, which supplies its own. Volumes sum, spread
+    averages. Bins with no source bar are dropped rather than emitted as gaps.
+
+    Every bar is labelled by the moment it starts: a week by its Monday 00:00,
+    a month by its 1st.
     """
     if frame.empty:
         return pd.DataFrame()
@@ -85,10 +93,14 @@ def resample_ohlc(frame: pd.DataFrame, timeframe: str | SampleSize = "M5") -> pd
         if name in indexed.columns
     }
 
+    origin = "start_day"  # pandas' default
+
     if isinstance(timeframe, SampleSize):
         rule = timeframe.to_pandas_rule()
+        if timeframe.unit is SampleUnit.Week:
+            origin = _WEEK_ORIGIN
     else:
         rule = _PANDAS_RULES.get(timeframe, timeframe)
-    resampled = indexed.resample(rule).agg(agg)
+    resampled = indexed.resample(rule, origin=origin).agg(agg)
 
     return resampled.dropna(subset=_OHLC).reset_index()

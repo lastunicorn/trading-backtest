@@ -43,7 +43,7 @@ Raw data lives under `data/` (gitignored, local-only); `data/eurusd/1min/EURUSD_
 The modules, one line each:
 
 ```
-ports/mt5_file_access/mt5_bar_reader.py   MT5 CSV ↔ `Bar` objects (dt, OHLC, volumes, spread), via libs.metatrader_csv records [stdlib]
+ports/mt5_file_access/mt5_bar_reader.py   MT5 CSV → `Bar` objects (dt, OHLC, volumes, spread), read only, via libs.metatrader_csv records [stdlib]
 ports/mt5_file_access/mt5_frame_reader.py MT5 CSV ↔ the repo's bar frame, same fields, via libs.metatrader_csv frames [pandas]
 ports/mt5_file_access/export_conventions.py  this repo's reading of the format: a headerless 8-column export ends in the spread
 ports/histdata_file_access/histdata_frame_reader.py  histdata.com MT downloads → bar frame (OHLC only: the always-0 volume dropped), `FILE_PATTERN` `DAT_MT_*.csv`, `TIMEZONE` America/New_York [pandas]
@@ -58,11 +58,9 @@ domain/time_window.py                     TimeWindow: daily [start, end) of time
 domain/trading_session_template.py        TradingSessionTemplate: a session's daily window (zoned start/end, optional name); `create_session(date)`; SESSIONS table (TOKYO_SESSION, ASIA_SESSION, LONDON_SESSION, NEW_YORK_SESSION) [stdlib]
 domain/trading_session.py                 TradingSession: one dated session window plus the `Bar`s inside it (a `BarBlock`: open/close/high/low) [stdlib]
 domain/bar_approach/bar.py                the `Bar` entity — one OHLC candle (dt, OHLC, volumes, spread)  [stdlib]
-domain/bar_approach/resample_bars.py      resample an iterable of `Bar` to a coarser grid, streaming    [stdlib]
-domain/pandas_approach/frames.py          clean a frame (stable sort + dedup), resample it to a coarser timeframe [pandas]
+domain/pandas_approach/frames.py          clean a frame (stable sort + dedup), resample it to a coarser timeframe, each bar labelled by its start (a week by its Monday) [pandas]
 application/build_clean_dataset_use_case.py  folder of exports → one clean, deduplicated frame (in memory)
 read_csv_as_frame.py                      CLI that prints an export as an aligned table, raw or resampled [pandas]
-read_csv_as_bars.py                       the same CLI built on `Bar` streams instead of a frame          [stdlib]
 rsi_divergence.py                         CLI: RSI divergence indicator (regular, optionally hidden) on M5, printed; not the `RsiDivergence` entries [pandas]
 session_breakout_strategy.py              standalone session-breakout backtest; `SessionBreakout` reproduces it trade for trade [stdlib]
 daily_sessions.py                         CLI: per-day open/high/low/close of SESSIONS entries (`--session`, default Asia) on the exports' `--source-timezone` (default broker), printed [stdlib]

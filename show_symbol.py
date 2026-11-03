@@ -18,7 +18,7 @@ import argparse
 import sys
 
 from domain.symbol import SYMBOLS
-from ui.bar_window_view import format_table
+from ui.text_table import format_table
 
 
 def main():

@@ -50,7 +50,7 @@ The application has seven components. Six are packages; the seventh is the set o
 
 ### Entry scripts
 
-One script per use case, at the repo root: `backtest.py`, `read_csv_as_frame.py`, `read_csv_as_bars.py`, `rsi_divergence.py`, `session_breakout_strategy.py`, `daily_sessions.py`, `show_symbol.py`. They must stay at the root so that `domain.*`, `ports.*` and the other packages resolve from any working directory.
+One script per use case, at the repo root: `backtest.py`, `read_csv_as_frame.py`, `rsi_divergence.py`, `session_breakout_strategy.py`, `daily_sessions.py`, `show_symbol.py`. They must stay at the root so that `domain.*`, `ports.*` and the other packages resolve from any working directory.
 
 A script holds that use case's UI and its steps, kept in separate functions; see [Inside an entry script](#3-inside-an-entry-script).
 
@@ -101,8 +101,7 @@ The strategy plugins: `TradingStrategy` subclasses (pure logic on top of the dom
 
 UI logic reused by more than one entry script:
 
-- table and report formatting: `bar_window_view.format_table`, `frame_table_view.display_frame`;
-- display windows: `bar_window.BarWindow`;
+- table and report formatting: `text_table.format_table`, `frame_table_view.display_frame`;
 - shared argparse argument types: `cli_args.timezone_arg`.
 
 UI used by only one script stays in that script.

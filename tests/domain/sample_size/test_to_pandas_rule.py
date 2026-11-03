@@ -11,7 +11,7 @@ from domain.sample_size import SampleSize
         ("5m", "5min"),
         ("4h", "4h"),
         ("1d", "1D"),
-        ("2w", "2W"),
+        ("2w", "336h"),
         ("3M", "3MS"),
     ],
 )

@@ -1,7 +1,7 @@
 """MT5 exports as `Bar` objects (the domain entity, `domain.bar_approach.bar.Bar`).
 
-Reading and writing the format is `libs.metatrader_csv`; this module turns its
-records into `Bar`s and back. Pure I/O: no cleaning, no resampling, no
+Reading the format is `libs.metatrader_csv`; this module turns its records
+into `Bar`s. (Writing is `mt5_frame_reader.write_frame`.) Pure I/O: no cleaning, no resampling, no
 strategy logic. Its own code is stdlib only.
 
     from ports.mt5_file_access import read_bars, iterate_bars
@@ -19,11 +19,10 @@ spread is None. A headerless 8-column export is read as ending in the spread
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Iterator
-from pathlib import Path
+from collections.abc import Callable, Iterator
 
 from domain.bar_approach.bar import Bar
-from libs.metatrader_csv import MetatraderParseError, MetatraderRecord, iterate_records, write_records
+from libs.metatrader_csv import MetatraderParseError, iterate_records
 from ports.mt5_file_access.export_conventions import HEADERLESS_LAYOUTS
 
 __all__ = [
@@ -31,7 +30,6 @@ __all__ = [
     "BarParseError",
     "iterate_bars",
     "read_bars",
-    "write_bars",
 ]
 
 # A line that could not be turned into a Bar (path, line_no, reason, line).
@@ -77,27 +75,3 @@ def read_bars(
     the file could be large.
     """
     return list(iterate_bars(path, strict=strict, on_skip=on_skip))
-
-
-def write_bars(bars: Iterable[Bar], path: str | Path, *, decimals: int | None = None) -> None:
-    """Write `bars` to a CSV file in MT5 export shape (`libs.metatrader_csv.write_records`).
-
-    Columns: date, time, open/high/low/close, tick_volume, then `volume` only
-    when a bar has a real volume and `spread` only when a bar has one, the same
-    layout `mt5_frame_reader.write_frame` produces. `decimals`, when given,
-    formats the prices to that many places (e.g. a symbol's `price_decimals`).
-    """
-    records = (
-        MetatraderRecord(
-            dt=bar.dt,
-            open=bar.open,
-            high=bar.high,
-            low=bar.low,
-            close=bar.close,
-            tick_volume=bar.tick_volume,
-            volume=bar.real_volume,
-            spread=bar.spread,
-        )
-        for bar in bars
-    )
-    write_records(records, path, decimals=decimals)

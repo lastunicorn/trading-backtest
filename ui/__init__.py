@@ -1,7 +1,6 @@
-"""Console presentation for CLI tools, plus the bounded-window helper behind it.
+"""Console presentation shared by the CLI tools.
 
-Not `ports`/`domain`/`application` -- this is display-only code: `BarWindow`
-selects the bars a CLI wants to show and tracks display-only bookkeeping
-(visible count, which columns have data), and `bar_window_view` turns one
-into printed output.
+Not `ports`/`domain`/`application` -- this is display-only code:
+`frame_table_view` prints a bar frame, `text_table` aligns any table of
+strings, and `cli_args` parses the argument types several scripts share.
 """

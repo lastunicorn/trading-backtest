@@ -52,7 +52,7 @@ _PANDAS_ALIAS = {
     SampleUnit.Minute: "min",
     SampleUnit.Hour: "h",
     SampleUnit.Day: "D",
-    SampleUnit.Week: "W",
+    SampleUnit.Week: "h",  # amount x 168 hours; see to_pandas_rule
     SampleUnit.Month: "MS",
 }
 
@@ -92,7 +92,17 @@ class SampleSize:
         return f"{self.amount}{self.unit.value}"
 
     def to_pandas_rule(self) -> str:
-        """The pandas resample rule this size means ("5m" -> "5min", "3M" -> "3MS")."""
+        """The pandas resample rule this size means ("5m" -> "5min", "3M" -> "3MS").
+
+        Weeks are fixed spans of hours ("1w" -> "168h"), not pandas' "W": that
+        labels a week by the Sunday it ends on, after the week's own bars, and
+        pairs "2W" weeks from wherever the data starts. Resampled from a fixed
+        Monday origin (`frames.resample_ohlc` does), a week is labelled by its
+        Monday and multi-week bars pair the same way on any data. Hours, not
+        days: pandas ignores `origin` for "D", which is a calendar day.
+        """
+        if self.unit is SampleUnit.Week:
+            return f"{self.amount * 7 * 24}h"
         return f"{self.amount}{_PANDAS_ALIAS[self.unit]}"
 
     def can_be_resampled_from(self, source: SampleSize) -> bool:

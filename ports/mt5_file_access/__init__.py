@@ -9,10 +9,10 @@ deduplicated or resampled, which stays a `domain/` decision.
 Re-exported so callers can use the short form (`Bar` for convenience; its
 canonical home is `domain.bar_approach.bar`):
 
-    from ports.mt5_file_access import read_bars, iterate_bars, Bar, read_frame, write_frame, write_bars
+    from ports.mt5_file_access import read_bars, iterate_bars, Bar, read_frame, write_frame
 """
 
-from ports.mt5_file_access.mt5_bar_reader import Bar, BarParseError, iterate_bars, read_bars, write_bars
+from ports.mt5_file_access.mt5_bar_reader import Bar, BarParseError, iterate_bars, read_bars
 from ports.mt5_file_access.mt5_frame_reader import read_frame, write_frame
 
 __all__ = [
@@ -21,6 +21,5 @@ __all__ = [
     "iterate_bars",
     "read_bars",
     "read_frame",
-    "write_bars",
     "write_frame",
 ]
