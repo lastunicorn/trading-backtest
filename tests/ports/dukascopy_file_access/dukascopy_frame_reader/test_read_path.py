@@ -1,4 +1,4 @@
-"""Tests for `ports.dukascopy.dukascopy_frame_reader.read_path`.
+"""Tests for `ports.dukascopy_file_access.dukascopy_frame_reader.read_path`.
 
 Finding and pairing the files is `libs.dukascopy_csv`'s and tested there; these cover
 how a pair becomes bars and what `read_path` accepts.
@@ -9,7 +9,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from ports.dukascopy import FRAME_COLUMNS, read_path
+from ports.dukascopy_file_access import FRAME_COLUMNS, read_path
 
 from ._fakes import write_side
 

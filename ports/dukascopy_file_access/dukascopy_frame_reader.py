@@ -5,7 +5,7 @@ back each side on its own. This port decides how the two sides become one
 bar: OHLC from bid, a spread column from ask - bid, and the same columns as
 the MT5 reader's frames.
 
-    from ports.dukascopy import read_path
+    from ports.dukascopy_file_access import read_path
 
     read_path("/data/dukascopy/eurusd")        # every pair under a folder, searched recursively
     read_path("/data/dukascopy/eurusd/2026")   # one year of them

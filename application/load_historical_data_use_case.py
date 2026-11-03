@@ -44,7 +44,7 @@ from domain.pandas_approach.frames import clean_frame, resample_ohlc
 from domain.pandas_approach.historical_data import HistoricalData, SpreadUnit
 from domain.sample_size import SampleSize
 from domain.symbol import Symbol
-from ports import dukascopy, histdata_file_access
+from ports import dukascopy_file_access, histdata_file_access
 
 __all__ = ["SourceFormat", "load_dukascopy", "load_histdata", "load_mt5", "load_source"]
 
@@ -130,7 +130,7 @@ def load_dukascopy(
         raise ValueError(f"Dukascopy bars are UTC (epoch timestamps), not {timezone}")
     if progress is not None:
         progress(f"Reading Dukascopy {source}...")
-    raw = dukascopy.read_path(source).drop(columns=["tick_volume", "volume"])
+    raw = dukascopy_file_access.read_path(source).drop(columns=["tick_volume", "volume"])
     frame = resample_ohlc(clean_frame(raw), timeframe)
     return HistoricalData.from_frame(frame, timeframe, symbol, spread_unit=SpreadUnit.PRICE, timezone=timezone)
 

@@ -50,7 +50,7 @@ ports/histdata_file_access/histdata_frame_reader.py  histdata.com MT downloads �
 ports/file_system_access/file_system.py   list the source csv files in a folder (or pass one file through) [stdlib]
 ports/backtest_config_access/backtest_config_reader.py  backtest.py's JSON config → `BacktestConfig` (`StrategyConfig`, `DataSourceConfig`, `SimulationConfig` → `CostConfig`) (`read_config`): shape only — keys, JSON types, relative paths [stdlib]
 ports/run_environment/run_environment.py  the wall clock (`now`) and the repo's git state (`git_commit` → `GitCommit(commit, dirty)`), for `run.json` [stdlib]
-ports/dukascopy/dukascopy_frame_reader.py Dukascopy bid/ask M1 pairs → one bar frame (OHLC from bid, spread = ask - bid): `read_path(folder or one file of a pair)` [pandas]
+ports/dukascopy_file_access/dukascopy_frame_reader.py  Dukascopy bid/ask M1 pairs → one bar frame (OHLC from bid, spread = ask - bid): `read_path(folder or one file of a pair)` [pandas]
 libs/metatrader_csv/                      read/write MetaTrader bar exports: `iterate_records`/`read_records`/`write_records` (stdlib) and `read_frame`/`write_frame` (pandas), `sniff_layout`; blank volumes stay None/NA; nothing from the repo, see its README.md
 libs/dukascopy_csv/                       find (`find_files`), pair (`pair_files`, `find_pair`) and read (`read_file`) Dukascopy exports, one DataFrame per file, all columns kept; nothing from the repo, see its README.md [pandas]
 domain/broker_clock.py                    BROKER_SERVER_TZ (New York + 7h), ShiftedZone, timezone_by_name ("broker" or IANA) / timezone_name [stdlib]

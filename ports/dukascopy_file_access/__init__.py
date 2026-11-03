@@ -6,11 +6,11 @@ derived from ask - bid).
 
 Re-exported so callers can use the short form:
 
-    from ports.dukascopy import read_path
+    from ports.dukascopy_file_access import read_path
 
     read_path(folder)     # every pair under a folder (or the pair one file belongs to)
 """
 
-from ports.dukascopy.dukascopy_frame_reader import FRAME_COLUMNS, read_path
+from ports.dukascopy_file_access.dukascopy_frame_reader import FRAME_COLUMNS, read_path
 
 __all__ = ["FRAME_COLUMNS", "read_path"]
