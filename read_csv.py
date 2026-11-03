@@ -4,16 +4,16 @@ Utility: reads via ports.mt5_file_access and either
 displays -- nothing written to disk -- or, with --output, writes the
 processed data to a CSV.
 
-    python3 read_csv_as_frame.py data/eurusd/1min/EURUSD_2020_01.csv        # first 20 bars
-    python3 read_csv_as_frame.py data/eurusd/1min/EURUSD_2020_01.csv --tail --rows 5
-    python3 read_csv_as_frame.py data/eurusd/1min/EURUSD_2020_01.csv --all | less
-    python3 read_csv_as_frame.py data/eurusd/1min --interval 5m              # whole folder, resampled to M5
-    python3 read_csv_as_frame.py data/eurusd/1min --interval 1w              # resampled to weekly bars
-    python3 read_csv_as_frame.py data/eurusd/1min --timezone UTC             # broker-server time -> UTC
-    python3 read_csv_as_frame.py path/to/histdata --source-timezone America/New_York --timezone UTC
-    python3 read_csv_as_frame.py data/eurusd/1min --output scratch/jan.csv   # write instead of display
-    python3 read_csv_as_frame.py path/to/other.csv --decimals 3
-    python3 read_csv_as_frame.py data/eurusd/1min/EURUSD_2020_01.csv --source-symbol EURUSD  # fixed decimals
+    python3 read_csv.py data/eurusd/1min/EURUSD_2020_01.csv        # first 20 bars
+    python3 read_csv.py data/eurusd/1min/EURUSD_2020_01.csv --tail --rows 5
+    python3 read_csv.py data/eurusd/1min/EURUSD_2020_01.csv --all | less
+    python3 read_csv.py data/eurusd/1min --interval 5m              # whole folder, resampled to M5
+    python3 read_csv.py data/eurusd/1min --interval 1w              # resampled to weekly bars
+    python3 read_csv.py data/eurusd/1min --timezone UTC             # broker-server time -> UTC
+    python3 read_csv.py path/to/histdata --source-timezone America/New_York --timezone UTC
+    python3 read_csv.py data/eurusd/1min --output scratch/jan.csv   # write instead of display
+    python3 read_csv.py path/to/other.csv --decimals 3
+    python3 read_csv.py data/eurusd/1min/EURUSD_2020_01.csv --source-symbol EURUSD  # fixed decimals
 
 `source` is a single file or a folder of exports (see ports.file_system_access
 .find_files) -- a folder's files are read in name order, which is chronological

@@ -24,7 +24,7 @@ caller. It labels the bars; nothing is shifted. A format whose clock is fixed
 (Dukascopy's UTC, histdata's New York time) checks it rather than trusting it.
 
 Every loader resamples to `timeframe`. That is a no-op when the source is
-already at it, as an M5 export (`read_csv_as_frame.py --interval 5m --output`)
+already at it, as an M5 export (`read_csv.py --interval 5m --output`)
 is for "5m". It is wrong for a timeframe *finer* than the source, which no
 loader can detect -- asking for M1 from an M5 file gives the M5 bars back
 labelled M1.

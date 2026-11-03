@@ -60,7 +60,7 @@ domain/trading_session.py                 TradingSession: one dated session wind
 domain/bar_approach/bar.py                the `Bar` entity — one OHLC candle (dt, OHLC, volumes, spread)  [stdlib]
 domain/pandas_approach/frames.py          clean a frame (stable sort + dedup), resample it to a coarser timeframe, each bar labelled by its start (a week by its Monday) [pandas]
 application/build_clean_dataset_use_case.py  folder of exports → one clean, deduplicated frame (in memory)
-read_csv_as_frame.py                      CLI that prints an export as an aligned table, raw or resampled [pandas]
+read_csv.py                               CLI that prints an export as an aligned table, raw or resampled [pandas]
 rsi_divergence.py                         CLI: RSI divergence indicator (regular, optionally hidden) on M5, printed; not the `RsiDivergence` entries [pandas]
 session_breakout_strategy.py              standalone session-breakout backtest; `SessionBreakout` reproduces it trade for trade [stdlib]
 daily_sessions.py                         CLI: per-day open/high/low/close of SESSIONS entries (`--session`, default Asia) on the exports' `--source-timezone` (default broker), printed [stdlib]
@@ -91,17 +91,17 @@ frame = build_clean_dataset("data/eurusd/1min", progress=print)  # every export 
 
 `build_clean_dataset` takes the per-file reader (`read_file`, MT5 by default) and file `pattern` as parameters, which is how `load_histdata` reuses it. It merges every file's bars (dropping duplicate timestamps, the later file winning) *before* resampling, so a bar spanning two files — a week across a month boundary — gets both files' data. It returns the frame and never writes; what happened to each file (rows, skipped lines, errors) goes only to `progress`; a file that fails to parse is skipped, not fatal.
 
-`read_csv_as_frame.py`'s `source` is a single file or a folder of exports (`ports.file_system_access.find_files` — a folder is read file-by-file in name order, chronological for this repo's monthly exports). It runs a pandas pipeline: read every file into one frame, clean it up (stable sort + drop duplicate timestamps, `domain.pandas_approach.frames.clean_frame`), optionally shift timezone (`--timezone`, off by default, from the exports' clock `--source-timezone`, `broker` by default), optionally resample (`--interval`, via `domain.pandas_approach.frames.resample_ohlc` with plain pandas bucket semantics — see `domain.sample_size.SampleSize` for the `5m`/`4h`/`7d`/`2w`/`3M` syntax), then display or write (`--output`, which always writes the full processed frame regardless of `--rows`/`--all`/`--tail`). `--output` is also how to export a resampled or time-shifted CSV: it writes the MT5 export shape, which `load_mt5` reads back. Unlike `build_clean_dataset`, one unreadable file aborts the run:
+`read_csv.py`'s `source` is a single file or a folder of exports (`ports.file_system_access.find_files` — a folder is read file-by-file in name order, chronological for this repo's monthly exports). It runs a pandas pipeline: read every file into one frame, clean it up (stable sort + drop duplicate timestamps, `domain.pandas_approach.frames.clean_frame`), optionally shift timezone (`--timezone`, off by default, from the exports' clock `--source-timezone`, `broker` by default), optionally resample (`--interval`, via `domain.pandas_approach.frames.resample_ohlc` with plain pandas bucket semantics — see `domain.sample_size.SampleSize` for the `5m`/`4h`/`7d`/`2w`/`3M` syntax), then display or write (`--output`, which always writes the full processed frame regardless of `--rows`/`--all`/`--tail`). `--output` is also how to export a resampled or time-shifted CSV: it writes the MT5 export shape, which `load_mt5` reads back. Unlike `build_clean_dataset`, one unreadable file aborts the run:
 
 ```bash
-python3 read_csv_as_frame.py data/eurusd/1min/EURUSD_2020_01.csv   # first 20 bars (the source arg is required)
-python3 read_csv_as_frame.py data/eurusd/1min/EURUSD_2020_01.csv --tail --rows 5
-python3 read_csv_as_frame.py data/eurusd/1min/EURUSD_2020_01.csv --all | less
-python3 read_csv_as_frame.py path/to/export.csv --decimals 3
-python3 read_csv_as_frame.py data/eurusd/1min --interval 5m                 # whole folder, resampled to M5
-python3 read_csv_as_frame.py data/eurusd/1min --timezone UTC                # broker-server time -> UTC
-python3 read_csv_as_frame.py path/to/histdata --source-timezone America/New_York --timezone UTC
-python3 read_csv_as_frame.py data/eurusd/1min --interval 5m --output scratch/jan_m5.csv  # write instead of display
+python3 read_csv.py data/eurusd/1min/EURUSD_2020_01.csv   # first 20 bars (the source arg is required)
+python3 read_csv.py data/eurusd/1min/EURUSD_2020_01.csv --tail --rows 5
+python3 read_csv.py data/eurusd/1min/EURUSD_2020_01.csv --all | less
+python3 read_csv.py path/to/export.csv --decimals 3
+python3 read_csv.py data/eurusd/1min --interval 5m                 # whole folder, resampled to M5
+python3 read_csv.py data/eurusd/1min --timezone UTC                # broker-server time -> UTC
+python3 read_csv.py path/to/histdata --source-timezone America/New_York --timezone UTC
+python3 read_csv.py data/eurusd/1min --interval 5m --output scratch/jan_m5.csv  # write instead of display
 ```
 
 `ports/`, `domain/` and `libs/` (and their subpackages), `application/` and `strategies/` are regular packages (each has an `__init__.py`), and the CLIs must stay at the repo root for `ports.*` / `domain.*` / `application.*` / `strategies.*` to resolve from any working directory.
@@ -164,7 +164,7 @@ The only CLI argument is a JSON config (or a folder holding `backtest.json`); it
 
 | Source | Loader | Spread unit converted from | Clock (`data.timezone`) |
 |---|---|---|---|
-| this repo's MT5 broker exports, `read_csv_as_frame.py --output` files | `load_mt5` (via `build_clean_dataset`) | points (tick size) | `broker` |
+| this repo's MT5 broker exports, `read_csv.py --output` files | `load_mt5` (via `build_clean_dataset`) | points (tick size) | `broker` |
 | histdata.com MT exports (`DAT_MT_EURUSD_M1_*`) | `load_histdata` (volume dropped) | — (no spread column) | `America/New_York` (enforced) |
 | Dukascopy bid/ask pairs | `load_dukascopy` (volume columns dropped) | price (ask − bid) | `UTC` (enforced) |
 
