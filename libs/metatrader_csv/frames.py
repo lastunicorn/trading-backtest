@@ -5,11 +5,13 @@
     frame = read_frame(path)       # datetime, open, high, low, close[, tick_volume][, volume][, spread]
 
 The file is parsed with `pandas.read_csv` and vectorised coercion, roughly 3x
-faster than building a record per line, with the same values.
+faster than building a record per line, with the same values and the same
+reports of skipped lines as `iterate_records`.
 """
 
 from __future__ import annotations
 
+import csv
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
@@ -18,6 +20,7 @@ import pandas as pd
 
 from .errors import MetatraderParseError
 from .export_layout import DATE_FORMAT, DATETIME_FORMATS, TIME_FORMAT, Layout, sniff_layout
+from .records import iterate_records, parse_fields
 
 __all__ = ["read_frame", "write_frame"]
 
@@ -43,11 +46,9 @@ def read_frame(
     file, or one whose rows lack a date, time or price column, gives an empty
     frame with the datetime and price columns.
 
-    strict             -- True raises MetatraderParseError on the first unparsable row; False drops it.
-    on_skip            -- called as (line_no, line, reason) for each dropped row. Best-effort,
-                          unlike `iterate_records`: line numbers don't count blank lines, a
-                          row with the wrong field count is reported as line -1, and `line`
-                          shows only the columns read. Use `iterate_records` for exact detail.
+    strict             -- True raises MetatraderParseError on the first unparsable line; False drops it.
+    on_skip            -- called as (line_no, line, reason) for each dropped line, exactly as
+                          `iterate_records` reports it.
     headerless_layouts -- see `sniff_layout`.
     """
     path = str(path)
@@ -57,7 +58,9 @@ def read_frame(
         return _empty_frame()
 
     if not layout.has_required_fields:
-        _report_unusable_rows(path, layout, strict=strict, on_skip=on_skip)
+        # Every line is unparsable: let the record reader raise or report each one.
+        for _ in iterate_records(path, strict=strict, on_skip=on_skip, headerless_layouts=headerless_layouts):
+            pass
         return _empty_frame()
 
     keep = [*_PRICE_COLUMNS, *(name for name in _COUNT_COLUMNS if name in layout.columns)]
@@ -70,37 +73,29 @@ def read_frame(
     }
     usecols = sorted(wanted)
 
-    bad_field_counts: list[list[str]] = []
-
-    def handle_bad_line(fields: list[str]):
-        if strict:
-            raise MetatraderParseError(
-                path,
-                0,
-                f"expected {layout.field_count} fields, got {len(fields)}",
-                layout.delimiter.join(fields),
-            )
-        bad_field_counts.append(fields)
-        return None
-
+    # Blank lines are kept as rows (and dropped below) so that row `i` is
+    # always line `first_data_line + i`. A line with extra fields is cut to
+    # the layout's width, which is what the record reader does with it too.
+    # Every column is read and the wanted ones picked after: the python
+    # engine rejects `usecols` when the first line it reads is blank.
+    first_data_line = layout.first_row + (1 if layout.has_header else 0)
     raw = pd.read_csv(
         path,
         sep=layout.delimiter,
-        header=0 if layout.has_header else None,
-        usecols=usecols,
+        header=None,
+        names=range(layout.field_count),
+        skiprows=first_data_line - 1,
         dtype=str,
         keep_default_na=False,
-        skip_blank_lines=True,
+        skip_blank_lines=False,
         encoding="utf-8-sig",
         encoding_errors="replace",
         engine="python",  # the only engine whose on_bad_lines takes a callable
-        on_bad_lines=handle_bad_line,
+        on_bad_lines=lambda fields: fields[:layout.field_count],
     )
+    raw = raw[usecols].fillna("")  # a short line's missing fields
     raw.columns = [wanted[index] for index in usecols]
     raw = raw.apply(lambda column: column.str.strip())
-
-    # First data row's line number, for the approximate line numbers given to `on_skip`.
-    line_base = 2 if layout.has_header else 1
 
     datetime_text = raw["date"] + " " + raw["time"]
     stamp = pd.to_datetime(datetime_text, format=DATETIME_FORMATS[0], errors="coerce")
@@ -124,30 +119,19 @@ def read_frame(
         else:  # a blank count is fine; garbage in one is not
             bad |= (text != "") & number.isna()
 
-    # A wholly blank row (every column read is empty) is dropped without a report.
-    all_blank = raw.eq("").all(axis=1)
-    reportable_positions = np.flatnonzero((bad & ~all_blank).to_numpy())
+    # A blank line is dropped without a report, as `iterate_records` does.
+    blank = raw.eq("").all(axis=1)
+    bad_lines = [first_data_line + int(position) for position in np.flatnonzero((bad & ~blank).to_numpy())]
 
-    if strict and reportable_positions.size:
-        first = int(reportable_positions[0])
-        raise MetatraderParseError(
-            path,
-            line_base + first,
-            "unparsable row",
-            layout.delimiter.join(map(str, raw.iloc[first])),
-        )
+    if strict and bad_lines:
+        [(line_no, line, reason)] = _describe_lines(path, layout, bad_lines[:1])
+        raise MetatraderParseError(path, line_no, reason, line)
 
-    if on_skip is not None:
-        for pos in reportable_positions:
-            on_skip(
-                line_base + int(pos),
-                layout.delimiter.join(map(str, raw.iloc[pos])),
-                "unparsable row",
-            )
-        for fields in bad_field_counts:
-            on_skip(-1, layout.delimiter.join(fields), "wrong field count")
+    if on_skip is not None and bad_lines:
+        for line_no, line, reason in _describe_lines(path, layout, bad_lines):
+            on_skip(line_no, line, reason)
 
-    keep_rows = (~bad).to_numpy()
+    keep_rows = (~(bad | blank)).to_numpy()
     frame = pd.DataFrame({"datetime": stamp[keep_rows].reset_index(drop=True)})
 
     for name in keep:
@@ -189,26 +173,27 @@ def _empty_frame() -> pd.DataFrame:
                          **{name: pd.Series(dtype="float64") for name in _PRICE_COLUMNS}})
 
 
-def _report_unusable_rows(path: str, layout: Layout, *, strict: bool, on_skip: SkipHandler | None) -> None:
-    """Every row of an export whose first row lacks date/time/prices is unparsable: raise on the first, or report each."""
-    rows = pd.read_csv(
-        path,
-        sep=layout.delimiter,
-        header=0 if layout.has_header else None,
-        usecols=[0],
-        dtype=str,
-        keep_default_na=False,
-        skip_blank_lines=True,
-        encoding="utf-8-sig",
-        encoding_errors="replace",
-        engine="python",
-        on_bad_lines="skip",
-    )
-    line_base = 2 if layout.has_header else 1
+def _describe_lines(path: str, layout: Layout, line_numbers: list[int]) -> list[tuple[int, str, str]]:
+    """(line_no, line, reason) for each of `line_numbers`, worded as `iterate_records` words them.
 
-    if strict and len(rows):
-        raise MetatraderParseError(path, line_base, "row lacks required date/time/OHLC columns")
+    Only the lines that failed are looked at again, so a clean file is read once.
+    """
+    wanted = set(line_numbers)
+    found: dict[int, tuple[str, str]] = {}
 
-    if on_skip is not None:
-        for offset in range(len(rows)):
-            on_skip(line_base + offset, "", "row lacks required date/time/OHLC columns")
+    with open(path, newline="", encoding="utf-8-sig", errors="replace") as handle:
+        for line_no, fields in enumerate(csv.reader(handle, delimiter=layout.delimiter), 1):
+            if line_no not in wanted:
+                continue
+
+            try:
+                parse_fields(fields, layout.columns)
+                reason = "unparsable row"  # pandas refused what the record parser accepts
+            except ValueError as exc:
+                reason = str(exc)
+
+            found[line_no] = (layout.delimiter.join(fields), reason)
+            if len(found) == len(wanted):
+                break
+
+    return [(line_no, *found[line_no]) for line_no in line_numbers]

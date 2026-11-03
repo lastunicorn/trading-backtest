@@ -33,7 +33,7 @@ The fields are named `date`, `time`, `open`, `high`, `low`, `close`, `tick_volum
 |---|---|
 | `iterate_records(path, *, strict=True, on_skip=None, headerless_layouts=None)` | Yields one `MetatraderRecord` per line, streaming. Line numbers given to `on_skip` and in errors are exact. |
 | `read_records(...)` | The same, as a list. |
-| `read_frame(path, *, strict=True, on_skip=None, headerless_layouts=None)` | One DataFrame: `datetime`, `open`, `high`, `low`, `close` (float64), then whichever of `tick_volume`, `volume`, `spread` the file has (nullable `Int64`). About 3x faster than records. Its `on_skip` reports are best-effort: see the docstring. |
+| `read_frame(path, *, strict=True, on_skip=None, headerless_layouts=None)` | One DataFrame: `datetime`, `open`, `high`, `low`, `close` (float64), then whichever of `tick_volume`, `volume`, `spread` the file has (nullable `Int64`). About 3x faster than records, with the same skipped lines and reports. |
 | `write_records(records, path, *, decimals=None)` | Writes a headed, comma-separated export; `volume` and `spread` columns only when some record has one. |
 | `write_frame(frame, path, *, decimals=None)` | Writes a frame: `datetime` split into `date` and `time`, the other columns as named. |
 | `sniff_layout(path, *, headerless_layouts=None)` | The `Layout` (separator, header or not, which column holds which field) from the first row, without parsing the rest. |
@@ -46,4 +46,4 @@ Both writers produce files both readers read back: date as `YYYY.MM.DD`, time as
 
 It returns **what the file holds**: rows in file order, a blank volume or spread as `None`/NA (not 0), naive timestamps. It does not sort, remove duplicate timestamps, fill gaps, convert timezones or spread units. Those are the caller's decisions.
 
-A malformed line (a bad number, a timestamp in neither format, missing prices) raises `MetatraderParseError` with `strict=True` (the default). With `strict=False` it is skipped and reported to `on_skip(line_no, line, reason)`. Blank lines are always skipped silently.
+A malformed line (a bad number, a timestamp in neither format, missing prices) raises `MetatraderParseError` with `strict=True` (the default). With `strict=False` it is skipped and reported to `on_skip(line_no, line, reason)`. Both readers report the same lines the same way: the exact line number, the line as written and the reason. Blank lines are always skipped silently.

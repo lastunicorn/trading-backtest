@@ -53,18 +53,39 @@ def test_eight_columns_need_headerless_layouts(tmp_path: Path) -> None:
     assert list(read_frame(path, headerless_layouts=EIGHTH_IS_SPREAD)["spread"]) == [7, 8]
 
 
-def test_strict_by_default(tmp_path: Path) -> None:
-    with pytest.raises(MetatraderParseError, match="unparsable row"):
+def test_strict_by_default_naming_the_exact_line(tmp_path: Path) -> None:
+    with pytest.raises(MetatraderParseError) as raised:
         read_frame(write_csv(tmp_path, WITH_BAD_ROW))
 
+    assert (raised.value.line_no, raised.value.line, raised.value.reason) == (
+        3, "2020.01.02,00:02,bad,1.2,1.0,1.1,3", "could not convert string to float: 'bad'")
 
-def test_not_strict_drops_bad_rows_and_reports_them_best_effort(tmp_path: Path) -> None:
+
+def test_not_strict_drops_bad_lines_and_reports_them_exactly(tmp_path: Path) -> None:
     skipped = []
 
     frame = read_frame(write_csv(tmp_path, WITH_BAD_ROW), strict=False, on_skip=lambda *call: skipped.append(call))
 
     assert list(frame["tick_volume"]) == [10, 4]
-    assert skipped == [(2, "2020.01.02,00:02,bad,1.2,1.0,1.1,3", "unparsable row")]  # line 3: blank line not counted
+    assert skipped == [(3, "2020.01.02,00:02,bad,1.2,1.0,1.1,3", "could not convert string to float: 'bad'")]
+
+
+@pytest.mark.parametrize("text", [
+    "\n\n" + WITH_BAD_ROW,                                              # leading blank lines
+    "\ndate,time,open,high,low,close,tick_volume\n\n" + WITH_BAD_ROW,    # a header after a blank line
+    WITH_BAD_ROW + "2020.01.02,00:04,1.1,1.2\n",                         # a short line
+    WITH_BAD_ROW + "2020.01.02,00:05,1.1,1.2,1.0,1.1,5,6,7,8\n" + "2020.01.02,00:06,x,1,1,1,1,1,1\n",  # long lines
+    "  \n" + WITH_BAD_ROW + "2020-01-02,00:07,1,1,1,1,1\n",             # whitespace line, bad timestamp
+])
+def test_skips_exactly_what_iterate_records_skips(tmp_path: Path, text: str) -> None:
+    path = write_csv(tmp_path, text)
+    from_frame, from_records = [], []
+
+    frame = read_frame(path, strict=False, on_skip=lambda *call: from_frame.append(call))
+    records = read_records(path, strict=False, on_skip=lambda *call: from_records.append(call))
+
+    assert from_frame == from_records
+    assert list(frame["close"]) == [record.close for record in records]
 
 
 @pytest.mark.parametrize("text", ["", "date,time,open,high,low,close\n"])
@@ -83,8 +104,9 @@ def test_rows_without_date_time_and_prices_are_unparsable(tmp_path: Path) -> Non
     frame = read_frame(path, strict=False, on_skip=lambda *call: skipped.append(call))
 
     assert frame.empty
-    assert [call[0] for call in skipped] == [1, 2]
-    with pytest.raises(MetatraderParseError, match="lacks required date/time/OHLC"):
+    assert skipped == [(1, "foo,bar", "missing field(s): open, high, low, close"),
+                       (2, "1,2", "missing field(s): open, high, low, close")]
+    with pytest.raises(MetatraderParseError, match="export.csv:1: missing field"):
         read_frame(path)
 
 

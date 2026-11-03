@@ -79,13 +79,15 @@ class Layout:
 
     `columns` maps field name -> column index, for the fields the export
     carries. `has_header` says whether that first row is a header rather than
-    data; `field_count` is how many columns it split into.
+    data; `field_count` is how many columns it split into; `first_row` is its
+    line number (after any leading blank lines).
     """
 
     delimiter: str
     columns: dict[str, int]
     has_header: bool
     field_count: int
+    first_row: int = 1
 
     @property
     def has_required_fields(self) -> bool:
@@ -110,12 +112,12 @@ def sniff_layout(path: str, *, headerless_layouts: Mapping[int, Sequence[str]] |
         delimiter = detect_delimiter(first_line)
         handle.seek(0)
 
-        for fields in csv.reader(handle, delimiter=delimiter):
+        for line_no, fields in enumerate(csv.reader(handle, delimiter=delimiter), 1):
             if is_blank(fields):
                 continue
 
             columns, row_is_header = layout_of_row(fields, headerless_layouts, path)
-            return Layout(delimiter, columns, row_is_header, len(fields))
+            return Layout(delimiter, columns, row_is_header, len(fields), first_row=line_no)
 
     return None
 

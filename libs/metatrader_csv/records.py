@@ -83,7 +83,7 @@ def iterate_records(
                     continue  # never treat the header row as data
 
             try:
-                yield _build_record(fields, columns)
+                yield parse_fields(fields, columns)
             except ValueError as exc:
                 if strict:
                     raise MetatraderParseError(path, line_no, str(exc), delimiter.join(fields)) from exc
@@ -180,7 +180,8 @@ def _to_count(text: str) -> int | None:
     return int(float(text))
 
 
-def _build_record(fields: list[str], columns: dict[str, int]) -> MetatraderRecord:
+def parse_fields(fields: list[str], columns: dict[str, int]) -> MetatraderRecord:
+    """One line's fields as a record; ValueError, with the reason, when they don't parse."""
     def field(name: str) -> str:
         index = columns.get(name)
 

@@ -36,7 +36,7 @@ _VOLUME_COLUMNS = ("tick_volume", "volume")
 def read_frame(
     path,
     *,
-    strict: bool = False,
+    strict: bool = True,
     on_skip: Callable[[int, str, str], None] | None = None,
 ) -> pd.DataFrame:
     """Read one MT5 export into a DataFrame, in file order.
@@ -46,11 +46,9 @@ def read_frame(
     int64 when every row has one, float64 with NaN otherwise. An empty file,
     or one without date/time/price columns, gives a frame with only `datetime`.
 
-    Defaults to strict=False -- a malformed line is dropped rather than fatal,
-    which is how the loader has always treated unparsable rows. Pass `on_skip`
-    to count or log them; its `(line_no, line, reason)` are best-effort (see
-    `libs.metatrader_csv.read_frame`). Use `iterate_bars` when you need the
-    exact per-line detail.
+    strict and on_skip work as in `iterate_bars`, and a malformed line is
+    reported the same way: strict=True (the default) raises BarParseError,
+    strict=False drops the line and calls `on_skip(line_no, line, reason)`.
     """
     frame = metatrader_csv.read_frame(path, strict=strict, on_skip=on_skip, headerless_layouts=HEADERLESS_LAYOUTS)
 

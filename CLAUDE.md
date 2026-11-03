@@ -71,7 +71,7 @@ for bar in iterate_bars(path):  # generator — constant memory; use on multi-mi
     ...
 ```
 
-The format itself is `libs.metatrader_csv`: it detects the separator (comma/tab/semicolon), handles both headerless exports and `<DATE>`-style MT5 headers, and returns blank volumes as None/NA; the port fills them with 0 and builds `Bar`s or the repo's frame. `strict=True` (default for bars, `False` for `read_frame`) raises `BarParseError` (an alias of `MetatraderParseError`) on a malformed line; `strict=False` skips it and reports via an `on_skip` callback (exact line numbers for bars, best-effort for frames). `libs.metatrader_csv.sniff_layout(path)` reports which fields an export carries without parsing it.
+The format itself is `libs.metatrader_csv`: it detects the separator (comma/tab/semicolon), handles both headerless exports and `<DATE>`-style MT5 headers, and returns blank volumes as None/NA; the port fills them with 0 and builds `Bar`s or the repo's frame. `strict=True` (the default for every reader) raises `BarParseError` (an alias of `MetatraderParseError`) on a malformed line; `strict=False` skips it and reports it via an `on_skip(line_no, line, reason)` callback. Bars and frames skip the same lines and report them identically. `libs.metatrader_csv.sniff_layout(path)` reports which fields an export carries without parsing it.
 
 Everything after parsing is `domain/` (concepts) and `application/` (use cases):
 
