@@ -37,10 +37,10 @@ Each bound carries its own timezone, so `"08:00 Europe/London"` stays 08:00 Lond
 
 ## Running it
 
-Run with `"timeframe": "15m"` and `"resolve_from": "entry-bar"`. `backtests/rsi_divergence/backtest.json` does that on the raw M1 exports, and `backtests/rsi_divergence_dukascopy/` on Dukascopy data with spread costs:
+Run with `"timeframe": "15m"` and `"resolve_from": "entry-bar"`. `backtests/rsi_divergence_15m/backtest.json` does that on the raw M1 exports, and `backtests/rsi_divergence_dukascopy/` on Dukascopy data with spread costs:
 
 ```bash
-python3 backtest.py backtests/rsi_divergence
+python3 backtest.py backtests/rsi_divergence_15m
 ```
 
 See also: [Running a backtest](running-a-backtest.md) · [framework overview](README.md)

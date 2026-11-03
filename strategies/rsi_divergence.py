@@ -1,11 +1,14 @@
-"""RSI divergence reversal: `rsi_divergence_strategy.py`'s entries, plus exit levels.
+"""RSI divergence reversal: divergence entries, plus exit levels.
 
     from strategies.rsi_divergence import RsiDivergence
 
     positions = RsiDivergence(risk_reward=2.0).generate_positions(data)   # built on M15 bars
 
-Entries are exactly the scan script's (see `domain.pandas_approach.divergence`
-and `divergence_positions.open_positions`):
+Entries reproduce the former M15 scan script `rsi_divergence_strategy.py`
+(removed in 55eda77; see `domain.pandas_approach.divergence` and
+`divergence_positions.open_positions`). The root `rsi_divergence.py` is a
+different tool -- the plain indicator on M5, without the 30/70 filter below --
+so its output does not match these entries:
 
   1. Wilder RSI(14); pivots 5 bars left / 5 right; two same-kind pivots 5-60
      bars apart where price and RSI disagree form a regular divergence.
@@ -39,7 +42,7 @@ Entries are at a bar's *open*, so the entry bar's range all happened after the
 fill: run it with `"resolve_from": "entry-bar"`. The default next-bar rule would
 ignore a stop or target hit on the entry bar itself.
 
-    python3 backtest.py backtests/rsi_divergence     # timeframe 15m, resolve_from entry-bar
+    python3 backtest.py backtests/rsi_divergence_15m     # timeframe 15m, resolve_from entry-bar
 
 Timezone-agnostic without an entry window: RSI and pivots depend on bar order,
 not the clock. With one, the data's `timezone` must be right, since the window

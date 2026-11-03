@@ -38,9 +38,9 @@ The full day-by-day report is written to <--out>/tokyo_breakout_report.txt;
 only the summary (one block per month) is echoed to the console.
 
 Usage:
-    python3 tokyo_breakout_strategy.py data/eurusd/1min/EURUSD_2020_01.csv
-    python3 tokyo_breakout_strategy.py data/eurusd/1min
-    python3 tokyo_breakout_strategy.py data/eurusd/1min --out output/tokyo_breakout_output
+    python3 session_breakout_strategy.py data/eurusd/1min/EURUSD_2020_01.csv
+    python3 session_breakout_strategy.py data/eurusd/1min
+    python3 session_breakout_strategy.py data/eurusd/1min --out output/tokyo_breakout_output
 """
 
 from __future__ import annotations

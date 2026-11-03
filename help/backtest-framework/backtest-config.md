@@ -113,7 +113,7 @@ The same happens when the data and the strategy don't fit together:
 Both in `backtests/`:
 
 ```json
-// backtests/rsi_divergence/backtest.json: M15 bars rebuilt from raw M1 exports; entries are at a bar's open
+// backtests/rsi_divergence_15m/backtest.json: M15 bars rebuilt from raw M1 exports; entries are at a bar's open
 {
 	"strategy": "rsi_divergence",
 	"data": {"source": "../../data/eurusd/1min", "format": "metatrader", "symbol": "EURUSD", "timezone": "broker"},

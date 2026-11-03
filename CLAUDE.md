@@ -62,6 +62,10 @@ application/build_clean_dataset_use_case.py  folder of exports → one clean, de
 read_csv_as_frame.py                      CLI that prints an export as an aligned table, raw or resampled [pandas]
 read_csv_as_bars.py                       the same CLI built on `Bar` streams instead of a frame          [stdlib]
 resample_csv.py                           folder/file of M1 exports → merged CSV on a coarser grid + report
+rsi_divergence.py                         CLI: RSI divergence indicator (regular, optionally hidden) on M5, printed; not the `RsiDivergence` entries [pandas]
+session_breakout_strategy.py              standalone session-breakout backtest; `SessionBreakout` reproduces it trade for trade [stdlib]
+trading_sessions.py                       CLI: per-day open/high/low/close of each session (Tokyo only so far), printed [stdlib]
+show_symbol.py                            CLI: lists the `Symbol`s in domain.symbol with their pip/tick specs, `--filter` [stdlib]
 ```
 
 ```python
@@ -138,17 +142,17 @@ domain/pandas_approach/backtest.py         Backtest(strategy, data, cost_model, 
 application/load_historical_data_use_case.py  load_mt5 / load_histdata / load_dukascopy / load_source(source, SourceFormat) → HistoricalData
 strategies/__init__.py                     STRATEGIES registry: the names a backtest.py config's `strategy` accepts
 strategies/narrow_asia_fade.py             Candle DNA — Narrow Asia London Fade (NarrowAsiaFade)
-strategies/rsi_divergence.py               RSI divergence reversal (RsiDivergence), entries = rsi_divergence_strategy.py's
+strategies/rsi_divergence.py               RSI divergence reversal (RsiDivergence), entries = the removed M15 scan `rsi_divergence_strategy.py`'s
 strategies/session_breakout.py             Tokyo/Asian session breakout (SessionBreakout), session_breakout_strategy.py's rules
 application/load_backtest_config_use_case.py  load_backtest_config: read_config + value checks (strategy, symbol, zone, timeframes) + strategy_parameters → field types; cost_model(CostConfig)
 backtest.py                                the CLI (one arg: a JSON config, loaded by load_backtest_config → BacktestConfig), plus run_backtest → BacktestRun; build_run_info, format_report, write_results
-backtests/<name>/backtest.json             ready-made configs: narrow_asia_fade, rsi_divergence, rsi_divergence_dukascopy, session_breakout (script parity)
+backtests/<name>/backtest.json             ready-made configs: narrow_asia_fade, rsi_divergence_15m, rsi_divergence_dukascopy, session_breakout (script parity)
 ```
 
 ```bash
 python3 backtest.py backtests/narrow_asia_fade            # a folder means its backtest.json
 
-python3 backtest.py backtests/rsi_divergence/backtest.json
+python3 backtest.py backtests/rsi_divergence_15m/backtest.json
 python3 backtest.py backtests/rsi_divergence_dukascopy
 python3 backtest.py backtests/session_breakout        # script parity settings
 ```
@@ -199,5 +203,5 @@ For a class or module under test, create a directory named after the file being 
 - **The broker-server clock is New York + 7h**: GMT+2 in winter, GMT+3 in summer, switching on the **US** daylight-saving dates. FX opens Sunday 17:00 New York, which is Monday 00:00 on the server, so every week in the exports runs Monday 00:00 → Friday 23:55 with no weekend bars. It is also true in all 24 weeks of 2020–2026 where US and EU switch dates disagree, which rules out `Europe/Athens`. No IANA zone matches, so `domain.broker_clock.BROKER_SERVER_TZ` is a `ShiftedZone` (a real zone's wall clock plus a fixed shift). CLI timezone flags accept `broker` for it (`timezone_by_name`). pandas rejects custom `tzinfo`s, so `shift_timezone` converts through the base zone; never hand `BROKER_SERVER_TZ` to `tz_localize` directly. **Before 2026-09-28 the repo treated the server clock as plain `America/New_York`**, so any server→UTC conversion made before then is 7 hours off. That covers the `--timezone` output of `show_csv`/`read_csv_as_*`, `rsi_divergence_strategy.py`'s printed times (it shifted to UTC by default) and `session_breakout_strategy.py`'s session windows. Anything that worked in server-clock hours directly (`NarrowAsiaFade`) was never affected.
 - **histdata.com MT exports (`…/histdata/mt/<year>/DAT_MT_EURUSD_M1_*.csv`) are on New York time, not the broker clock.** Their week opens Sunday 17:00 in both winter and summer, and their July 2025 closes match the broker exports at exactly +7h (median 0.5 pips apart, vs 5+ at +6h/+8h). Before 2026-09-29 `load_mt5` labelled every MT export as broker-server time, so any `backtests/` run on histdata before then (`narrow_asia_fade`'s stored `output/`) had its windows 7 hours off. Clock-agnostic strategies (`rsi_divergence`) are unaffected. Use `"format": "histdata"` with `"timezone": "America/New_York"` for histdata in a backtest config; that loader rejects any other clock. (`"metatrader"` still reads the files, unchecked, with an all-zero `tick_volume`.)
 - Loading bars at a timeframe **finer** than the source silently relabels them: `load_mt5(M5 file, SampleSize.Parse("1m"), ...)` returns the M5 bars labelled 1m. Resampling only ever coarsens.
-- `rsi_divergence_strategy.py` (the scan) runs on **M15**, not M5 (`TIMEFRAME`); backtest `rsi_divergence` with `"timeframe": "15m"` to match it.
+- `RsiDivergence` reproduces the entries of `rsi_divergence_strategy.py`, an M15 scan removed in `55eda77`; backtest it with `"timeframe": "15m"`. The root `rsi_divergence.py` is a different script: the plain indicator on **M5**, with no 30/70 band filter, so its divergences are not the strategy's entries.
 - `read_csv_as_frame.py --output` is **not** a substitute for `resample_csv.py`, even though both can write a resampled CSV. `resample_csv.py` resamples each source file individually and dedups the *resampled* rows across files afterward, matching `build_clean_dataset` and its month-boundary tie-break; it's also the only one of the two that writes a `.report.txt` provenance record and that survives a single bad source file (per-file errors are logged, not fatal). `read_csv_as_frame.py` concatenates every raw file first, dedups the *raw M1* rows once, then resamples the whole thing — a different tie-break at month boundaries, no report, and one bad file aborts the run. Use `resample_csv.py` for anything that feeds a backtest; `read_csv_as_frame.py` is for ad hoc inspection.

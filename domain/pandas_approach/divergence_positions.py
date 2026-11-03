@@ -32,8 +32,7 @@ class DivergencePosition:
     """An entry signal tied to the divergence that produced it.
 
     Entry only -- no SL/TP. `strategies.rsi_divergence` adds the exit levels
-    and turns it into a backtestable `domain.pandas_approach.position.Position`;
-    the scan script prints it as-is."""
+    and turns it into a backtestable `domain.pandas_approach.position.Position`."""
 
     divergence: Divergence
     side: Side
