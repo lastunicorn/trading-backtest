@@ -4,9 +4,9 @@
 For every day in the source data this computes, per session:
 
   * opening value -- open of the first bar in the session window
-  * closing value -- close of the last bar in the session window
   * highest value -- max high over the window
   * lowest value  -- min low over the window
+  * closing value -- close of the last bar in the session window
 
 The sessions are the standard ones in `domain.trading_session.SESSIONS`
 (Tokyo, Asia, London, New York), picked with --session; the FX Asia session
@@ -178,14 +178,14 @@ def print_session(session: TradingSession, days: pd.DataFrame, *, price_decimals
         return f"{value:>{width}.{price_decimals}f}"
 
     print(
-        f"{'date':<10}  {'open':>{width}}  {'close':>{width}}  "
-        f"{'high':>{width}}  {'low':>{width}}  {'bars':>5}"
+        f"{'date':<10}  {'open':>{width}}  {'high':>{width}}  "
+        f"{'low':>{width}}  {'close':>{width}}  {'bars':>5}"
     )
 
     for day in days.itertuples(index=False):
         print(
-            f"{day.date.isoformat():<10}  {price(day.open)}  {price(day.close)}  "
-            f"{price(day.high)}  {price(day.low)}  {day.bar_count:>5}"
+            f"{day.date.isoformat():<10}  {price(day.open)}  {price(day.high)}  "
+            f"{price(day.low)}  {price(day.close)}  {day.bar_count:>5}"
         )
 
     print(f"  {len(days)} session-days\n")
