@@ -63,7 +63,7 @@ domain/pandas_approach/session_ohlc.py    session_ohlc(frame, session, timezone=
 application/build_clean_dataset_use_case.py  folder of exports → one clean, deduplicated frame (in memory)
 read_csv.py                               CLI that prints an export as an aligned table, raw or resampled [pandas]
 rsi_divergence.py                         CLI: RSI divergence indicator (regular, optionally hidden) on M5, printed; not the `RsiDivergence` entries [pandas]
-calculate_daily_sessions.py               CLI: per-day open/high/low/close of SESSIONS entries (`--session`, default Asia) on the exports' `--source-timezone` (default broker), via `session_ohlc`, printed [pandas]
+calculate_daily_sessions.py               CLI: per-day open/high/low/close of SESSIONS entries (`--session`, default Asia) on the exports' `--source-timezone` (default broker), read by `load_source` for `--source-format` (a `SourceFormat`, default metatrader), via `session_ohlc`, printed [pandas]
 show_symbols.py                           CLI: lists the `Symbol`s in domain.symbol with their pip/tick specs, `--filter` [stdlib]
 ```
 
