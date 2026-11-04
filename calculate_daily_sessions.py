@@ -24,7 +24,7 @@ exports carry no timezone: --source-timezone says which clock their timestamps
 are on, "broker" (this repo's MT5 broker-server clock, New York + 7h) by
 default, or an IANA name. It is never inferred from the format, but histdata
 must be "America/New_York" and Dukascopy "UTC": any other clock is an error.
---symbol (EURUSD by default) sets the price decimals printed.
+--source-symbol (EURUSD by default) sets the price decimals printed.
 
 Output goes to the console; a file report comes later.
 
@@ -71,7 +71,7 @@ def main() -> int:
         return 1
 
     try:
-        symbol = by_ticker(args.symbol)
+        symbol = by_ticker(args.source_symbol)
     except ValueError as error:
         print(f"ERROR: {error}", file=sys.stderr)
         return 1
@@ -125,7 +125,7 @@ def _parse_args() -> argparse.Namespace:
              f"(default: {BROKER_TZ_NAME})",
     )
     parser.add_argument(
-        "--symbol",
+        "--source-symbol",
         default=EURUSD.ticker,
         help=f"the exports' symbol, which sets the price decimals (default: {EURUSD.ticker})",
     )
