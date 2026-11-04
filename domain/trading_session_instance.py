@@ -19,7 +19,7 @@ class TradingSessionInstance:
         """`start_dt`/`end_dt` never change after construction, so their UTC
         form is computed once here rather than on every `start_dt_utc()` /
         `end_dt_utc()` / `contains()` call -- the naive conversion is cheap,
-        but a `ZoneInfo`-aware one (any DST-observing session template) is not,
+        but a `ZoneInfo`-aware one (any DST-observing `TradingSession`) is not,
         and `contains()` used to redo it on every bar."""
         self._start_dt_utc = self._to_utc(self.start_dt)
         self._end_dt_utc = self._to_utc(self.end_dt)

@@ -4,7 +4,7 @@ from datetime import time
 from zoneinfo import ZoneInfo
 
 from domain.broker_clock import BROKER_SERVER_TZ
-from domain.trading_session_template import ASIA_SESSION, TradingSessionTemplate
+from domain.trading_session import ASIA_SESSION, TradingSession
 from calculate_daily_sessions import window_label
 
 
@@ -13,6 +13,6 @@ def test_one_zone_is_named_once() -> None:
 
 
 def test_different_zones_are_named_per_bound() -> None:
-    template = TradingSessionTemplate(time(9, 0, tzinfo=ZoneInfo("Asia/Tokyo")), time(10, 0, tzinfo=BROKER_SERVER_TZ))
+    session = TradingSession(time(9, 0, tzinfo=ZoneInfo("Asia/Tokyo")), time(10, 0, tzinfo=BROKER_SERVER_TZ))
 
-    assert window_label(template) == "09:00 Asia/Tokyo - 10:00 broker"
+    assert window_label(session) == "09:00 Asia/Tokyo - 10:00 broker"

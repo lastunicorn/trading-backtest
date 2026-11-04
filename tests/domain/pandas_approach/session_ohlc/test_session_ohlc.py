@@ -8,9 +8,9 @@ import pytest
 
 from domain.broker_clock import BROKER_SERVER_TZ
 from domain.pandas_approach.session_ohlc import SESSION_OHLC_COLUMNS, session_ohlc
-from domain.trading_session_template import ASIA_SESSION, NEW_YORK_SESSION, TradingSessionTemplate
+from domain.trading_session import ASIA_SESSION, NEW_YORK_SESSION, TradingSession
 
-OVERNIGHT = TradingSessionTemplate(time(22, 0, tzinfo=UTC), time(2, 0, tzinfo=UTC), name="Overnight")
+OVERNIGHT = TradingSession(time(22, 0, tzinfo=UTC), time(2, 0, tzinfo=UTC), name="Overnight")
 
 
 def _frame(bars: list[tuple[str, float]]) -> pd.DataFrame:
@@ -82,7 +82,7 @@ def test_the_day_is_the_session_date_in_its_start_zone() -> None:
     # 23:00 UTC on June 30 is 08:00 July 1 in Tokyo; Asia opens 09:00 Tokyo, so it is outside.
     # 00:30 UTC on July 1 is 09:30 July 1 in Tokyo: the July 1 session.
     frame = _frame([("2025-06-30 23:00", 1.0), ("2025-07-01 00:30", 1.1)])
-    tokyo_asia = TradingSessionTemplate(time(9, 0, tzinfo=ZoneInfo("Asia/Tokyo")), time(18, 0, tzinfo=ZoneInfo("Asia/Tokyo")))
+    tokyo_asia = TradingSession(time(9, 0, tzinfo=ZoneInfo("Asia/Tokyo")), time(18, 0, tzinfo=ZoneInfo("Asia/Tokyo")))
 
     result = session_ohlc(frame, tokyo_asia, timezone=UTC)
 

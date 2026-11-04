@@ -6,13 +6,13 @@ import pytest
 
 from calculate_daily_sessions import collect_sessions
 from domain.broker_clock import BROKER_SERVER_TZ
-from domain.trading_session_template import ASIA_SESSION, LONDON_SESSION, TradingSessionTemplate
+from domain.trading_session import ASIA_SESSION, LONDON_SESSION, TradingSession
 from tests.calculate_daily_sessions._fakes import export
 
 
-def _days(tmp_path, bars, template=ASIA_SESSION, source_timezone=BROKER_SERVER_TZ):
-    days = collect_sessions([export(tmp_path / "bars.csv", bars)], [template], source_timezone=source_timezone)
-    return days[template].set_index("date")
+def _days(tmp_path, bars, session=ASIA_SESSION, source_timezone=BROKER_SERVER_TZ):
+    days = collect_sessions([export(tmp_path / "bars.csv", bars)], [session], source_timezone=source_timezone)
+    return days[session].set_index("date")
 
 
 def test_summer_asia_session_is_03_00_to_12_00_broker_time(tmp_path) -> None:
@@ -57,16 +57,16 @@ def test_days_without_session_bars_are_left_out(tmp_path) -> None:
 
 
 def test_a_session_past_midnight_belongs_to_the_day_it_opens(tmp_path) -> None:
-    overnight = TradingSessionTemplate(time(22, 0, tzinfo=UTC), time(2, 0, tzinfo=UTC), name="Overnight")
+    overnight = TradingSession(time(22, 0, tzinfo=UTC), time(2, 0, tzinfo=UTC), name="Overnight")
 
     days = _days(tmp_path, [("2025.07.01 23:00", 1.1), ("2025.07.02 01:00", 1.2)],
-                 template=overnight, source_timezone=UTC)
+                 session=overnight, source_timezone=UTC)
 
     assert list(days.index) == [date(2025, 7, 1)]
     assert days.loc[date(2025, 7, 1)].bar_count == 2
 
 
-def test_each_template_gets_its_own_days(tmp_path) -> None:
+def test_each_session_gets_its_own_days(tmp_path) -> None:
     # 04:00 broker (01:00 UTC) is Asia only; 12:00 broker (09:00 UTC, 10:00 London) is London only.
     path = export(tmp_path / "bars.csv", [("2025.07.01 04:00", 1.1), ("2025.07.01 12:00", 1.2)])
 

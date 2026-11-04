@@ -7,7 +7,7 @@ instrument's native precision (`price_decimals`, derived from `tick_size`).
 The known instruments are module constants (`EURUSD`, `USDJPY`, ...),
 collected by ticker in `SYMBOLS`, which `by_ticker` looks up.
 
-Frozen, like `TradingSessionTemplate` -- a symbol's specification doesn't
+Frozen, like `TradingSession` -- a symbol's specification doesn't
 change once defined. `price_decimals` is a `cached_property` rather than a
 plain `property`: it's derived from `tick_size` via `Decimal`, which is
 cheap but pointless to redo on every format call, and `cached_property`

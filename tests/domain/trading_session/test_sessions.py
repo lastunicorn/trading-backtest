@@ -1,6 +1,6 @@
-"""Tests for `domain.trading_session_template.SESSIONS`, the standard sessions."""
+"""Tests for `domain.trading_session.SESSIONS`, the standard sessions."""
 
-from domain.trading_session_template import ASIA_SESSION, LONDON_SESSION, NEW_YORK_SESSION, SESSIONS, TOKYO_SESSION
+from domain.trading_session import ASIA_SESSION, LONDON_SESSION, NEW_YORK_SESSION, SESSIONS, TOKYO_SESSION
 
 
 def test_keys_are_the_sessions_names() -> None:

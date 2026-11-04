@@ -57,7 +57,7 @@ from domain.pandas_approach.historical_data import HistoricalData
 from domain.pandas_approach.position import Position, Side
 from domain.pandas_approach.shift_timezone import shift_timezone
 from domain.pandas_approach.trading_strategy import TradingStrategy
-from domain.trading_session_template import TradingSessionTemplate
+from domain.trading_session import TradingSession
 
 __all__ = ["SessionBreakout"]
 
@@ -87,7 +87,7 @@ class SessionBreakout(TradingStrategy):
             raise ValueError(f"risk_reward must be positive, got {self.risk_reward}")
         if self.max_range_pips <= 0:
             raise ValueError(f"max_range_pips must be positive, got {self.max_range_pips}")
-        self._session_template()    # raises on an unknown session_timezone
+        self._reference_session()    # raises on an unknown session_timezone
 
     def generate_positions(self, data: HistoricalData) -> list[Position]:
         times = data.data["datetime"].to_numpy()
@@ -134,7 +134,7 @@ class SessionBreakout(TradingStrategy):
 
     def _session_days(self, data: HistoricalData) -> Iterator[_SessionDay]:
         """Each UTC date with bars whose reference session has bars and a positive range."""
-        template = self._session_template()
+        reference_session = self._reference_session()
         utc = shift_timezone(data.data[["datetime"]], UTC, from_tz=data.timezone)["datetime"]
         stamps = utc.to_numpy()
         high = data.data["high"].to_numpy()
@@ -145,7 +145,7 @@ class SessionBreakout(TradingStrategy):
             return int(np.searchsorted(stamps, np.datetime64(at.astimezone(UTC).replace(tzinfo=None)), side="left"))
 
         for day in pd.unique(utc.dt.date):
-            session = template.create_session(day)
+            session = reference_session.create_session(day)
             midnight = datetime.combine(day, time(0, 0), tzinfo=UTC)
             next_midnight = midnight + timedelta(days=1)
 
@@ -159,7 +159,7 @@ class SessionBreakout(TradingStrategy):
             if not session_high > session_low:
                 continue
 
-            exit_utc = template.end_time_utc_on(day + timedelta(days=1))
+            exit_utc = reference_session.end_time_utc_on(day + timedelta(days=1))
             yield _SessionDay(
                 day=day,
                 high=session_high,
@@ -169,12 +169,12 @@ class SessionBreakout(TradingStrategy):
                 exit_utc=exit_utc,
             )
 
-    def _session_template(self) -> TradingSessionTemplate:
+    def _reference_session(self) -> TradingSession:
         try:
             zone = timezone_by_name(self.session_timezone)
         except (ZoneInfoNotFoundError, ValueError) as error:
             raise ValueError(f"unknown session_timezone {self.session_timezone!r}") from error
-        return TradingSessionTemplate(
+        return TradingSession(
             start_time=self.session_start.replace(tzinfo=zone),
             end_time=self.session_end.replace(tzinfo=zone),
         )

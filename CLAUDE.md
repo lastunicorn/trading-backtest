@@ -55,11 +55,11 @@ libs/metatrader_csv/                      read/write MetaTrader bar exports: `it
 libs/dukascopy_csv/                       find (`find_files`), pair (`pair_files`, `find_pair`) and read (`read_file`) Dukascopy exports, one DataFrame per file, all columns kept; nothing from the repo, see its README.md [pandas]
 domain/broker_clock.py                    BROKER_SERVER_TZ (New York + 7h), ShiftedZone, timezone_by_name ("broker" or IANA) / timezone_name [stdlib]
 domain/time_window.py                     TimeWindow: daily [start, end) of timezone-aware times, each optional; ZonedTime annotation [stdlib]
-domain/trading_session_template.py        TradingSessionTemplate: a session's daily window (zoned start/end, optional name); `create_session(date)`; SESSIONS table (TOKYO_SESSION, ASIA_SESSION, LONDON_SESSION, NEW_YORK_SESSION) [stdlib]
+domain/trading_session.py                 TradingSession: a session's daily window (zoned start/end, optional name); `create_session(date)`; SESSIONS table (TOKYO_SESSION, ASIA_SESSION, LONDON_SESSION, NEW_YORK_SESSION) [stdlib]
 domain/trading_session_instance.py        TradingSessionInstance: one dated session window plus the `Bar`s inside it (a `BarBlock`: open/close/high/low) [stdlib]
 domain/bar_approach/bar.py                the `Bar` entity — one OHLC candle (dt, OHLC, volumes, spread)  [stdlib]
 domain/pandas_approach/frames.py          clean a frame (stable sort + dedup), resample it to a coarser timeframe, each bar labelled by its start (a week by its Monday) [pandas]
-domain/pandas_approach/session_ohlc.py    session_ohlc(frame, template, timezone=): per-day open/high/low/close/bar_count of a TradingSessionTemplate's window [pandas]
+domain/pandas_approach/session_ohlc.py    session_ohlc(frame, session, timezone=): per-day open/high/low/close/bar_count of a TradingSession's window [pandas]
 application/build_clean_dataset_use_case.py  folder of exports → one clean, deduplicated frame (in memory)
 read_csv.py                               CLI that prints an export as an aligned table, raw or resampled [pandas]
 rsi_divergence.py                         CLI: RSI divergence indicator (regular, optionally hidden) on M5, printed; not the `RsiDivergence` entries [pandas]
@@ -178,7 +178,7 @@ A strategy with wall-clock session windows (`NarrowAsiaFade`) raises on data tha
 
 Unit tests live under `tests/`, mirroring the source package layout (`tests/domain/...`, `tests/application/...`, `tests/strategies/...`). `pytest.ini` sets `testpaths = tests`; run everything with `pytest` from the repo root (inside the activated venv). Shared builders for a test directory go in a `_fakes.py` module inside it. A test that needs local-only data must `skipif` the file is absent rather than fail.
 
-For a class or module under test, create a directory named after the file being tested, and inside it one test file per function/method tested (e.g. `domain/trading_session_template.py`'s `TradingSessionTemplate.start_time_on` is tested in `tests/domain/trading_session_template/test_start_time_on.py`). This holds even for small, single-line delegating methods — keep each function's tests isolated rather than folding several into one file. Give every package directory (including `tests/` itself and each subpackage) an `__init__.py`.
+For a class or module under test, create a directory named after the file being tested, and inside it one test file per function/method tested (e.g. `domain/trading_session.py`'s `TradingSession.start_time_on` is tested in `tests/domain/trading_session/test_start_time_on.py`). This holds even for small, single-line delegating methods — keep each function's tests isolated rather than folding several into one file. Give every package directory (including `tests/` itself and each subpackage) an `__init__.py`.
 
 `tests/architecture/` checks the [import rules](doc/architecture.md#2-import-rules) across the whole repo rather than testing one module; it parses imports with `ast`, so examples in docstrings don't count.
 

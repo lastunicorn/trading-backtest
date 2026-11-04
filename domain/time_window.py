@@ -10,7 +10,7 @@
     window.contains(datetime(2026, 1, 5, 12, 0, tzinfo=BROKER_SERVER_TZ))   # True: 10:00 London
 
 A bound is a timezone-aware `datetime.time`, as in
-`domain.trading_session_template`: 08:00 London is a different instant in
+`domain.trading_session`: 08:00 London is a different instant in
 winter and summer, so a window is resolved against each instant's own date,
 never through a fixed offset. `start` is inclusive, `end` exclusive.
 

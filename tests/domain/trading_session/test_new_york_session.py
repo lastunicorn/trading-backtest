@@ -4,7 +4,7 @@ UTC window."""
 from datetime import UTC, date, datetime, time
 from zoneinfo import ZoneInfo
 
-from domain.trading_session_template import NEW_YORK_SESSION
+from domain.trading_session import NEW_YORK_SESSION
 
 NEW_YORK = ZoneInfo("America/New_York")
 
@@ -20,7 +20,7 @@ def test_window() -> None:
 
 
 def test_est_window_matches_docstring() -> None:
-    # 14:30-21:00 UTC under EST, per its comment in domain.trading_session_template.
+    # 14:30-21:00 UTC under EST, per its comment in domain.trading_session.
     session = NEW_YORK_SESSION.create_session(WINTER_DATE)
 
     assert session.start_dt_utc() == datetime(2026, 1, 15, 14, 30, tzinfo=UTC)
@@ -28,7 +28,7 @@ def test_est_window_matches_docstring() -> None:
 
 
 def test_edt_window_matches_docstring() -> None:
-    # 13:30-20:00 UTC under EDT, per its comment in domain.trading_session_template.
+    # 13:30-20:00 UTC under EDT, per its comment in domain.trading_session.
     session = NEW_YORK_SESSION.create_session(SUMMER_DATE)
 
     assert session.start_dt_utc() == datetime(2026, 7, 15, 13, 30, tzinfo=UTC)

@@ -3,7 +3,7 @@
 from datetime import time
 from zoneinfo import ZoneInfo
 
-from domain.trading_session_template import LONDON_SESSION
+from domain.trading_session import LONDON_SESSION
 
 LONDON = ZoneInfo("Europe/London")
 

@@ -8,7 +8,7 @@ For every day in the source data this computes, per session:
   * highest value -- max high over the window
   * lowest value  -- min low over the window
 
-The sessions are the standard ones in `domain.trading_session_template.SESSIONS`
+The sessions are the standard ones in `domain.trading_session.SESSIONS`
 (Tokyo, Asia, London, New York), picked with --session; the FX Asia session
 (09:00-18:00 Asia/Tokyo, i.e. 00:00-09:00 UTC) by default. Each is a window in
 its own timezone, so DST is resolved per date, and a day is the date the
@@ -45,7 +45,7 @@ import pandas as pd
 from domain.broker_clock import BROKER_TZ_NAME, timezone_by_name, timezone_name
 from domain.pandas_approach.frames import clean_frame
 from domain.pandas_approach.session_ohlc import session_ohlc
-from domain.trading_session_template import ASIA_SESSION, SESSIONS, TradingSessionTemplate
+from domain.trading_session import ASIA_SESSION, SESSIONS, TradingSession
 from ports.file_system_access.file_system import find_files
 from ports.mt5_file_access import read_frame
 
@@ -69,13 +69,13 @@ def main() -> int:
         print(f"ERROR: unknown --source-timezone {args.source_timezone!r}", file=sys.stderr)
         return 1
 
-    templates = [SESSIONS[name] for name in args.session or DEFAULT_SESSIONS]
+    sessions = [SESSIONS[name] for name in args.session or DEFAULT_SESSIONS]
 
     print(f"Reading {len(paths)} file(s) from {args.source} ({timezone_name(source_timezone)} clock)\n")
-    result = collect_sessions(paths, templates, source_timezone=source_timezone)
+    result = collect_sessions(paths, sessions, source_timezone=source_timezone)
 
-    for template in templates:
-        print_session(template, result[template])
+    for session in sessions:
+        print_session(session, result[session])
 
     return 0
 
@@ -106,35 +106,35 @@ def _parse_args() -> argparse.Namespace:
 
 
 def collect_sessions(
-    paths: Iterable[Path], templates: list[TradingSessionTemplate], *, source_timezone: tzinfo
-) -> dict[TradingSessionTemplate, pd.DataFrame]:
-    """template -> its `session_ohlc` frame (date, open, high, low, close,
+    paths: Iterable[Path], sessions: list[TradingSession], *, source_timezone: tzinfo
+) -> dict[TradingSession, pd.DataFrame]:
+    """session -> its `session_ohlc` frame (date, open, high, low, close,
     bar_count), one row per day whose session has at least one bar.
 
     `source_timezone` labels the exports' naive timestamps; nothing is shifted.
     """
     frame = clean_frame(pd.concat([read_frame(str(path), strict=False) for path in paths], ignore_index=True))
 
-    return {template: session_ohlc(frame, template, timezone=source_timezone) for template in templates}
+    return {session: session_ohlc(frame, session, timezone=source_timezone) for session in sessions}
 
 
-def window_label(template: TradingSessionTemplate) -> str:
+def window_label(session: TradingSession) -> str:
     """"09:00-18:00 Asia/Tokyo", or each bound with its own zone when they differ."""
-    start_zone = timezone_name(template.start_time.tzinfo)
-    end_zone = timezone_name(template.end_time.tzinfo)
+    start_zone = timezone_name(session.start_time.tzinfo)
+    end_zone = timezone_name(session.end_time.tzinfo)
 
     if start_zone == end_zone:
-        return f"{template.start_time:%H:%M}-{template.end_time:%H:%M} {start_zone}"
-    return f"{template.start_time:%H:%M} {start_zone} - {template.end_time:%H:%M} {end_zone}"
+        return f"{session.start_time:%H:%M}-{session.end_time:%H:%M} {start_zone}"
+    return f"{session.start_time:%H:%M} {start_zone} - {session.end_time:%H:%M} {end_zone}"
 
 
-def print_session(template: TradingSessionTemplate, days: pd.DataFrame) -> None:
+def print_session(session: TradingSession, days: pd.DataFrame) -> None:
     width = PRICE_DECIMALS + 3  # "1.12112" fits; leaves room for a leading digit
 
     def price(value: float) -> str:
         return f"{value:>{width}.{PRICE_DECIMALS}f}"
 
-    print(f"=== {template.name} session ({window_label(template)}, end exclusive) ===")
+    print(f"=== {session.name} session ({window_label(session)}, end exclusive) ===")
 
     if days.empty:
         print("  (no bars in window)\n")
