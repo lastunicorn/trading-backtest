@@ -7,8 +7,10 @@ files in particular:
   * the seventh column is a volume histdata always leaves at 0, so it is
     dropped rather than handed on as zeros that look like data;
   * there is no spread column;
-  * the timestamps are New York time (`TIMEZONE`): the week opens Sunday
-    17:00 in winter and summer alike;
+  * the timestamps are on New York's clock, but from 2019 switch daylight
+    saving on the EU dates, i.e. London - 5h (`TIMEZONE`,
+    `domain.broker_clock.HISTDATA_TZ`): the week opens Sunday 17:00, except,
+    from 2019, in the weeks the US and EU dates disagree, when it opens 16:00;
   * each csv sits beside a `.txt` gap report, which `FILE_PATTERN` leaves out.
 
 Parsing only -- no sorting, no dedup; that stays a `domain/` decision.
@@ -28,8 +30,8 @@ __all__ = ["FILE_PATTERN", "FRAME_COLUMNS", "TIMEZONE", "read_frame"]
 # The csv files of a histdata MetaTrader download, without the gap reports beside them.
 FILE_PATTERN = "DAT_MT_*.csv"
 
-# The clock of the timestamps, as an IANA name.
-TIMEZONE = "America/New_York"
+# The clock of the timestamps, as `domain.broker_clock.timezone_by_name` reads it (HISTDATA_TZ).
+TIMEZONE = "histdata"
 
 FRAME_COLUMNS = ("open", "high", "low", "close")
 
@@ -42,7 +44,7 @@ def read_frame(
 ) -> pd.DataFrame:
     """Read one histdata MetaTrader download into a DataFrame, in file order.
 
-    Columns: `datetime` (naive, New York time), then open/high/low/close as
+    Columns: `datetime` (naive, on the `TIMEZONE` clock), then open/high/low/close as
     float64. An empty file gives a frame with those columns and no rows.
 
     strict   -- True raises `libs.metatrader_csv.MetatraderParseError` on a malformed line; False drops it.

@@ -92,13 +92,14 @@ Common mistakes:
 
 | Symptom | Cause |
 |---|---|
-| `ERROR: … windows are broker-server times; the data is on UTC` | a broker-clock strategy on data that isn't on the broker clock: Dukascopy, histdata (`America/New_York`), or a config that left `data_source.timezone` at its `"UTC"` default. If the files really are broker-server time, set `"timezone": "broker"`; otherwise convert them with `shift_timezone` or use broker MT5 exports |
+| `ERROR: … windows are broker-server times; the data is on UTC` | a broker-clock strategy on data that isn't on the broker clock: Dukascopy, histdata (`"histdata"`), or a config that left `data_source.timezone` at its `"UTC"` default. If the files really are broker-server time, set `"timezone": "broker"`; otherwise convert them with `shift_timezone` or use broker MT5 exports |
 | `ERROR: SpreadCost needs a 'spread' column` | `"simulation": {"cost": {"spread": true}}` on data with no spread, such as histdata.com exports; drop `spread` and set `commission_pips`, or use broker MT5/Dukascopy data |
 | `ERROR: backtest.json: unknown key(s) …` | a misspelt config key, or a `simulation` key (`timeframe`, `ambiguity`, `resolve_from`, `cost`) written at the root; the message lists the allowed ones |
 | `ValueError: long position needs sl < open_price < tp` | the strategy built a position with levels on the wrong side; skip such signals |
 | `'datetime' must be strictly increasing` | the frame needs `clean_frame` before `HistoricalData` |
 | far fewer trades than expected | a fixture or real bar touching a level counts as a hit/break; check the ≥ / ≤ edges |
-| results with times 7 hours off | `data_source.timezone` doesn't match the files: the broker clock is New York + 7h (`"broker"`), histdata is New York time (`"America/New_York"`; with `"format": "histdata"` any other clock is rejected) |
+| results with times 7 hours off | `data_source.timezone` doesn't match the files: the broker clock is New York + 7h (`"broker"`), histdata is `"histdata"` (New York's clock, on the EU daylight-saving dates from 2019; not checked) |
+| histdata results with a few weeks a year 1 hour off (mid-March, late October) | `data_source.timezone` is `"America/New_York"` for histdata: use `"histdata"`, which follows the EU daylight-saving dates the files do from 2019 |
 | `ERROR: … "simulation.timeframe" … is not a whole multiple of the source's "data_source.timeframe"` | resampling only coarsens; test on a multiple of the source's bar size, or fix `data_source.timeframe` if it misstates the source |
 | numbers look wrong on a finer `simulation.timeframe` | `data_source.timeframe` understates the source (e.g. left at the `1m` default for an M5 file written by `read_csv.py --interval 5m --output`), so the check passed; asking for `1m` from an M5 file returns M5 bars labelled 1m |
 

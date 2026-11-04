@@ -51,7 +51,7 @@ class DataSourceConfig:
     `path` (a file or a folder) is already resolved against the config file's folder. `format` is
     a `SourceFormat` value. `timeframe` is the bar size of the source as
     stored, not the one backtested on. `timezone` is the clock its timestamps
-    are on, as `timezone_by_name` reads it ("broker" or an IANA name).
+    are on, as `timezone_by_name` reads it ("broker", "histdata" or an IANA name).
     """
 
     path: Path

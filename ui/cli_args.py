@@ -15,11 +15,11 @@ import argparse
 from datetime import tzinfo
 from zoneinfo import ZoneInfoNotFoundError
 
-from domain.broker_clock import BROKER_TZ_NAME, timezone_by_name
+from domain.broker_clock import BROKER_TZ_NAME, HISTDATA_TZ_NAME, timezone_by_name
 
 
 def timezone_arg(name: str) -> tzinfo:
-    """`timezone_by_name(name)`: `BROKER_SERVER_TZ` for "broker", otherwise an IANA zone.
+    """`timezone_by_name(name)`: `BROKER_SERVER_TZ` for "broker", `HISTDATA_TZ` for "histdata", otherwise an IANA zone.
 
     Raises `argparse.ArgumentTypeError` for a name that isn't a zone --
     unknown (`ZoneInfoNotFoundError`) or malformed, such as an empty or
@@ -29,5 +29,5 @@ def timezone_arg(name: str) -> tzinfo:
         return timezone_by_name(name)
     except (ZoneInfoNotFoundError, ValueError):
         raise argparse.ArgumentTypeError(
-            f"unknown timezone {name!r}: expected {BROKER_TZ_NAME!r} or an IANA name "
+            f"unknown timezone {name!r}: expected {BROKER_TZ_NAME!r}, {HISTDATA_TZ_NAME!r} or an IANA name "
             f"such as 'UTC' or 'Europe/London'") from None

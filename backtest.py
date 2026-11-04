@@ -44,8 +44,10 @@ MT4/MT5 exports, "histdata" for histdata.com downloads (New York time),
 `symbol` is required; `timeframe` (default "1m") is the bar size of the source, which
 `simulation.timeframe` -- the size to backtest on -- must be a whole multiple of.
 `timezone` (default "UTC") is the clock the source's timestamps are on: an
-IANA name such as "America/New_York", or "broker" for this repo's MT5
-broker-server clock (New York + 7h). It labels the bars; nothing is shifted.
+IANA name such as "America/New_York", "broker" for this repo's MT5
+broker-server clock (New York + 7h), or "histdata" for histdata.com downloads
+(New York's clock, on the EU daylight-saving dates from 2019). It labels the
+bars; nothing is shifted.
 
 `simulation` holds the rules the positions are traded under: `timeframe`
 (default "5m"), `ambiguity` (default "exclude"), `resolve_from` (default

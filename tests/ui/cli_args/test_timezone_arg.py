@@ -5,13 +5,17 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from domain.broker_clock import BROKER_SERVER_TZ
+from domain.broker_clock import BROKER_SERVER_TZ, HISTDATA_TZ
 from ui.cli_args import timezone_arg
 
 
 @pytest.mark.parametrize("name", ["broker", "BROKER", " Broker "])
 def test_broker_is_the_broker_server_clock(name: str) -> None:
     assert timezone_arg(name) is BROKER_SERVER_TZ
+
+
+def test_histdata_is_the_histdata_clock() -> None:
+    assert timezone_arg("histdata") is HISTDATA_TZ
 
 
 def test_iana_names_are_zoneinfo() -> None:

@@ -1,13 +1,12 @@
 """Tests for `calculate_daily_sessions.collect_sessions`."""
 
 from datetime import UTC, date, time
-from zoneinfo import ZoneInfo
 
 import pytest
 
 from application.load_historical_data_use_case import SourceFormat
 from calculate_daily_sessions import collect_sessions
-from domain.broker_clock import BROKER_SERVER_TZ
+from domain.broker_clock import BROKER_SERVER_TZ, HISTDATA_TZ
 from domain.trading_session import ASIA_SESSION, LONDON_SESSION, TradingSession
 from tests.application.load_historical_data_use_case._fakes import write_dukascopy_month, write_histdata_export
 from tests.calculate_daily_sessions._fakes import export
@@ -96,11 +95,10 @@ def test_a_timestamp_in_two_files_counts_once_and_the_later_file_wins(tmp_path) 
 # The format tests' fakes: 10 M1 bars from 2020-01-02 00:00, the first opening at 1.1000.
 
 def test_histdata_format_reads_histdata_downloads(tmp_path) -> None:
-    # 00:00-00:09 New York is 05:00-05:09 UTC, inside Asia (00:00-09:00 UTC).
+    # 00:00-00:09 on histdata's clock (UTC-5 in January) is 05:00-05:09 UTC, inside Asia (00:00-09:00 UTC).
     write_histdata_export(tmp_path / "DAT_MT_EURUSD_M1_202001.csv")
 
-    days = collect_sessions(tmp_path, SourceFormat.HISTDATA, [ASIA_SESSION],
-                            source_timezone=ZoneInfo("America/New_York"))
+    days = collect_sessions(tmp_path, SourceFormat.HISTDATA, [ASIA_SESSION], source_timezone=HISTDATA_TZ)
 
     day = days[ASIA_SESSION].set_index("date").loc[date(2020, 1, 2)]
     assert day.bar_count == 10

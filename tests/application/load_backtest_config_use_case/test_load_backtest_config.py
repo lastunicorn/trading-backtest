@@ -145,8 +145,8 @@ def test_rejects_invalid_strategy_parameters(tmp_path, strategy: str, parameters
         _with_parameters(tmp_path, strategy, parameters)
 
 
-@pytest.mark.parametrize("zone", ["broker", "Broker", "America/New_York", "UTC"])
-def test_data_source_timezone_takes_broker_or_an_iana_name(tmp_path, zone: str) -> None:
+@pytest.mark.parametrize("zone", ["broker", "Broker", "histdata", "America/New_York", "UTC"])
+def test_data_source_timezone_takes_broker_histdata_or_an_iana_name(tmp_path, zone: str) -> None:
     config = load_backtest_config(write_config(tmp_path, {"strategy": {"name": "rsi_divergence"},
                                                           "data_source": data_source(timezone=zone), "out": "o"}))
 

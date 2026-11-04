@@ -60,9 +60,11 @@ Extra columns are kept. The constructor only **validates**, and raises `ValueErr
 | Name | Meaning |
 |---|---|
 | `BROKER_SERVER_TZ` | the MT5 server clock, New York + 7h |
+| `HISTDATA_TZ` | histdata.com's clock: `America/New_York` before 2019-01-01, London − 5h (New York's clock on the EU daylight-saving dates) from then on |
+| `SwitchingZone(before, after, switch, name)` | a `tzinfo`: `before`'s rules until the wall-clock moment `switch`, `after`'s from it on; both must agree on the UTC offset at `switch` |
 | `ShiftedZone(base, shift, name)` | a `tzinfo`: `base`'s wall clock moved by `shift` |
-| `timezone_by_name(name)` | `"broker"` → `BROKER_SERVER_TZ`, otherwise `ZoneInfo(name)` |
-| `timezone_name(zone)` | the inverse: `BROKER_SERVER_TZ` → `"broker"`, a `ZoneInfo` → its IANA key |
+| `timezone_by_name(name)` | `"broker"` → `BROKER_SERVER_TZ`, `"histdata"` → `HISTDATA_TZ`, otherwise `ZoneInfo(name)` |
+| `timezone_name(zone)` | the inverse: `BROKER_SERVER_TZ` → `"broker"`, `HISTDATA_TZ` → `"histdata"`, a `ZoneInfo` → its IANA key |
 
 pandas rejects custom `tzinfo` objects, so don't pass `BROKER_SERVER_TZ` to `tz_localize`; use `shift_timezone`.
 

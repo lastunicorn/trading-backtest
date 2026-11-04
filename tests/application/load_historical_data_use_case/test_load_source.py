@@ -3,7 +3,7 @@
 from zoneinfo import ZoneInfo
 
 from application.load_historical_data_use_case import SourceFormat, load_source
-from domain.broker_clock import BROKER_SERVER_TZ
+from domain.broker_clock import BROKER_SERVER_TZ, HISTDATA_TZ
 from domain.sample_size import SampleSize
 from domain.symbol import EURUSD
 
@@ -30,7 +30,7 @@ def test_dukascopy_format_reads_bid_ask_pairs(tmp_path) -> None:
 
 def test_histdata_format_reads_histdata_downloads(tmp_path) -> None:
     data = load_source(write_histdata_export(tmp_path / "DAT_MT_EURUSD_M1_202001.csv"), SourceFormat.HISTDATA, M5,
-                       EURUSD, timezone=ZoneInfo("America/New_York"))
+                       EURUSD, timezone=HISTDATA_TZ)
 
     assert len(data) == 2
-    assert data.timezone == ZoneInfo("America/New_York")
+    assert data.timezone == HISTDATA_TZ

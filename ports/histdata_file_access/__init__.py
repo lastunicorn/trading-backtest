@@ -1,7 +1,7 @@
 """histdata.com MetaTrader downloads as the repo's bar frames.
 
 The format is `libs.metatrader_csv`; this port knows what is particular to
-histdata's files (no volume worth keeping, no spread, New York time). See
+histdata's files (no volume worth keeping, no spread, its own clock). See
 `histdata_frame_reader`.
 
 Re-exported so callers can use the short form:

@@ -96,8 +96,8 @@ def _check_data_source(data_source: DataSourceConfig, fail: Fail) -> None:
     try:
         timezone_by_name(data_source.timezone)
     except (KeyError, ValueError) as error:  # ZoneInfoNotFoundError is a KeyError
-        raise fail(f'"data_source.timezone" is {json.dumps(data_source.timezone)}: not "broker" or an IANA '
-                   f'time zone name such as "UTC" or "America/New_York"') from error
+        raise fail(f'"data_source.timezone" is {json.dumps(data_source.timezone)}: not "broker", "histdata" or an '
+                   f'IANA time zone name such as "UTC" or "America/New_York"') from error
 
 
 def _parse_timeframe(value: str, key: str, fail: Fail) -> SampleSize:

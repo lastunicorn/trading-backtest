@@ -22,8 +22,9 @@ one frame, sorted and deduplicated (where two files hold the same timestamp,
 the later file wins); `domain.pandas_approach.session_ohlc` does the rest. The
 exports carry no timezone: --source-timezone says which clock their timestamps
 are on, "broker" (this repo's MT5 broker-server clock, New York + 7h) by
-default, or an IANA name. It is never inferred from the format, but histdata
-must be "America/New_York" and Dukascopy "UTC": any other clock is an error.
+default, "histdata" (histdata.com's clock: New York's, switching daylight
+saving on the EU dates from 2019), or an IANA name. It is never inferred from the
+format; Dukascopy must be "UTC", any other clock is an error.
 --source-symbol (EURUSD by default) sets the price decimals printed.
 
 Output goes to the console; a file report comes later.
@@ -32,7 +33,7 @@ Usage:
     python3 calculate_daily_sessions.py                                  # data/eurusd/1min
     python3 calculate_daily_sessions.py data/eurusd/1min/EURUSD_2020_01.csv
     python3 calculate_daily_sessions.py data/eurusd/1min --session London --session "New York"
-    python3 calculate_daily_sessions.py path/to/histdata --source-format histdata --source-timezone America/New_York
+    python3 calculate_daily_sessions.py path/to/histdata --source-format histdata --source-timezone histdata
     python3 calculate_daily_sessions.py path/to/dukascopy --source-format dukascopy --source-timezone UTC
 """
 
@@ -48,7 +49,7 @@ from zoneinfo import ZoneInfoNotFoundError
 import pandas as pd
 
 from application.load_historical_data_use_case import SourceFormat, load_source
-from domain.broker_clock import BROKER_TZ_NAME, timezone_by_name, timezone_name
+from domain.broker_clock import BROKER_TZ_NAME, HISTDATA_TZ_NAME, timezone_by_name, timezone_name
 from domain.pandas_approach.session_ohlc import session_ohlc
 from domain.sample_size import SampleSize
 from domain.symbol import EURUSD, Symbol, by_ticker
@@ -121,7 +122,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--source-timezone",
         default=BROKER_TZ_NAME,
-        help=f"the clock the exports' timestamps are on: '{BROKER_TZ_NAME}' or an IANA name "
+        help=f"the clock the exports' timestamps are on: '{BROKER_TZ_NAME}', '{HISTDATA_TZ_NAME}' or an IANA name "
              f"(default: {BROKER_TZ_NAME})",
     )
     parser.add_argument(

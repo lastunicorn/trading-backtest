@@ -4,7 +4,7 @@ from zoneinfo import ZoneInfo
 
 import pandas as pd
 
-from domain.broker_clock import BROKER_SERVER_TZ
+from domain.broker_clock import BROKER_SERVER_TZ, HISTDATA_TZ
 from domain.pandas_approach.shift_timezone import shift_timezone
 
 LONDON = ZoneInfo("Europe/London")
@@ -77,3 +77,29 @@ def test_other_columns_pass_through_unchanged() -> None:
     result = shift_timezone(frame, LONDON, from_tz=NEW_YORK)
 
     assert result["close"].iloc[0] == 1.23456
+
+
+def test_a_switching_zone_converts_each_row_by_the_rules_in_force_then() -> None:
+    # Mismatch weeks: histdata is New York time in 2018 (UTC-4), London - 5h from 2019 (UTC-5).
+    frame = pd.DataFrame({"datetime": pd.to_datetime(["2019-03-18 00:00", "2018-03-19 00:00"])}, index=[7, 3])
+
+    result = shift_timezone(frame, UTC, from_tz=HISTDATA_TZ)
+
+    assert list(result.index) == [7, 3]
+    assert list(result["datetime"]) == [pd.Timestamp("2019-03-18 05:00"), pd.Timestamp("2018-03-19 04:00")]
+
+
+def test_a_switching_zone_round_trips() -> None:
+    frame = pd.DataFrame({"datetime": pd.to_datetime(["2018-03-19 00:00", "2018-12-31 23:59", "2019-01-01 00:00",
+                                                      "2019-03-18 00:00"])})
+
+    back = shift_timezone(shift_timezone(frame, UTC, from_tz=HISTDATA_TZ), HISTDATA_TZ, from_tz=UTC)
+
+    assert list(back["datetime"]) == list(frame["datetime"])
+
+
+def test_a_switching_zone_reads_a_reading_only_the_other_side_lacks() -> None:
+    # 02:30 on 2019-03-10 doesn't exist in New York (spring forward), but histdata is London - 5h by then.
+    frame = pd.DataFrame({"datetime": pd.to_datetime(["2019-03-10 02:30"])})
+
+    assert shift_timezone(frame, UTC, from_tz=HISTDATA_TZ)["datetime"].iat[0] == pd.Timestamp("2019-03-10 07:30")

@@ -10,7 +10,7 @@ processed data to a CSV.
     python3 read_csv.py data/eurusd/1min --interval 5m              # whole folder, resampled to M5
     python3 read_csv.py data/eurusd/1min --interval 1w              # resampled to weekly bars
     python3 read_csv.py data/eurusd/1min --timezone UTC             # broker-server time -> UTC
-    python3 read_csv.py path/to/histdata --source-timezone America/New_York --timezone UTC
+    python3 read_csv.py path/to/histdata --source-timezone histdata --timezone UTC
     python3 read_csv.py data/eurusd/1min --output scratch/jan.csv   # write instead of display
     python3 read_csv.py path/to/other.csv --decimals 3
     python3 read_csv.py data/eurusd/1min/EURUSD_2020_01.csv --source-symbol EURUSD  # fixed decimals
@@ -172,8 +172,8 @@ def parse_args():
         default=BROKER_SERVER_TZ,
         metavar="TZ",
         help="The clock the exports' timestamps are on: 'broker' (New York + 7h, "
-             "see domain.broker_clock) or an IANA name such as 'America/New_York' "
-             "for histdata.com exports (default: broker). Only --timezone uses it.",
+             "see domain.broker_clock), 'histdata' for histdata.com exports, or an "
+             "IANA name such as 'America/New_York' (default: broker). Only --timezone uses it.",
     )
 
     parser.add_argument(

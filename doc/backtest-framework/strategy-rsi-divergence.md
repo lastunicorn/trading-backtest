@@ -34,7 +34,7 @@ Each bound carries its own timezone, so `"08:00 Europe/London"` stays 08:00 Lond
 - Either bound may be `null` (the default) or left out. With only `start_time`, the window runs to midnight in its zone. With only `end_time`, it runs from midnight.
 - An `end_time` at or before `start_time` wraps past midnight (`"22:00 UTC"` → `"02:00 UTC"`).
 - The two bounds may be in different zones.
-- The window is compared with real instants, so `data_source.timezone` must be right for the source (`"America/New_York"` for histdata, `"UTC"` for Dukascopy, `"broker"` for this repo's MT5 exports).
+- The window is compared with real instants, so `data_source.timezone` must be right for the source (`"histdata"` for histdata, `"UTC"` for Dukascopy, `"broker"` for this repo's MT5 exports).
 
 `run.json` and the report record the bounds with their zone (`08:00:00 Europe/London`). The rule itself is `domain.time_window.TimeWindow`, which other strategies can reuse.
 

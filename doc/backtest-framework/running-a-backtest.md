@@ -86,7 +86,7 @@ The clock is not part of the format: two MetaTrader exports can be on different 
 | Source | `data_source.format` | Loader | Spread in the file | `data_source.timezone` |
 |---|---|---|---|---|
 | this repo's MT5 broker exports (`data/eurusd/1min`), `read_csv.py --output` files | `metatrader` | `load_mt5` | points (tick size) | `"broker"` |
-| histdata.com MT exports (`DAT_MT_EURUSD_M1_*.csv`) | `histdata` | `load_histdata` (volume dropped: always 0) | none | `"America/New_York"`, the only clock accepted (week opens Sunday 17:00; broker time − 7h, checked against the broker exports) |
+| histdata.com MT exports (`DAT_MT_EURUSD_M1_*.csv`) | `histdata` | `load_histdata` (volume dropped: always 0) | none | `"histdata"`: New York time before 2019; from 2019 New York's clock on the EU daylight-saving dates (London − 5h). The week opens Sunday 17:00 (broker time − 7h), except, from 2019, in the weeks the US and EU switch dates disagree, when it opens 16:00 (broker time − 8h); checked against the broker exports for 2020–2025 and the week edges for 2016–2019. Not enforced: any clock is accepted |
 | Dukascopy bid/ask pairs | `dukascopy` | `load_dukascopy` | price units (ask − bid) | `"UTC"`, the only one accepted (the timestamps are epoch milliseconds) |
 
 The loaders convert spread to pips. The **broker-server clock is New York + 7 hours** (GMT+2 in winter, GMT+3 in summer, switching on the US daylight-saving dates), available as `domain.broker_clock.BROKER_SERVER_TZ`. To move a frame between clocks, use `domain.pandas_approach.shift_timezone.shift_timezone`.

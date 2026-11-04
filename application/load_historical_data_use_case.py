@@ -6,7 +6,7 @@
     M5 = SampleSize.Parse("5m")
     data = load_mt5("data/eurusd/1min", M5, EURUSD, timezone=BROKER_SERVER_TZ, progress=print)
     data = load_dukascopy("/data/dukascopy/eurusd/2025", M5, EURUSD, timezone=ZoneInfo("UTC"))
-    data = load_histdata(".../histdata/mt/2025", M5, EURUSD, timezone=ZoneInfo("America/New_York"))
+    data = load_histdata(".../histdata/mt/2025", M5, EURUSD, timezone=HISTDATA_TZ)
     data = load_source(path, SourceFormat.METATRADER, M5, symbol, timezone=tz)   # the loader for a format
 
 Each format differs in layout and spread unit, and this module is where those
@@ -19,9 +19,10 @@ differences are settled:
 
 The clock is *not* a property of the format -- MT exports from this repo's
 broker are on the broker-server clock (New York + 7h), histdata's MT exports
-on New York time -- so every loader takes the source's `timezone` from the
-caller. It labels the bars; nothing is shifted. A format whose clock is fixed
-(Dukascopy's UTC, histdata's New York time) checks it rather than trusting it.
+on `HISTDATA_TZ` (New York's clock, on the EU daylight-saving dates from
+2019) -- so every loader takes the source's `timezone` from the caller. It
+labels the bars; nothing is shifted. Dukascopy, whose epoch timestamps can
+only be UTC, checks it rather than trusting it.
 
 Every loader resamples to `timeframe`. That is a no-op when the source is
 already at it, as an M5 export (`read_csv.py --interval 5m --output`)
@@ -35,7 +36,6 @@ from __future__ import annotations
 from collections.abc import Callable
 from datetime import datetime, timedelta, tzinfo
 from enum import Enum
-from zoneinfo import ZoneInfo
 
 import pandas as pd
 
@@ -97,13 +97,12 @@ def load_histdata(
     """A folder of histdata.com MetaTrader downloads (`DAT_MT_*.csv`), or one, merged and resampled.
 
     Built by `build_clean_dataset`, like `load_mt5`. histdata's timestamps are
-    New York time: `timezone` must keep New York's clock, and any other raises
-    `ValueError` rather than mislabelling the bars.
+    on `domain.broker_clock.HISTDATA_TZ` (New York's clock, on the EU
+    daylight-saving dates from 2019), which is what `timezone` should normally be. Any
+    zone is accepted and labels the bars as given: nothing checks it.
 
     The bars carry no volume and no spread (histdata has neither).
     """
-    if not _same_clock(timezone, ZoneInfo(histdata_file_access.TIMEZONE)):
-        raise ValueError(f"histdata bars are {histdata_file_access.TIMEZONE} time, not {timezone}")
     frame = build_clean_dataset(
         source,
         timeframe=timeframe,
@@ -138,9 +137,3 @@ def load_dukascopy(
 def _is_utc(zone: tzinfo) -> bool:
     """Whether `zone` is UTC all year (checked in winter and summer, so a DST zone fails)."""
     return all(datetime(2020, month, 1, tzinfo=zone).utcoffset() == timedelta(0) for month in (1, 7))
-
-
-def _same_clock(zone: tzinfo, expected: tzinfo) -> bool:
-    """Whether `zone` keeps `expected`'s wall clock, in winter, in summer and in the weeks US and EU DST disagree."""
-    moments = [datetime(2020, month, day) for month, day in ((1, 1), (3, 15), (7, 1), (10, 30))]
-    return all(moment.replace(tzinfo=zone).utcoffset() == moment.replace(tzinfo=expected).utcoffset() for moment in moments)
