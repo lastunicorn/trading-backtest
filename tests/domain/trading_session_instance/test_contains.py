@@ -1,14 +1,14 @@
-"""Tests for `TradingSession.contains`."""
+"""Tests for `TradingSessionInstance.contains`."""
 
 from datetime import UTC, datetime, timedelta, timezone
 
-from domain.trading_session import TradingSession
+from domain.trading_session_instance import TradingSessionInstance
 
 LONDON_PLUS_1 = timezone(timedelta(hours=1))
 
 
-def make_session() -> TradingSession:
-    return TradingSession(
+def make_session() -> TradingSessionInstance:
+    return TradingSessionInstance(
         start_dt=datetime(2026, 1, 15, 8, 0, tzinfo=UTC),
         end_dt=datetime(2026, 1, 15, 16, 30, tzinfo=UTC),
     )

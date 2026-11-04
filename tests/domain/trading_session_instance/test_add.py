@@ -1,13 +1,13 @@
-"""Tests for `TradingSession.add`."""
+"""Tests for `TradingSessionInstance.add`."""
 
 from datetime import UTC, datetime
 
 from domain.bar_approach.bar import Bar
-from domain.trading_session import TradingSession
+from domain.trading_session_instance import TradingSessionInstance
 
 
-def make_session() -> TradingSession:
-    return TradingSession(
+def make_session() -> TradingSessionInstance:
+    return TradingSessionInstance(
         start_dt=datetime(2026, 1, 15, 8, 0, tzinfo=UTC),
         end_dt=datetime(2026, 1, 15, 16, 30, tzinfo=UTC),
     )

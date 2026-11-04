@@ -1,8 +1,9 @@
 """Per-day open/high/low/close of a trading session, from a bar frame.
 
-The pandas counterpart to filling one `domain.trading_session.TradingSession`
-per day bar by bar: every bar is assigned to the session day it falls in, then
-each day's bars collapse into one OHLC row.
+The pandas counterpart to filling one
+`domain.trading_session_instance.TradingSessionInstance` per day bar by bar:
+every bar is assigned to the session day it falls in, then each day's bars
+collapse into one OHLC row.
 
     from domain.broker_clock import BROKER_SERVER_TZ
     from domain.pandas_approach.session_ohlc import session_ohlc

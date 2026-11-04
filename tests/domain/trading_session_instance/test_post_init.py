@@ -1,14 +1,14 @@
-"""Tests for `TradingSession.__post_init__`."""
+"""Tests for `TradingSessionInstance.__post_init__`."""
 
 from datetime import UTC, datetime, timedelta, timezone
 
-from domain.trading_session import TradingSession
+from domain.trading_session_instance import TradingSessionInstance
 
 LONDON_PLUS_1 = timezone(timedelta(hours=1))
 
 
 def test_naive_bounds_are_assumed_utc() -> None:
-    session = TradingSession(
+    session = TradingSessionInstance(
         start_dt=datetime(2026, 1, 15, 8, 0),
         end_dt=datetime(2026, 1, 15, 16, 30),
     )
@@ -17,7 +17,7 @@ def test_naive_bounds_are_assumed_utc() -> None:
 
 
 def test_aware_bounds_are_converted_to_utc() -> None:
-    session = TradingSession(
+    session = TradingSessionInstance(
         start_dt=datetime(2026, 1, 15, 8, 0, tzinfo=LONDON_PLUS_1),
         end_dt=datetime(2026, 1, 15, 16, 30, tzinfo=LONDON_PLUS_1),
     )

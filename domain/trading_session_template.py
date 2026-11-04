@@ -1,7 +1,7 @@
 """`TradingSessionTemplate`: a trading session's daily time window, and nothing
-else -- unlike `trading_session.TradingSession`, a template holds no bars, it
-just describes when a session runs; `create_session(date)` makes the
-`TradingSession` for one day.
+else -- unlike `trading_session_instance.TradingSessionInstance`, a template
+holds no bars, it just describes when a session runs; `create_session(date)`
+makes the `TradingSessionInstance` for one day.
 
 The standard sessions are module constants (`TOKYO_SESSION`, `ASIA_SESSION`,
 `LONDON_SESSION`, `NEW_YORK_SESSION`), collected by name in `SESSIONS`.
@@ -24,7 +24,7 @@ from dataclasses import dataclass
 from datetime import UTC, date as _date, datetime, time as _time, timedelta
 from zoneinfo import ZoneInfo
 
-from domain.trading_session import TradingSession
+from domain.trading_session_instance import TradingSessionInstance
 
 __all__ = [
     "TradingSessionTemplate",
@@ -41,7 +41,7 @@ class TradingSessionTemplate:
     """A trading session's daily window: a start and an end, each a
     timezone-aware local time, plus an optional display name. Frozen -- a
     template is a fixed description of a session, not something that
-    accumulates bars like `TradingSession` does.
+    accumulates bars like `TradingSessionInstance` does.
     """
 
     start_time: _time
@@ -72,8 +72,8 @@ class TradingSessionTemplate:
         """`end_time` on calendar date `date`, converted to UTC. See `start_time_utc_on`."""
         return self.end_time_on(date).astimezone(UTC)
 
-    def create_session(self, date: _date) -> TradingSession:
-        """Create a `TradingSession` instance for the given calendar date `date`.
+    def create_session(self, date: _date) -> TradingSessionInstance:
+        """Create the `TradingSessionInstance` for the given calendar date `date`.
 
         Compares actual UTC instants (not raw local wall-clock times) to
         decide whether the session wraps past midnight -- with start and end
@@ -85,7 +85,7 @@ class TradingSessionTemplate:
         if end_dt_utc <= start_dt_utc:
             end_dt_utc = self.end_time_utc_on(date + timedelta(days=1))
 
-        return TradingSession(start_dt=start_dt_utc, end_dt=end_dt_utc)
+        return TradingSessionInstance(start_dt=start_dt_utc, end_dt=end_dt_utc)
 
 
 _TOKYO = ZoneInfo("Asia/Tokyo")

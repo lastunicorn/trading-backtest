@@ -1,13 +1,13 @@
-"""Tests for `TradingSession.range`."""
+"""Tests for `TradingSessionInstance.range`."""
 
 from datetime import UTC, datetime
 
 from domain.bar_approach.bar import Bar
-from domain.trading_session import TradingSession
+from domain.trading_session_instance import TradingSessionInstance
 
 
 def test_delegates_to_the_bar_block_high_minus_low() -> None:
-    session = TradingSession(
+    session = TradingSessionInstance(
         start_dt=datetime(2026, 1, 15, 8, 0, tzinfo=UTC),
         end_dt=datetime(2026, 1, 15, 16, 30, tzinfo=UTC),
     )

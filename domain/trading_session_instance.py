@@ -6,7 +6,7 @@ from domain.bar_approach.bar_block import BarBlock
 
 
 @dataclass
-class TradingSession:
+class TradingSessionInstance:
 
     start_dt: datetime
     end_dt: datetime

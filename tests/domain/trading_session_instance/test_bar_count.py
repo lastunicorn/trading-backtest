@@ -1,13 +1,13 @@
-"""Tests for `TradingSession.bar_count`."""
+"""Tests for `TradingSessionInstance.bar_count`."""
 
 from datetime import UTC, datetime
 
 from domain.bar_approach.bar import Bar
-from domain.trading_session import TradingSession
+from domain.trading_session_instance import TradingSessionInstance
 
 
 def test_starts_at_zero() -> None:
-    session = TradingSession(
+    session = TradingSessionInstance(
         start_dt=datetime(2026, 1, 15, 8, 0, tzinfo=UTC),
         end_dt=datetime(2026, 1, 15, 16, 30, tzinfo=UTC),
     )
@@ -15,7 +15,7 @@ def test_starts_at_zero() -> None:
 
 
 def test_counts_each_added_bar() -> None:
-    session = TradingSession(
+    session = TradingSessionInstance(
         start_dt=datetime(2026, 1, 15, 8, 0, tzinfo=UTC),
         end_dt=datetime(2026, 1, 15, 16, 30, tzinfo=UTC),
     )

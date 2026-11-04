@@ -1,14 +1,14 @@
-"""Tests for `TradingSession.bars`."""
+"""Tests for `TradingSessionInstance.bars`."""
 
 from datetime import UTC, datetime
 
 from domain.bar_approach.bar import Bar
 from domain.bar_approach.bar_block import BarBlock
-from domain.trading_session import TradingSession
+from domain.trading_session_instance import TradingSessionInstance
 
 
 def test_exposes_the_underlying_bar_block() -> None:
-    session = TradingSession(
+    session = TradingSessionInstance(
         start_dt=datetime(2026, 1, 15, 8, 0, tzinfo=UTC),
         end_dt=datetime(2026, 1, 15, 16, 30, tzinfo=UTC),
     )
