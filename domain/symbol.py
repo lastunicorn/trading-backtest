@@ -36,17 +36,19 @@ __all__ = [
     "USDJPY",
     "XAUUSD",
     "XAGUSD",
+    "DEUIDXEUR",
     "SYMBOLS",
     "by_ticker",
 ]
 
 
 class SymbolCategory(Enum):
-    """What kind of instrument a `Symbol` is. Just the two this repo has
+    """What kind of instrument a `Symbol` is. Just the ones this repo has
     symbols for so far -- extend as new categories show up."""
 
     FOREX = "Forex"
     COMMODITY = "Commodity"
+    INDEX = "Index"
 
 
 @dataclass(frozen=True)
@@ -93,11 +95,16 @@ USDJPY = Symbol("U.S. Dollar / Japanese Yen", "USDJPY", pip_size=0.01, tick_size
 XAUUSD = Symbol("Gold / U.S. Dollar", "XAUUSD", pip_size=0.1, tick_size=0.01, category=SymbolCategory.COMMODITY)
 XAGUSD = Symbol("Silver / U.S. Dollar", "XAGUSD", pip_size=0.01, tick_size=0.001, category=SymbolCategory.COMMODITY)
 
+# Indices have no pip at all; the usual unit is the index point (1.0), so a
+# "pip" here is one point. The ticker and tick size are Dukascopy's: its
+# DEU.IDX/EUR (the DAX, priced in euros) quotes to 3 decimals.
+DEUIDXEUR = Symbol("German 40 Index", "DEUIDXEUR", pip_size=1.0, tick_size=0.001, category=SymbolCategory.INDEX)
+
 # Every known symbol by ticker: what `by_ticker`, config validation and
 # `show_symbols.py` see. A new symbol must be added here as well as defined.
 SYMBOLS: dict[str, Symbol] = {
     symbol.ticker: symbol
-    for symbol in (EURUSD, GBPUSD, AUDUSD, NZDUSD, USDCAD, USDCHF, USDJPY, XAUUSD, XAGUSD)
+    for symbol in (EURUSD, GBPUSD, AUDUSD, NZDUSD, USDCAD, USDCHF, USDJPY, XAUUSD, XAGUSD, DEUIDXEUR)
 }
 
 
