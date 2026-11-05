@@ -63,7 +63,7 @@ A config is one JSON object, grouped by what each setting controls:
 | Key | Required | Default | Meaning |
 |---|---|---|---|
 | `strategy` | yes | – | The strategy to run: an object with the `strategy.*` keys below. |
-| `strategy.name` | yes | – | A key of `strategies.STRATEGIES`, e.g. `"narrow_asia_fade"`, `"rsi_divergence"`, `"session_breakout"`. Also recorded as `strategy.name` in `run.json` and shown in the report header. |
+| `strategy.name` | yes | – | A key of `strategies.STRATEGIES`, e.g. `"narrow_asia_fade"`, `"orb_break_entry"`, `"rsi_divergence"`, `"session_breakout"`. Also recorded as `strategy.name` in `run.json` and shown in the report header. |
 | `strategy.parameters` | no | `{}` | Overrides for the strategy's own parameters (its dataclass fields, listed on each strategy's page); the rest keep their defaults. See [Strategy parameters](#4-strategy-parameters). |
 | `data_source` | yes | – | The bars as they are on disk: an object with the `data_source.*` keys below. |
 | `data_source.path` | yes | – | A file or a folder of files in `data_source.format`. |

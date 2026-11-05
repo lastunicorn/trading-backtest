@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from domain.pandas_approach.trading_strategy import TradingStrategy
 from strategies.narrow_asia_fade import NarrowAsiaFade
+from strategies.orb_break_entry import OrbBreakEntry
 from strategies.rsi_divergence import RsiDivergence
 from strategies.session_breakout import SessionBreakout
 
@@ -16,6 +17,7 @@ __all__ = ["STRATEGIES"]
 
 STRATEGIES: dict[str, type[TradingStrategy]] = {
     "narrow_asia_fade": NarrowAsiaFade,
+    "orb_break_entry": OrbBreakEntry,
     "rsi_divergence": RsiDivergence,
     "session_breakout": SessionBreakout,
 }
