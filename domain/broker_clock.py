@@ -45,7 +45,7 @@ from zoneinfo import ZoneInfo
 
 __all__ = [
     "BROKER_SERVER_TZ", "BROKER_TZ_NAME", "HISTDATA_TZ", "HISTDATA_TZ_NAME", "ShiftedZone", "SwitchingZone",
-    "timezone_by_name", "timezone_name",
+    "is_utc", "timezone_by_name", "timezone_name",
 ]
 
 
@@ -198,3 +198,8 @@ def timezone_name(zone: tzinfo) -> str:
     if isinstance(zone, ZoneInfo):
         return zone.key
     return str(zone)
+
+
+def is_utc(zone: tzinfo) -> bool:
+    """Whether `zone` is UTC all year (checked in winter and summer, so a DST zone fails)."""
+    return all(datetime(2020, month, 1, tzinfo=zone).utcoffset() == timedelta(0) for month in (1, 7))

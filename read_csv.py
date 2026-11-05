@@ -1,7 +1,7 @@
-"""Print an MT5 export to the console, raw or resampled.
+"""Print a bar export to the console, raw or resampled.
 
-Utility: reads via ports.mt5_file_access and either
-displays -- nothing written to disk -- or, with --output, writes the
+Utility: reads the --source-format's files (this repo's MT5 exports by
+default) and either displays -- nothing written to disk -- or, with --output, writes the
 processed data to a CSV.
 
     python3 read_csv.py data/eurusd/1min/EURUSD_2020_01.csv        # first 20 bars
@@ -10,17 +10,25 @@ processed data to a CSV.
     python3 read_csv.py data/eurusd/1min --timeframe 5m             # whole folder, resampled to M5
     python3 read_csv.py data/eurusd/1min --timeframe 1w             # resampled to weekly bars
     python3 read_csv.py data/eurusd/1min --timezone UTC             # broker-server time -> UTC
-    python3 read_csv.py path/to/histdata --source-timezone histdata --timezone UTC
+    python3 read_csv.py path/to/histdata --source-format histdata --source-timezone histdata --timezone UTC
+    python3 read_csv.py path/to/dukascopy --source-format dukascopy --source-timezone UTC --source-symbol EURUSD
     python3 read_csv.py data/eurusd/1min --output scratch/jan.csv   # write instead of display
     python3 read_csv.py path/to/other.csv --decimals 3
     python3 read_csv.py data/eurusd/1min/EURUSD_2020_01.csv --source-symbol EURUSD  # fixed decimals
 
-`source` is a single file or a folder of exports (see ports.file_system_access
-.find_files) -- a folder's files are read in name order, which is chronological
-for this repo's monthly exports. The pipeline is always: read every file into
+`source` is a single file or a folder of exports, read by --source-format's port:
+"metatrader" (MT4/MT5 exports, `*.csv`, the default), "histdata" (histdata.com
+MetaTrader downloads, `DAT_MT_*.csv`; OHLC only) or "dukascopy" (bid/ask pairs:
+a folder of them or one file of a pair; OHLC from bid, no volumes). A
+metatrader/histdata folder's files are read in name order (see
+ports.file_system_access.find_files), which is chronological for monthly
+exports. Every format comes out in the MT5 export's shape, spread in points:
+Dukascopy's ask - bid spread is converted with --source-symbol's tick size,
+so that symbol is required there, and --output writes a file `load_mt5` reads
+back. The pipeline is always: read every file into
 one frame, clean it up (sort, drop duplicate timestamps), optionally shift
 timezone (--timezone, from the exports' own clock, --source-timezone, which
-is broker-server time by default; off by default -- bars display on the
+is broker-server time by default and must be UTC for dukascopy; off by default -- bars display on the
 exports' own clock otherwise), optionally resample (--timeframe), then display or write
 (--output). See domain.sample_size.SampleSize for the --timeframe syntax (5m,
 4h, 7d, 2w, 3M, ...); resampling uses plain pandas bucket semantics (see
@@ -42,26 +50,31 @@ import time
 
 import pandas as pd
 
+from application.load_historical_data_use_case import SourceFormat
 from domain.pandas_approach.frames import clean_frame, resample_ohlc
-from domain.broker_clock import BROKER_SERVER_TZ, timezone_name
+from domain.broker_clock import BROKER_SERVER_TZ, is_utc, timezone_name
 from domain.pandas_approach.shift_timezone import shift_timezone
 from domain.sample_size import SampleSize
 from domain.symbol import by_ticker
+from ports import dukascopy_file_access, histdata_file_access, mt5_file_access
 from ports.file_system_access.file_system import find_files
-from ports.mt5_file_access import read_frame, write_frame
+from ports.mt5_file_access import write_frame
 from ui.cli_args import timezone_arg
 from ui.frame_table_view import display_frame
+
+DEFAULT_SOURCE_FORMAT = SourceFormat.METATRADER
+
+# Formats read file by file: the files to pick from a folder, and the reader for one.
+_FILE_READERS = {
+    SourceFormat.METATRADER: ("*.csv", mt5_file_access.read_frame),
+    SourceFormat.HISTDATA: (histdata_file_access.FILE_PATTERN, histdata_file_access.read_frame),
+}
 
 
 def main():
     start_time = time.perf_counter()
     args = parse_args()
-
-    paths = find_files(args.source, pattern="*.csv")
-
-    if not paths:
-        print(f"ERROR: no csv files found at {args.source!r}", file=sys.stderr)
-        return 1
+    source_format = SourceFormat(args.source_format)
 
     timeframe = None
 
@@ -72,13 +85,28 @@ def main():
             print(f"ERROR: {exc}", file=sys.stderr)
             return 1
 
-    decimals = args.decimals
+    symbol = None
 
-    if decimals is None and args.source_symbol:
+    if args.source_symbol:
         try:
-            decimals = by_ticker(args.source_symbol).price_decimals
+            symbol = by_ticker(args.source_symbol)
         except ValueError as exc:
             print(f"ERROR: {exc}", file=sys.stderr)
+            return 1
+
+    decimals = args.decimals
+
+    if decimals is None and symbol is not None:
+        decimals = symbol.price_decimals
+
+    if source_format is SourceFormat.DUKASCOPY:
+        if symbol is None:
+            print("ERROR: --source-format dukascopy needs --source-symbol (its tick size converts the spread to points)",
+                  file=sys.stderr)
+            return 1
+        if not is_utc(args.source_timezone):
+            print(f"ERROR: Dukascopy bars are UTC (epoch timestamps), not --source-timezone "
+                  f"{timezone_name(args.source_timezone)}", file=sys.stderr)
             return 1
 
     skipped = []
@@ -87,8 +115,8 @@ def main():
         skipped.append((line_no, reason))
 
     try:
-        frame = read_all(paths, strict=args.strict, on_skip=on_skip)
-    except Exception as exc:  # BarParseError (strict mode) or a bad file
+        frame, file_count = read_source(args.source, source_format, symbol=symbol, strict=args.strict, on_skip=on_skip)
+    except Exception as exc:  # no files, BarParseError (strict mode) or a bad file
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
 
@@ -107,7 +135,7 @@ def main():
     elapsed_data_processing = time.perf_counter() - start_time
 
     print("=" * 64)
-    print(f"SOURCE: {args.source}" + (f"  ({len(paths)} files)" if len(paths) > 1 else ""))
+    print(f"SOURCE: {args.source}  ({source_format.value}" + (f", {file_count} files)" if file_count > 1 else ")"))
 
     if args.timeframe:
         print(f"RESAMPLE: {args.timeframe}")
@@ -142,12 +170,21 @@ def main():
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Display an MT5 CSV export in the console, raw or resampled."
+        description="Display a bar export (MT5, histdata or Dukascopy) in the console, raw or resampled."
     )
 
     parser.add_argument(
         "source",
         help="CSV file, or a folder of exports, to display.",
+    )
+
+    parser.add_argument(
+        "--source-format",
+        default=DEFAULT_SOURCE_FORMAT.value,
+        choices=[source_format.value for source_format in SourceFormat],
+        help="How the exports are laid out, which picks the reader: 'metatrader' (MT4/MT5 exports), "
+             "'histdata' (histdata.com MetaTrader downloads) or 'dukascopy' (bid/ask pairs; needs "
+             f"--source-symbol) (default: {DEFAULT_SOURCE_FORMAT.value}).",
     )
 
     parser.add_argument(
@@ -173,7 +210,8 @@ def parse_args():
         metavar="TZ",
         help="The clock the exports' timestamps are on: 'broker' (New York + 7h, "
              "see domain.broker_clock), 'histdata' for histdata.com exports, or an "
-             "IANA name such as 'America/New_York' (default: broker). Only --timezone uses it.",
+             "IANA name such as 'America/New_York' (default: broker; dukascopy must be UTC). "
+             "Only --timezone uses it.",
     )
 
     parser.add_argument(
@@ -225,20 +263,39 @@ def parse_args():
     parser.add_argument(
         "--strict",
         action="store_true",
-        help="Abort on a malformed line instead of skipping it.",
+        help="Abort on a malformed line instead of skipping it (metatrader and histdata; "
+             "a malformed Dukascopy file always aborts).",
     )
 
     return parser.parse_args()
 
 
-def read_all(paths, *, strict, on_skip):
-    """Read every file at `paths` into one frame, in file order.
+def read_source(source, source_format, *, symbol=None, strict=True, on_skip=None):
+    """Read every file of `source` into one frame, in file order: (frame, file count).
+
+    The frame is in the MT5 export's shape, with only the columns the format
+    has: Dukascopy's always-empty volumes are dropped and its ask - bid spread
+    is converted from price to points with `symbol`'s tick size, so `symbol`
+    is required for it. `strict`/`on_skip` apply to metatrader and histdata.
+    Dukascopy's count is 1: its port reads all the pairs in one call.
+    Raises FileNotFoundError when `source` holds no file of the format.
 
     No sorting, no dedup -- just concatenation; `clean_frame` is the next
     pipeline step, deliberately separate.
     """
-    pieces = [read_frame(path, strict=strict, on_skip=on_skip) for path in paths]
-    return pd.concat(pieces, ignore_index=True)
+    if source_format is SourceFormat.DUKASCOPY:
+        frame = dukascopy_file_access.read_path(source).drop(columns=["tick_volume", "volume"])
+        frame["spread"] = (frame["spread"] / symbol.tick_size).round(2)   # 2 places drop the float noise
+        return frame, 1
+
+    pattern, read_file = _FILE_READERS[source_format]
+    paths = find_files(source, pattern=pattern)
+
+    if not paths:
+        raise FileNotFoundError(f"no {pattern} files found at {source!r}")
+
+    pieces = [read_file(path, strict=strict, on_skip=on_skip) for path in paths]
+    return pd.concat(pieces, ignore_index=True), len(paths)
 
 
 if __name__ == "__main__":

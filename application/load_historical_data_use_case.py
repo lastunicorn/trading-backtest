@@ -34,12 +34,13 @@ labelled M1.
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import datetime, timedelta, tzinfo
+from datetime import tzinfo
 from enum import Enum
 
 import pandas as pd
 
 from application.build_clean_dataset_use_case import build_clean_dataset
+from domain.broker_clock import is_utc
 from domain.pandas_approach.frames import clean_frame, resample_ohlc
 from domain.pandas_approach.historical_data import HistoricalData, SpreadUnit
 from domain.sample_size import SampleSize
@@ -125,15 +126,10 @@ def load_dukascopy(
     Dukascopy has no volume, so the empty volume columns are dropped rather
     than resampled into zeros.
     """
-    if not _is_utc(timezone):
+    if not is_utc(timezone):
         raise ValueError(f"Dukascopy bars are UTC (epoch timestamps), not {timezone}")
     if progress is not None:
         progress(f"Reading Dukascopy {source}...")
     raw = dukascopy_file_access.read_path(source).drop(columns=["tick_volume", "volume"])
     frame = resample_ohlc(clean_frame(raw), timeframe)
     return HistoricalData.from_frame(frame, timeframe, symbol, spread_unit=SpreadUnit.PRICE, timezone=timezone)
-
-
-def _is_utc(zone: tzinfo) -> bool:
-    """Whether `zone` is UTC all year (checked in winter and summer, so a DST zone fails)."""
-    return all(datetime(2020, month, 1, tzinfo=zone).utcoffset() == timedelta(0) for month in (1, 7))

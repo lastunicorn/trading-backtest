@@ -48,13 +48,20 @@ def display_frame(frame, *, rows, tail, decimals):
 def build_rows(frame, decimals):
     """Turn frame rows into aligned text columns, dropping columns nothing uses.
 
+    TICKVOL shows when the frame has `tick_volume` (histdata and Dukascopy
+    exports don't), VOL when any volume is non-zero, SPREAD when any is known.
+
     `decimals=None` means no symbol was given to format against -- prices
     fall back to plain `str()` rather than a fixed decimal count.
     """
-    header = ["DATE", "TIME", "OPEN", "HIGH", "LOW", "CLOSE", "TICKVOL"]
+    header = ["DATE", "TIME", "OPEN", "HIGH", "LOW", "CLOSE"]
 
+    has_tick_volume = "tick_volume" in frame.columns
     has_volume = "volume" in frame.columns and (frame["volume"] != 0).any()
     has_spread = "spread" in frame.columns and frame["spread"].notna().any()
+
+    if has_tick_volume:
+        header.append("TICKVOL")
 
     if has_volume:
         header.append("VOL")
@@ -74,15 +81,17 @@ def build_rows(frame, decimals):
             format_price(row.high),
             format_price(row.low),
             format_price(row.close),
-            f"{row.tick_volume:,}",
         ]
+
+        if has_tick_volume:
+            line.append(f"{row.tick_volume:,}")
 
         if has_volume:
             line.append(f"{row.volume:,}")
 
         if has_spread:
             spread = row.spread
-            line.append("" if pd.isna(spread) else str(int(spread)))
+            line.append("" if pd.isna(spread) else str(round(spread)))
 
         rows.append(line)
 
