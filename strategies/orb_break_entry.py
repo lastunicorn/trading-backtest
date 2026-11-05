@@ -10,10 +10,10 @@ The opening is a `TradingSession`'s (`session`, `NEW_YORK_SESSION` by
 default: 09:30-16:00 ET, the NYSE bells). For each date D in the zone of the
 session's start:
 
-  1. The opening range -- bars opening in the `range_minutes` (15) from the
+  1. The opening range -- bars opening in the `opening_range_minutes` (15) from the
      session's start, [09:30, 09:45) ET by default -- sets H and L,
      wicks included. A day without range bars, or with H == L, does not trade.
-  2. Two stop orders wait from the range's end until `orders_minutes` (120)
+  2. Two stop orders wait from the range's end until `order_expiry_minutes` (120)
      after the session's start (11:30 ET by default): the
      first bar opening in that window that reaches H opens a long at H, the
      first that reaches L a short at L. Each side fills at most once and they
@@ -85,13 +85,13 @@ class _RangeDay:
 @dataclass(frozen=True)
 class OrbBreakEntry(TradingStrategy):
     session: TradingSession = NEW_YORK_SESSION   # the range starts at its start
-    range_minutes: int = 15                      # the range's length; the orders start at its end
-    orders_minutes: int = 120                    # from the session's start: no entry on a bar opening at or after it
+    opening_range_minutes: int = 15              # the range's length; the orders start at its end
+    order_expiry_minutes: int = 120              # from the session's start: no entry on a bar opening at or after it
     exit_at_session_end: bool = True             # flat by the session's end; False: no time stop
     risk_reward: float = 2.0
 
     def __post_init__(self) -> None:
-        for name in ("range_minutes", "orders_minutes"):
+        for name in ("opening_range_minutes", "order_expiry_minutes"):
             if getattr(self, name) <= 0:
                 raise ValueError(f"{name} must be positive, got {getattr(self, name)}")
         if self.risk_reward <= 0:
@@ -175,16 +175,16 @@ class OrbBreakEntry(TradingStrategy):
         session's start; the session's end is its first after that start.
         """
         local_start = self.session.start_time_on(day)
-        range_end = (local_start + timedelta(minutes=self.range_minutes)).astimezone(UTC)
-        orders_expire = (local_start + timedelta(minutes=self.orders_minutes)).astimezone(UTC)
+        range_end = (local_start + timedelta(minutes=self.opening_range_minutes)).astimezone(UTC)
+        orders_expire = (local_start + timedelta(minutes=self.order_expiry_minutes)).astimezone(UTC)
         session_end = self.session.create_session(day).end_dt
 
         if not range_end <= orders_expire:
-            raise ValueError(f"the range ({self.range_minutes} minutes) must end by the orders' expiry "
-                             f"({self.orders_minutes} minutes) after the {self._session_label} start on {day}")
+            raise ValueError(f"the range ({self.opening_range_minutes} minutes) must end by the orders' expiry "
+                             f"({self.order_expiry_minutes} minutes) after the {self._session_label} start on {day}")
         if not orders_expire < session_end:
-            raise ValueError(f"orders_minutes {self.orders_minutes} must expire the orders before the "
-                             f"{self._session_label} end on {day}")
+            raise ValueError(f"order_expiry_minutes {self.order_expiry_minutes} must expire the orders "
+                             f"before the {self._session_label} end on {day}")
 
         def naive(instant: datetime) -> np.datetime64:
             return np.datetime64(instant.replace(tzinfo=None))

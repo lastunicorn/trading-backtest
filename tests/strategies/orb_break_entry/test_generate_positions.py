@@ -119,7 +119,7 @@ def test_windows_follow_new_york_daylight_saving() -> None:
 
 
 def test_custom_windows() -> None:
-    strategy = OrbBreakEntry(range_minutes=30)
+    strategy = OrbBreakEntry(opening_range_minutes=30)
     # 09:50 is now inside the range, so it sets H rather than breaking it; 10:00 breaks the wider range.
     [position] = _positions(day_frame(overrides={"09:50": BREAK_UP, "10:00": BREAK_UP}), strategy=strategy)
 
@@ -128,7 +128,7 @@ def test_custom_windows() -> None:
 
 
 def test_orders_minutes_count_from_the_session_start() -> None:
-    strategy = OrbBreakEntry(orders_minutes=60)    # 09:30 + 60 minutes: the orders expire at 10:30 ET
+    strategy = OrbBreakEntry(order_expiry_minutes=60)    # 09:30 + 60 minutes: the orders expire at 10:30 ET
 
     assert _positions(day_frame(overrides={"10:30": BREAK_UP}), strategy=strategy) == []
     [position] = _positions(day_frame(overrides={"10:29": BREAK_UP}), strategy=strategy)
