@@ -9,6 +9,8 @@ from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest, PositionC
 from domain.pandas_approach.cost_model import FixedCost
 from domain.pandas_approach.splits import SplitMode
 from ports.run_environment import GitCommit
+from domain.trading_session import LONDON_SESSION, TradingSession
+from strategies.orb_break_entry import OrbBreakEntry
 from strategies.rsi_divergence import RsiDivergence
 from tests.domain.pandas_approach.backtest._fakes import NotedCost, ScriptedStrategy, data
 
@@ -39,6 +41,22 @@ def test_records_timezone_aware_times_with_their_zone() -> None:
     parameters = _info(Backtest(strategy, data(10, {})))["strategy"]["parameters"]
 
     assert (parameters["start_time"], parameters["end_time"]) == ("08:00:00 Europe/London", "16:30:00 broker")
+
+
+def test_records_a_standard_session_by_name() -> None:
+    parameters = _info(Backtest(OrbBreakEntry(session=LONDON_SESSION), data(10, {})))["strategy"]["parameters"]
+
+    assert parameters["session"] == "London"
+
+
+def test_records_another_session_by_its_bounds() -> None:
+    london = ZoneInfo("Europe/London")
+    session = TradingSession(time(8, 0, tzinfo=london), time(17, 0, tzinfo=london), name="FX London")
+
+    parameters = _info(Backtest(OrbBreakEntry(session=session), data(10, {})))["strategy"]["parameters"]
+
+    assert parameters["session"] == {"start_time": "08:00:00 Europe/London", "end_time": "17:00:00 Europe/London",
+                                     "name": "FX London"}
 
 
 def test_records_the_data() -> None:

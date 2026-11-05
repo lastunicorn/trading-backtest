@@ -154,7 +154,7 @@ From the command line, set the fields in the config's `strategy.parameters`. Eac
 "strategy": {"name": "opening_range_breakout", "parameters": {"risk_reward": 2.0, "exit_at": "16:00"}}
 ```
 
-The config can set fields typed `int`, `float`, `bool`, `str`, `datetime.time` (as `"HH:MM"`, on the data's clock) and `domain.time_window.ZonedTime` (a timezone-aware time, as `"HH:MM <zone>"`, e.g. `"08:00 Europe/London"`). Any of these can also be `X | None`, which takes `null`. For a time-of-day filter whose bounds carry their own zones, use `ZonedTime | None` fields plus `TimeWindow`, as `RsiDivergence` does. A field of any other type still works from Python but makes the config fail with a clear error; to support it, extend `_strategy_parameter` in `application/load_backtest_config_use_case.py`.
+The config can set fields typed `int`, `float`, `bool`, `str`, `datetime.time` (as `"HH:MM"`, on the data's clock) `domain.time_window.ZonedTime` (a timezone-aware time, as `"HH:MM <zone>"`, e.g. `"08:00 Europe/London"`) and `domain.trading_session.TradingSession` (a name in `SESSIONS`, e.g. `"London"`; `run.json` records it the same way, or by its bounds for a session not in `SESSIONS`). Any of these can also be `X | None`, which takes `null`. For a time-of-day filter whose bounds carry their own zones, use `ZonedTime | None` fields plus `TimeWindow`, as `RsiDivergence` does. A field of any other type still works from Python but makes the config fail with a clear error; to support it, extend `_strategy_parameter` in `application/load_backtest_config_use_case.py`.
 
 When a variant is worth keeping under its own name, register a subclass that changes the defaults instead:
 

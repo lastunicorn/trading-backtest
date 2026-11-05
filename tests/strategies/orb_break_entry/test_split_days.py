@@ -1,9 +1,13 @@
 """Tests for `strategies.orb_break_entry.OrbBreakEntry.split_days`."""
 
+from datetime import time
+from zoneinfo import ZoneInfo
+
 from domain.broker_clock import BROKER_SERVER_TZ
+from domain.trading_session import TradingSession
 from strategies.orb_break_entry import OrbBreakEntry
 
-from ._fakes import FLAT, TUESDAY, WEDNESDAY, data, day_frame
+from ._fakes import FLAT, QUIET, TUESDAY, WEDNESDAY, data, day_frame, range_at
 
 
 def test_every_date_with_a_usable_opening_range() -> None:
@@ -35,3 +39,14 @@ def test_dates_are_new_york_dates_whatever_the_data_clock() -> None:
     days = OrbBreakEntry().split_days(data(day_frame(TUESDAY), day_frame(WEDNESDAY), timezone=BROKER_SERVER_TZ))
 
     assert days == [TUESDAY, WEDNESDAY]
+
+
+def test_dates_are_in_the_session_start_zone() -> None:
+    # 09:00 Tokyo is 19:00 ET the evening before: Tuesday evening's range is Tokyo's Wednesday.
+    tokyo = ZoneInfo("Asia/Tokyo")
+    session = TradingSession(time(9, 0, tzinfo=tokyo), time(15, 0, tzinfo=tokyo))
+
+    days = OrbBreakEntry(session=session).split_days(data(day_frame(TUESDAY, range_bar=QUIET,
+                                                                    overrides=range_at("19:00"))))
+
+    assert days == [WEDNESDAY]

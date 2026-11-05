@@ -1,6 +1,8 @@
 """Tests for `domain.pandas_approach.trading_strategy.TradingStrategy.parameters`."""
 
-from ._fakes import DataclassStrategy, PlainStrategy
+from domain.trading_session import LONDON_SESSION
+
+from ._fakes import DataclassStrategy, PlainStrategy, SessionStrategy
 
 
 def test_dataclass_strategy_reports_its_fields() -> None:
@@ -9,3 +11,7 @@ def test_dataclass_strategy_reports_its_fields() -> None:
 
 def test_plain_strategy_reports_nothing() -> None:
     assert PlainStrategy().parameters() == {}
+
+
+def test_a_dataclass_field_stays_an_object() -> None:
+    assert SessionStrategy(session=LONDON_SESSION).parameters() == {"session": LONDON_SESSION}

@@ -7,10 +7,11 @@ import pytest
 
 from domain.broker_clock import BROKER_SERVER_TZ
 from domain.pandas_approach.position import PositionOutcome, Side
+from domain.trading_session import LONDON_SESSION
 from strategies.orb_break_entry import OrbBreakEntry
 
-from ._fakes import (BOTH_WAYS, BREAK_DOWN, BREAK_UP, FLAT, SUMMER_TUESDAY, TUESDAY, WEDNESDAY, data,
-                     day_frame)
+from ._fakes import (BOTH_WAYS, BREAK_DOWN, BREAK_UP, FLAT, MISMATCH_TUESDAY, QUIET, SUMMER_TUESDAY, TUESDAY,
+                     WEDNESDAY, data, day_frame, range_at)
 
 
 def _positions(*frames, strategy: OrbBreakEntry | None = None, **kwargs):
@@ -105,7 +106,7 @@ def test_the_range_includes_its_bars_wicks() -> None:
 
 
 def test_no_time_stop_leaves_exit_dt_unset() -> None:
-    [position] = _positions(day_frame(overrides={"10:00": BREAK_UP}), strategy=OrbBreakEntry(exit_at=None))
+    [position] = _positions(day_frame(overrides={"10:00": BREAK_UP}), strategy=OrbBreakEntry(exit_at_session_end=False))
 
     assert position.exit_dt is None
 
@@ -124,6 +125,37 @@ def test_custom_windows() -> None:
 
     assert position.open_dt == _utc("15:00")
     assert position.open_price == 1.1008
+
+
+def test_orders_minutes_count_from_the_session_start() -> None:
+    strategy = OrbBreakEntry(orders_minutes=60)    # 09:30 + 60 minutes: the orders expire at 10:30 ET
+
+    assert _positions(day_frame(overrides={"10:30": BREAK_UP}), strategy=strategy) == []
+    [position] = _positions(day_frame(overrides={"10:29": BREAK_UP}), strategy=strategy)
+    assert position.open_dt == _utc("15:29")
+
+
+# --- the session ---------------------------------------------------------------------
+
+def test_another_session_moves_every_window() -> None:
+    # London 08:00-16:30 is 03:00-11:30 ET in January: range 03:00-03:15, orders until 05:00, flat by 11:30.
+    frame = day_frame(range_bar=QUIET, overrides={**range_at("03:00"), "04:59": BREAK_UP, "05:00": BREAK_DOWN})
+
+    [position] = _positions(frame, strategy=OrbBreakEntry(session=LONDON_SESSION))
+
+    assert (position.side, position.open_price) == (Side.LONG, 1.1005)
+    assert position.open_dt == _utc("09:59")     # 04:59 EST
+    assert position.exit_dt == _utc("16:30")     # 16:30 London
+
+
+def test_the_session_follows_its_own_daylight_saving() -> None:
+    # New York is already on EDT, London not yet on BST: 08:00 London is 04:00 ET, 08:00 UTC.
+    frame = day_frame(MISMATCH_TUESDAY, range_bar=QUIET, overrides={**range_at("04:00"), "04:30": BREAK_UP})
+
+    [position] = _positions(frame, strategy=OrbBreakEntry(session=LONDON_SESSION))
+
+    assert position.open_dt == _utc("08:30", MISMATCH_TUESDAY)
+    assert position.exit_dt == _utc("16:30", MISMATCH_TUESDAY)
 
 
 # --- days that don't trade -----------------------------------------------------------

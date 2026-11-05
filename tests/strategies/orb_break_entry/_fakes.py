@@ -22,6 +22,7 @@ NEW_YORK = ZoneInfo("America/New_York")
 TUESDAY = date(2026, 1, 6)       # EST: 09:30 ET is 14:30 UTC
 WEDNESDAY = date(2026, 1, 7)
 SUMMER_TUESDAY = date(2026, 7, 7)   # EDT: 09:30 ET is 13:30 UTC
+MISMATCH_TUESDAY = date(2026, 3, 10)   # New York on EDT, London still on GMT: 08:00 London is 04:00 ET
 
 RANGE = (1.1000, 1.1005, 1.0995, 1.1000)
 QUIET = (1.1000, 1.1003, 1.0997, 1.1000)
@@ -47,6 +48,12 @@ def day_frame(day: date = TUESDAY, overrides: dict[str, tuple] | None = None, ra
         default = range_bar if "09:30" <= key < "09:45" else QUIET
         rows.append((stamp, *overrides.get(key, default)))
     return pd.DataFrame(rows, columns=["datetime", "open", "high", "low", "close"])
+
+
+def range_at(hhmm: str, minutes: int = 15) -> dict[str, tuple]:
+    """`day_frame` overrides putting the RANGE bars in the `minutes` from "HH:MM" ET (pass `range_bar=QUIET`)."""
+    start = pd.Timestamp(f"2000-01-01 {hhmm}")
+    return {(start + pd.Timedelta(minutes=m)).strftime("%H:%M"): RANGE for m in range(minutes)}
 
 
 def data(*frames: pd.DataFrame, timezone=UTC, timeframe: str = "1m") -> HistoricalData:

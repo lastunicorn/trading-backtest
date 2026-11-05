@@ -8,7 +8,7 @@ This file describes the ORB strategy that uses the Break Entry approach.
 
 ### 1) Opening Range (OR)
 
-Define the New York Opening Range:
+Define the New York Opening Range (the backtest's `session` parameter can move it to another session's open, see [strategy-orb-break-entry.md](backtest-framework/strategy-orb-break-entry.md)):
 
 - 9:30 - 9:45 ET (15 min)
 

@@ -8,7 +8,8 @@
 
 `ports.backtest_config_access.read_config` reads the file and checks its
 shape; this adds what needs the rest of the code base to decide: the strategy
-is registered and its parameters convert to its field types (and build it),
+is registered and its parameters convert to its field types (and build it;
+a `TradingSession` field takes a `SESSIONS` name),
 the source format, symbol and time zone exist, the timeframes fit together,
 and `simulation.ambiguity`/`simulation.resolve_from`/`splits` name a policy or
 split mode. Every failure is a `ValueError` naming the config file.
@@ -32,6 +33,7 @@ from domain.pandas_approach.cost_model import CostModel, FixedCost, SpreadCost
 from domain.sample_size import SampleSize
 from domain.symbol import by_ticker
 from domain.time_window import ZonedTime
+from domain.trading_session import SESSIONS, TradingSession
 from ports.backtest_config_access import (
     BacktestConfig,
     CostConfig,
@@ -143,6 +145,9 @@ def _strategy_parameter(key: str, value, expected, fail: Fail):
         return _parse_time(key, value, zoned=True, fail=fail)
     if expected is clock_time:
         return _parse_time(key, value, zoned=False, fail=fail)
+    if expected is TradingSession:
+        _check_choice(value, f"strategy.parameters.{key}", list(SESSIONS), fail)
+        return SESSIONS[value]
     if expected in (int, float, bool, str):
         if not has_json_type(value, expected):
             raise fail(f'"strategy.parameters.{key}" must be {json_type_name(expected)}, got {json.dumps(value)}')

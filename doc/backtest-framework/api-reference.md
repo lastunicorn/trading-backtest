@@ -72,6 +72,8 @@ pandas rejects custom `tzinfo` objects, so don't pass `BROKER_SERVER_TZ` to `tz_
 
 **`TimeWindow(start=None, end=None)`**: a daily `[start, end)` window. Each bound is a timezone-aware `datetime.time` or `None` (open). `window.contains(instant)` takes a timezone-aware `datetime`. An `end` at or before `start` wraps past midnight, and the bounds may be in different zones. **`ZonedTime`** is the annotation for a strategy field holding such a bound; the config reads it as `"HH:MM <zone>"`.
 
+**`TradingSession(start_time, end_time, name=None)`** (`domain.trading_session`): a session's daily window, each bound a timezone-aware `datetime.time`; `create_session(date)` resolves one date's window to UTC, the end on the next day when it wraps past midnight. The standard ones are `TOKYO_SESSION`, `ASIA_SESSION`, `LONDON_SESSION` and `NEW_YORK_SESSION`, collected by name in `SESSIONS`. A strategy field typed `TradingSession` (ORB's `session`) is set from a config by a `SESSIONS` name.
+
 ### `domain.pandas_approach.shift_timezone`
 
 **`shift_timezone(frame, to_tz, *, from_tz=BROKER_SERVER_TZ)`**: returns a copy of `frame` with `datetime` re-expressed from `from_tz` to `to_tz`, still naive.
@@ -113,7 +115,7 @@ pandas rejects custom `tzinfo` objects, so don't pass `BROKER_SERVER_TZ` to `tz_
 |---|---|---|
 | `generate_positions(data) -> list[Position]` | yes | – |
 | `name` (property) | no | class name |
-| `parameters() -> dict` | no | dataclass fields, else `{}` |
+| `parameters() -> dict` | no | dataclass fields (a dataclass-valued field, such as a `TradingSession`, stays an object), else `{}` |
 | `split_days(data) -> Iterable[date]` | no | every calendar day with a bar |
 
 ### `strategies`

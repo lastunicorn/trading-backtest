@@ -11,6 +11,7 @@ import pytest
 
 from application.load_backtest_config_use_case import load_backtest_config
 from domain.broker_clock import BROKER_SERVER_TZ
+from domain.trading_session import LONDON_SESSION
 from ports.backtest_config_access import BacktestConfig, DataSourceConfig, SimulationConfig, StrategyConfig
 from strategies import STRATEGIES
 from strategies.rsi_divergence import RsiDivergence
@@ -116,6 +117,12 @@ def test_timezone_aware_times_take_a_zone_name(tmp_path) -> None:
                                           "end_time": time(16, 30, tzinfo=BROKER_SERVER_TZ)}
 
 
+def test_trading_sessions_take_a_sessions_name(tmp_path) -> None:
+    config = _with_parameters(tmp_path, "orb_break_entry", {"session": "London"})
+
+    assert config.strategy.parameters == {"session": LONDON_SESSION}
+
+
 def test_nullable_parameters_take_null(tmp_path) -> None:
     config = _with_parameters(tmp_path, "rsi_divergence", {"start_time": None, "end_time": "16:00 UTC"})
 
@@ -139,6 +146,9 @@ def test_nullable_parameters_take_null(tmp_path) -> None:
     ("narrow_asia_fade", {"study_end": "2pm"}, '"strategy.parameters.study_end" must be a time'),
     ("narrow_asia_fade", {"study_end": 14}, '"strategy.parameters.study_end" must be a time'),
     ("rsi_divergence", {"risk_reward": -1.0}, 'invalid "strategy.parameters".*risk_reward must be positive'),
+    ("orb_break_entry", {"session": "Frankfurt"},
+     '"strategy.parameters.session" is "Frankfurt"; choose one of Tokyo, Asia, London, New York'),
+    ("orb_break_entry", {"session": None}, '"strategy.parameters.session" is null; choose one of'),
 ])
 def test_rejects_invalid_strategy_parameters(tmp_path, strategy: str, parameters: dict, message: str) -> None:
     with pytest.raises(ValueError, match=message):

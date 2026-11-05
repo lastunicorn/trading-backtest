@@ -23,7 +23,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
-from dataclasses import asdict, is_dataclass
+from dataclasses import fields, is_dataclass
 from datetime import date
 
 from domain.pandas_approach.historical_data import HistoricalData
@@ -43,9 +43,11 @@ class TradingStrategy(ABC):
     def parameters(self) -> dict[str, object]:
         """The settings that define this run of the strategy.
 
-        A dataclass strategy's fields; override for anything else.
+        A dataclass strategy's fields, as they are: a field holding a
+        dataclass (a `TradingSession`) stays that object, not a dict of its
+        fields. Override for anything else.
         """
-        return asdict(self) if is_dataclass(self) else {}
+        return {field.name: getattr(self, field.name) for field in fields(self)} if is_dataclass(self) else {}
 
     def split_days(self, data: HistoricalData) -> Iterable[date]:
         """The calendar days the discovery / validation / test split is cut over.

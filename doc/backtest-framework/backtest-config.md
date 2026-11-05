@@ -103,7 +103,7 @@ A variant of a strategy only needs `strategy.parameters`; the report header and 
 }
 ```
 
-Each key of `strategy.parameters` is one of the strategy's dataclass fields. Values are written as their JSON type — numbers, whole numbers, `true`/`false` and strings — and time-of-day fields as `"HH:MM"` strings, on the data's clock. Timezone-aware time fields (typed `ZonedTime`, such as RSI divergence's `start_time`) take `"HH:MM <zone>"` instead, where the zone is `"broker"` or an IANA name: `"08:00 Europe/London"`. A field that can be `None` (typed `X | None`) also takes `null`. Which types a strategy field may have to be settable from a config is in [Writing a new strategy](writing-a-strategy.md).
+Each key of `strategy.parameters` is one of the strategy's dataclass fields. Values are written as their JSON type — numbers, whole numbers, `true`/`false` and strings — and time-of-day fields as `"HH:MM"` strings, on the data's clock. Timezone-aware time fields (typed `ZonedTime`, such as RSI divergence's `start_time`) take `"HH:MM <zone>"` instead, where the zone is `"broker"` or an IANA name: `"08:00 Europe/London"`. A `TradingSession` field (ORB's `session`) takes a session's name from `domain.trading_session.SESSIONS`: `"Tokyo"`, `"Asia"`, `"London"` or `"New York"`. A field that can be `None` (typed `X | None`) also takes `null`. Which types a strategy field may have to be settable from a config is in [Writing a new strategy](writing-a-strategy.md).
 
 ## 5. Validation
 

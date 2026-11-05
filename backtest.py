@@ -98,6 +98,7 @@ from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest, BacktestR
 from domain.pandas_approach.splits import SplitMode
 from domain.sample_size import SampleSize
 from domain.symbol import Symbol, by_ticker
+from domain.trading_session import SESSIONS, TradingSession
 from ports import run_environment
 from ports.backtest_config_access import CONFIG_FILE_NAME, BacktestConfig
 from ports.run_environment import GitCommit
@@ -346,13 +347,20 @@ def write_results(result: BacktestResult, run_info: dict, report: str, out_dir, 
 
 
 def _parameter_text(value):
-    """A strategy parameter as `run.json` records it: a timezone-aware time with its zone's name, else unchanged.
+    """A strategy parameter as `run.json` records it, in the spelling a config reads back where there is one.
 
-    `str()` of a time on an IANA zone drops the zone; this keeps it, in the
-    spelling a config reads back ("08:00:00 Europe/London").
+    A timezone-aware time gets its zone's name ("08:00:00 Europe/London"):
+    `str()` of a time on an IANA zone drops the zone. A standard
+    `TradingSession` is its `SESSIONS` name ("London"); any other one, its
+    bounds and name.
     """
     if isinstance(value, clock_time) and value.tzinfo is not None:
         return f"{value.replace(tzinfo=None)} {timezone_name(value.tzinfo)}"
+    if isinstance(value, TradingSession):
+        if SESSIONS.get(value.name) == value:
+            return value.name
+        return {"start_time": _parameter_text(value.start_time), "end_time": _parameter_text(value.end_time),
+                "name": value.name}
     return value
 
 

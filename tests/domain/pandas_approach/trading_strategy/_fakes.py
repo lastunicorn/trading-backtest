@@ -9,12 +9,21 @@ from domain.pandas_approach.position import Position
 from domain.pandas_approach.trading_strategy import TradingStrategy
 from domain.sample_size import SampleSize
 from domain.symbol import EURUSD
+from domain.trading_session import NEW_YORK_SESSION, TradingSession
 
 
 @dataclass(frozen=True)
 class DataclassStrategy(TradingStrategy):
     threshold_pips: float = 21.72
     rel_vol_min: float = 1.6
+
+    def generate_positions(self, data: HistoricalData) -> list[Position]:
+        return []
+
+
+@dataclass(frozen=True)
+class SessionStrategy(TradingStrategy):
+    session: TradingSession = NEW_YORK_SESSION
 
     def generate_positions(self, data: HistoricalData) -> list[Position]:
         return []
