@@ -40,6 +40,13 @@ all          207         72.0%           257.5           1.37         0.078     
 Net positive in 6 of 7 years with trades (0 without)
 ```
 
+When something about how the numbers were produced deserves a warning, the report ends with a **Notes** section. Today only `SpreadCost` writes one: it lists the trades charged 0 spread because their bar had no spread value (Dukascopy has a few whole days without ask prices):
+
+```
+Notes:
+- 3 trade(s) charged 0 spread: their ask-side bar has no spread value (e.g. no ask price in the source). Opened 2021-11-12 15:01, 2022-03-11 15:01, 2023-11-17 15:18.
+```
+
 ## `statistics.csv`
 
 The same numbers, one row for `all` and then one per split (`discovery`, `validation`, `test`; or `2024-03`…; or `2024`…), always with every metric, for comparing runs. The metrics, which are also the keys of [`compute_statistics()`](api-reference.md#domainpandas_approachstatistics):
@@ -81,4 +88,4 @@ One row per trade, sorted by entry time:
 
 ## `run.json`
 
-Provenance: strategy name (the config's `strategy.name`, the same key `STRATEGIES` uses), class and parameters; data symbol, timeframe, clock, first/last bar and bar count; under `simulation`, the cost model, ambiguity and resolve-from settings; the `splits` mode; trade count; git commit and whether the working tree had uncommitted changes; creation time; source. Keep it with the results, so any number can be traced back to exactly what produced it.
+Provenance: strategy name (the config's `strategy.name`, the same key `STRATEGIES` uses), class and parameters; data symbol, timeframe, clock, first/last bar and bar count; under `simulation`, the cost model, ambiguity and resolve-from settings; the `splits` mode; trade count; git commit and whether the working tree had uncommitted changes; creation time; source; and `notes`, the report's Notes as a list, only when there are any. Keep it with the results, so any number can be traced back to exactly what produced it.

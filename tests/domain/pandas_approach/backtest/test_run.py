@@ -11,7 +11,7 @@ from domain.pandas_approach.position import FRAME_COLUMNS, PositionOutcome
 from domain.pandas_approach.splits import SplitMode
 from domain.pandas_approach.trade_results import RESULT_COLUMNS
 
-from ._fakes import QUIET, T0, Replay, ScriptedStrategy, at, bars, data, day, long_position, short_position
+from ._fakes import QUIET, T0, NotedCost, Replay, ScriptedStrategy, at, bars, data, day, long_position, short_position
 
 
 def test_every_position_comes_back_closed_with_pnl_and_split() -> None:
@@ -48,6 +48,14 @@ def test_cost_model_is_applied() -> None:
     result = Backtest(ScriptedStrategy([0]), data(10, {0: "win"}), cost_model=FixedCost(pips=0.5)).run()
 
     assert result.trades["net_pips"].tolist() == pytest.approx([19.5])
+
+
+def test_the_cost_model_notes_are_carried_in_the_result() -> None:
+    noted = Backtest(ScriptedStrategy([0]), data(10, {}), cost_model=NotedCost("first", "second")).run()
+    plain = Backtest(ScriptedStrategy([0]), data(10, {})).run()
+
+    assert noted.notes == ("first", "second")
+    assert plain.notes == ()
 
 
 def test_ambiguity_policy_is_passed_through() -> None:

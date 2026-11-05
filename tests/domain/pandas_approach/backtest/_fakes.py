@@ -14,6 +14,7 @@ from datetime import date
 
 import pandas as pd
 
+from domain.pandas_approach.cost_model import FixedCost
 from domain.pandas_approach.historical_data import HistoricalData
 from domain.pandas_approach.position import Position, Side
 from domain.pandas_approach.trading_strategy import TradingStrategy
@@ -103,3 +104,14 @@ def short_position(**overrides) -> Position:
     fields = dict(open_dt=T0, open_price=1.1000, side=Side.SHORT, sl=1.1020, tp=1.0960)
     fields.update(overrides)
     return Position(**fields)
+
+
+class NotedCost(FixedCost):
+    """`FixedCost` that also reports `notes_given` for every run."""
+
+    def __init__(self, *notes_given: str) -> None:
+        super().__init__()
+        object.__setattr__(self, "notes_given", notes_given)
+
+    def notes(self, trades: pd.DataFrame, data: HistoricalData) -> list[str]:
+        return list(self.notes_given)

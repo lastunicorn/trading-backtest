@@ -3,7 +3,7 @@
 from backtest import build_run_info, format_report
 from domain.pandas_approach.backtest import Backtest
 from domain.pandas_approach.splits import SplitMode
-from tests.domain.pandas_approach.backtest._fakes import ScriptedStrategy, data
+from tests.domain.pandas_approach.backtest._fakes import NotedCost, ScriptedStrategy, data
 
 
 def _report(entry_days, results, *, source=None, days=10, splits=SplitMode.DVT, **kwargs) -> str:
@@ -81,3 +81,13 @@ def test_calendar_verdict_counts_positive_periods_with_trades() -> None:
 
     assert monthly.splitlines()[-1] == "Net positive in 1 of 2 months with trades (1 without)"
     assert yearly.splitlines()[-1] == "Net positive in 1 of 1 years with trades (0 without)"
+
+
+def test_notes_end_the_report() -> None:
+    report = _report([0], {}, cost_model=NotedCost("3 trade(s) charged 0 spread", "another"))
+
+    assert report.endswith("\nNotes:\n- 3 trade(s) charged 0 spread\n- another\n")
+
+
+def test_no_notes_section_without_notes() -> None:
+    assert "Notes:" not in _report([0], {})

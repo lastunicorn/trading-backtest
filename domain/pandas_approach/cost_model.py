@@ -14,7 +14,12 @@ the bid on exit, so it pays the spread once, **at entry**. A short sells at the
 bid and buys back at the ask, so it pays the spread once, **at exit**.
 `SpreadCost` charges exactly that, using the `spread` column of the bar each
 moment falls in. SL/TP are still *triggered* on bid prices; a short's stop that
-the ask would have reached a little earlier is not modelled.
+the ask would have reached a little earlier is not modelled. A bar with no
+spread value (Dukascopy has whole days without ask prices) is charged no
+spread, and `notes` says which trades that happened to.
+
+`notes` is how a cost model reports what the numbers alone don't show; the
+backtest report prints them at its end.
 
 `FixedCost` is the default because not every source has a `spread` column.
 Its 1.7 pips is the round-trip friction the Narrow Asia Fade research assumed.
@@ -39,6 +44,10 @@ class CostModel(ABC):
     @abstractmethod
     def cost_pips(self, trades: pd.DataFrame, data: HistoricalData) -> pd.Series:
         """One round-trip cost per row of `trades`, in pips, aligned to its index."""
+
+    def notes(self, trades: pd.DataFrame, data: HistoricalData) -> list[str]:
+        """What a reader of the results should know about how `trades` were charged; none by default."""
+        return []
 
 
 @dataclass(frozen=True)
@@ -66,6 +75,22 @@ class SpreadCost(CostModel):
             raise ValueError(f"commission cannot be negative, got {self.commission_pips} pips")
 
     def cost_pips(self, trades: pd.DataFrame, data: HistoricalData) -> pd.Series:
+        return self._spread(trades, data).fillna(0.0) + self.commission_pips
+
+    def notes(self, trades: pd.DataFrame, data: HistoricalData) -> list[str]:
+        """One note naming the trades charged no spread because their bar had none, if any."""
+        missing = self._spread(trades, data).isna()
+        if not missing.any():
+            return []
+
+        opened = sorted(trades.loc[missing, "open_dt"])
+        shown = ", ".join(f"{dt:%Y-%m-%d %H:%M}" for dt in opened[:_NOTE_TRADES_SHOWN])
+        more = f" and {len(opened) - _NOTE_TRADES_SHOWN} more" if len(opened) > _NOTE_TRADES_SHOWN else ""
+        return [f"{len(opened)} trade(s) charged 0 spread: their ask-side bar has no spread value "
+                f"(e.g. no ask price in the source). Opened {shown}{more}."]
+
+    def _spread(self, trades: pd.DataFrame, data: HistoricalData) -> pd.Series:
+        """The spread of each trade's ask-side bar, in pips; NaN where that bar has none."""
         if "spread" not in data.data.columns:
             raise ValueError("SpreadCost needs a 'spread' column in the historical data; use FixedCost instead")
 
@@ -77,8 +102,9 @@ class SpreadCost(CostModel):
         if (bars < 0).any():
             raise ValueError("every trade needs a bar at its ask-side moment; is a short still open?")
 
-        spread = pd.Series(data.data["spread"].to_numpy()[bars], index=trades.index)
-        if spread.isna().any():
-            raise ValueError(f"{int(spread.isna().sum())} trade(s) fall on bars with no spread value")
+        return pd.Series(data.data["spread"].to_numpy(dtype="float64", na_value=float("nan"))[bars],
+                         index=trades.index)
 
-        return spread + self.commission_pips
+
+# How many open times a missing-spread note lists before "and N more".
+_NOTE_TRADES_SHOWN = 10

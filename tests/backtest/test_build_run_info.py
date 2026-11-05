@@ -10,7 +10,7 @@ from domain.pandas_approach.cost_model import FixedCost
 from domain.pandas_approach.splits import SplitMode
 from ports.run_environment import GitCommit
 from strategies.rsi_divergence import RsiDivergence
-from tests.domain.pandas_approach.backtest._fakes import ScriptedStrategy, data
+from tests.domain.pandas_approach.backtest._fakes import NotedCost, ScriptedStrategy, data
 
 
 def _info(backtest: Backtest, **kwargs) -> dict:
@@ -103,3 +103,8 @@ def test_source_is_recorded_only_when_given() -> None:
 
     assert "source" not in _info(backtest)
     assert _info(backtest, source="clean.csv")["source"] == "clean.csv"
+
+
+def test_notes_are_recorded_only_when_there_are_some() -> None:
+    assert "notes" not in _info(Backtest(ScriptedStrategy([0]), data(10, {})))
+    assert _info(Backtest(ScriptedStrategy([0]), data(10, {}), cost_model=NotedCost("a note")))["notes"] == ["a note"]

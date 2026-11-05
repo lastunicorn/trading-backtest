@@ -85,6 +85,9 @@ class BacktestResult:
     # statistics_by_split: rows "all" then one per split.
     statistics: pd.DataFrame
 
+    # Caveats about how the numbers were produced (e.g. the cost model's), for the report.
+    notes: tuple[str, ...] = ()
+
 
 @dataclass
 class Backtest:
@@ -103,6 +106,7 @@ class Backtest:
         self._close_positions(positions)
 
         trades = positions_to_frame(positions)
+        notes = tuple(self.cost_model.notes(trades, self.data))
         trades = trade_results(trades, self.data.symbol, self.cost_model.cost_pips(trades, self.data))
         trades = trades.sort_values("open_dt", kind="stable").reset_index(drop=True)
 
@@ -114,7 +118,8 @@ class Backtest:
 
         return BacktestResult(
             trades=trades,
-            statistics=statistics_by_split(trades, names)
+            statistics=statistics_by_split(trades, names),
+            notes=notes,
         )
 
     def _close_positions(self, positions: list[Position]) -> None:

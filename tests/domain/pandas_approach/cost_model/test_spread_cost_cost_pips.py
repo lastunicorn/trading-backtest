@@ -43,9 +43,10 @@ def test_missing_spread_column_is_rejected() -> None:
         SpreadCost().cost_pips(trades((Side.LONG, 0, 1)), data(spreads=None))
 
 
-def test_trade_on_a_bar_without_spread_is_rejected() -> None:
-    with pytest.raises(ValueError, match="no spread value"):
-        SpreadCost().cost_pips(trades((Side.LONG, 1, 2)), data([0.1, float("nan"), 0.3, 0.4]))
+def test_trade_on_a_bar_without_spread_pays_no_spread() -> None:
+    result = SpreadCost(commission_pips=0.5).cost_pips(trades((Side.LONG, 1, 2)), data([0.1, float("nan"), 0.3, 0.4]))
+
+    assert result.tolist() == [0.5]
 
 
 def test_bar_without_spread_that_no_trade_touches_is_fine() -> None:

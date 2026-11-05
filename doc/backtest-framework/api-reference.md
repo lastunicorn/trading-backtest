@@ -124,12 +124,12 @@ pandas rejects custom `tzinfo` objects, so don't pass `BROKER_SERVER_TZ` to `tz_
 
 ### `domain.pandas_approach.cost_model`
 
-**`CostModel`** (abstract): `cost_pips(trades, data) -> pd.Series`, one round-trip cost in pips per row of a positions frame, aligned to its index. Subclass it to model other frictions.
+**`CostModel`** (abstract): `cost_pips(trades, data) -> pd.Series`, one round-trip cost in pips per row of a positions frame, aligned to its index. Subclass it to model other frictions. `notes(trades, data) -> list[str]` (none by default) is what the report should warn about how the trades were charged; `Backtest.run` puts them in `BacktestResult.notes`.
 
 | Class | Parameters | Charges |
 |---|---|---|
 | `FixedCost(pips=1.7)` | `pips ≥ 0` | the same cost for every trade |
-| `SpreadCost(commission_pips=0.0)` | `commission_pips ≥ 0` | the `spread` of the entry bar (long) or exit bar (short), plus the commission. Raises if the data has no `spread` column or a trade falls on a bar without one. |
+| `SpreadCost(commission_pips=0.0)` | `commission_pips ≥ 0` | the `spread` of the entry bar (long) or exit bar (short), plus the commission. Raises if the data has no `spread` column. A trade on a bar without a spread value is charged 0 spread, and `notes` lists it. |
 
 ### `domain.pandas_approach.trade_results`
 
@@ -158,10 +158,11 @@ pandas rejects custom `tzinfo` objects, so don't pass `BROKER_SERVER_TZ` to `tz_
 - **`AmbiguityPolicy`**: `EXCLUDE` (`"exclude"`), `ASSUME_SL` (`"assume-sl"`), `ASSUME_TP` (`"assume-tp"`).
 - **`PositionResolveDelay`**: `NEXT_BAR` (`"next-bar"`), `ENTRY_BAR` (`"entry-bar"`).
 
-**`BacktestResult(trades, statistics)`** (frozen):
+**`BacktestResult(trades, statistics, notes=())`** (frozen):
 
 - `trades`: the positions frame with its result columns (and `split`, unless `SplitMode.NONE`), sorted by `open_dt`.
 - `statistics`: the `statistics_by_split` table: `all`, then one row per split in chronological order.
+- `notes`: the cost model's `notes`, printed at the end of the report and recorded in `run.json`.
 
 ## 5. Application (files, provenance)
 

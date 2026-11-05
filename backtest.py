@@ -239,6 +239,8 @@ def build_run_info(
     }
     if source is not None:
         info["source"] = source
+    if result.notes:
+        info["notes"] = list(result.notes)
     return info
 
 
@@ -276,6 +278,9 @@ def format_report(result: BacktestResult, run_info: dict) -> str:
         lines += _split_table(result.statistics)
         if len(result.statistics) > 1:
             lines += ["", _split_verdict(result.statistics)]
+
+    if result.notes:
+        lines += ["", "Notes:", *(f"- {note}" for note in result.notes)]
 
     return "\n".join(lines) + "\n"
 
