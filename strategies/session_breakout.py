@@ -142,7 +142,9 @@ class SessionBreakout(TradingStrategy):
 
         def row(at: datetime) -> int:
             """The first row at or after the aware instant `at`."""
-            return int(np.searchsorted(stamps, np.datetime64(at.astimezone(UTC).replace(tzinfo=None)), side="left"))
+            # At the column's own unit: a mismatched one makes numpy convert the whole column on every call.
+            instant = np.datetime64(at.astimezone(UTC).replace(tzinfo=None)).astype(stamps.dtype)
+            return int(np.searchsorted(stamps, instant, side="left"))
 
         for day in pd.unique(utc.dt.date):
             session = reference_session.create_session(day)

@@ -151,7 +151,8 @@ class Backtest:
             if position.exit_dt is None:
                 stop = len(times)
             else:
-                stop = int(np.searchsorted(times, np.datetime64(position.exit_dt), side="left"))
+                # At the column's own unit: a mismatched one makes numpy convert all of `times` per position.
+                stop = int(np.searchsorted(times, np.datetime64(position.exit_dt).astype(times.dtype), side="left"))
             # No bar at or after exit_dt means the data ran out before the time stop.
             ran_out = stop == len(times)
 
