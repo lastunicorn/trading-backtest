@@ -101,7 +101,7 @@ Common mistakes:
 | results with times 7 hours off | `data_source.timezone` doesn't match the files: the broker clock is New York + 7h (`"broker"`), histdata is `"histdata"` (New York's clock, on the EU daylight-saving dates from 2019; not checked) |
 | histdata results with a few weeks a year 1 hour off (mid-March, late October) | `data_source.timezone` is `"America/New_York"` for histdata: use `"histdata"`, which follows the EU daylight-saving dates the files do from 2019 |
 | `ERROR: … "simulation.timeframe" … is not a whole multiple of the source's "data_source.timeframe"` | resampling only coarsens; test on a multiple of the source's bar size, or fix `data_source.timeframe` if it misstates the source |
-| numbers look wrong on a finer `simulation.timeframe` | `data_source.timeframe` understates the source (e.g. left at the `1m` default for an M5 file written by `read_csv.py --interval 5m --output`), so the check passed; asking for `1m` from an M5 file returns M5 bars labelled 1m |
+| numbers look wrong on a finer `simulation.timeframe` | `data_source.timeframe` understates the source (e.g. left at the `1m` default for an M5 file written by `read_csv.py --timeframe 5m --output`), so the check passed; asking for `1m` from an M5 file returns M5 bars labelled 1m |
 
 ---
 

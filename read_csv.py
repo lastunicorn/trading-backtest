@@ -7,8 +7,8 @@ processed data to a CSV.
     python3 read_csv.py data/eurusd/1min/EURUSD_2020_01.csv        # first 20 bars
     python3 read_csv.py data/eurusd/1min/EURUSD_2020_01.csv --tail --rows 5
     python3 read_csv.py data/eurusd/1min/EURUSD_2020_01.csv --all | less
-    python3 read_csv.py data/eurusd/1min --interval 5m              # whole folder, resampled to M5
-    python3 read_csv.py data/eurusd/1min --interval 1w              # resampled to weekly bars
+    python3 read_csv.py data/eurusd/1min --timeframe 5m             # whole folder, resampled to M5
+    python3 read_csv.py data/eurusd/1min --timeframe 1w             # resampled to weekly bars
     python3 read_csv.py data/eurusd/1min --timezone UTC             # broker-server time -> UTC
     python3 read_csv.py path/to/histdata --source-timezone histdata --timezone UTC
     python3 read_csv.py data/eurusd/1min --output scratch/jan.csv   # write instead of display
@@ -21,8 +21,8 @@ for this repo's monthly exports. The pipeline is always: read every file into
 one frame, clean it up (sort, drop duplicate timestamps), optionally shift
 timezone (--timezone, from the exports' own clock, --source-timezone, which
 is broker-server time by default; off by default -- bars display on the
-exports' own clock otherwise), optionally resample (--interval), then display or write
-(--output). See domain.sample_size.SampleSize for the --interval syntax (5m,
+exports' own clock otherwise), optionally resample (--timeframe), then display or write
+(--output). See domain.sample_size.SampleSize for the --timeframe syntax (5m,
 4h, 7d, 2w, 3M, ...); resampling uses plain pandas bucket semantics (see
 domain.pandas_approach.frames.resample_ohlc). Price decimals come from
 --decimals if given, else --source-symbol's ticker (via domain.symbol
@@ -63,11 +63,11 @@ def main():
         print(f"ERROR: no csv files found at {args.source!r}", file=sys.stderr)
         return 1
 
-    interval = None
+    timeframe = None
 
-    if args.interval:
+    if args.timeframe:
         try:
-            interval = SampleSize.Parse(args.interval)
+            timeframe = SampleSize.Parse(args.timeframe)
         except ValueError as exc:
             print(f"ERROR: {exc}", file=sys.stderr)
             return 1
@@ -101,16 +101,16 @@ def main():
     if args.timezone is not None:
         frame = shift_timezone(frame, args.timezone, from_tz=args.source_timezone)
 
-    if interval is not None:
-        frame = resample_ohlc(frame, interval)
+    if timeframe is not None:
+        frame = resample_ohlc(frame, timeframe)
 
     elapsed_data_processing = time.perf_counter() - start_time
 
     print("=" * 64)
     print(f"SOURCE: {args.source}" + (f"  ({len(paths)} files)" if len(paths) > 1 else ""))
 
-    if args.interval:
-        print(f"RESAMPLE: {args.interval}")
+    if args.timeframe:
+        print(f"RESAMPLE: {args.timeframe}")
 
     if args.timezone is not None:
         print(f"TIMEZONE: {timezone_name(args.source_timezone)} -> {timezone_name(args.timezone)}")
@@ -151,7 +151,7 @@ def parse_args():
     )
 
     parser.add_argument(
-        "--interval",
+        "--timeframe",
         default=None,
         help="Resample before display, e.g. '5m', '4h', '7d', '2w', '3M' "
              "(m/h/d/w/M, case-sensitive; omit to show raw bars).",

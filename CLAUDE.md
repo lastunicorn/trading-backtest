@@ -91,17 +91,17 @@ frame = build_clean_dataset("data/eurusd/1min", progress=print)  # every export 
 
 `build_clean_dataset` takes the per-file reader (`read_file`, MT5 by default) and file `pattern` as parameters, which is how `load_histdata` reuses it. It merges every file's bars (dropping duplicate timestamps, the later file winning) *before* resampling, so a bar spanning two files — a week across a month boundary — gets both files' data. It returns the frame and never writes; what happened to each file (rows, skipped lines, errors) goes only to `progress`; a file that fails to parse is skipped, not fatal.
 
-`read_csv.py`'s `source` is a single file or a folder of exports (`ports.file_system_access.find_files` — a folder is read file-by-file in name order, chronological for this repo's monthly exports). It runs a pandas pipeline: read every file into one frame, clean it up (stable sort + drop duplicate timestamps, `domain.pandas_approach.frames.clean_frame`), optionally shift timezone (`--timezone`, off by default, from the exports' clock `--source-timezone`, `broker` by default), optionally resample (`--interval`, via `domain.pandas_approach.frames.resample_ohlc` with plain pandas bucket semantics — see `domain.sample_size.SampleSize` for the `5m`/`4h`/`7d`/`2w`/`3M` syntax), then display or write (`--output`, which always writes the full processed frame regardless of `--rows`/`--all`/`--tail`). `--output` is also how to export a resampled or time-shifted CSV: it writes the MT5 export shape, which `load_mt5` reads back. Unlike `build_clean_dataset`, one unreadable file aborts the run:
+`read_csv.py`'s `source` is a single file or a folder of exports (`ports.file_system_access.find_files` — a folder is read file-by-file in name order, chronological for this repo's monthly exports). It runs a pandas pipeline: read every file into one frame, clean it up (stable sort + drop duplicate timestamps, `domain.pandas_approach.frames.clean_frame`), optionally shift timezone (`--timezone`, off by default, from the exports' clock `--source-timezone`, `broker` by default), optionally resample (`--timeframe`, via `domain.pandas_approach.frames.resample_ohlc` with plain pandas bucket semantics — see `domain.sample_size.SampleSize` for the `5m`/`4h`/`7d`/`2w`/`3M` syntax), then display or write (`--output`, which always writes the full processed frame regardless of `--rows`/`--all`/`--tail`). `--output` is also how to export a resampled or time-shifted CSV: it writes the MT5 export shape, which `load_mt5` reads back. Unlike `build_clean_dataset`, one unreadable file aborts the run:
 
 ```bash
 python3 read_csv.py data/eurusd/1min/EURUSD_2020_01.csv   # first 20 bars (the source arg is required)
 python3 read_csv.py data/eurusd/1min/EURUSD_2020_01.csv --tail --rows 5
 python3 read_csv.py data/eurusd/1min/EURUSD_2020_01.csv --all | less
 python3 read_csv.py path/to/export.csv --decimals 3
-python3 read_csv.py data/eurusd/1min --interval 5m                 # whole folder, resampled to M5
+python3 read_csv.py data/eurusd/1min --timeframe 5m                 # whole folder, resampled to M5
 python3 read_csv.py data/eurusd/1min --timezone UTC                # broker-server time -> UTC
 python3 read_csv.py path/to/histdata --source-timezone histdata --timezone UTC
-python3 read_csv.py data/eurusd/1min --interval 5m --output scratch/jan_m5.csv  # write instead of display
+python3 read_csv.py data/eurusd/1min --timeframe 5m --output scratch/jan_m5.csv  # write instead of display
 ```
 
 `ports/`, `domain/` and `libs/` (and their subpackages), `application/` and `strategies/` are regular packages (each has an `__init__.py`), and the CLIs must stay at the repo root for `ports.*` / `domain.*` / `application.*` / `strategies.*` to resolve from any working directory.
