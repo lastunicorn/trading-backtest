@@ -6,14 +6,14 @@ The New York Opening Range Break with a break entry, from [`doc/orb-break-entry.
 
 For each New York date D:
 
-1. The **opening range** is the high H and low L (wicks included) of the bars opening in [09:30, 09:45) ET. A day with no range bars, or with H == L, does not trade.
-2. **Two stop orders** wait from 09:45 until 11:30 ET. The first bar opening in that window that reaches H opens a long at H. The first that reaches L opens a short at L. Each side fills at most once, and neither cancels the other, so a day has 0–2 trades. One bar through both levels opens both.
+1. The **opening range** is the high H and low L (wicks included) of the bars opening in the first `range_minutes` (15) from 09:30 ET, so [09:30, 09:45) by default. A day with no range bars, or with H == L, does not trade.
+2. **Two stop orders** wait from the range's end (09:45) until 11:30 ET. The first bar opening in that window that reaches H opens a long at H. The first that reaches L opens a short at L. Each side fills at most once, and neither cancels the other, so a day has 0–2 trades. One bar through both levels opens both.
 3. **Stop:** the range midpoint. **Target:** `risk_reward` × the risk (2R).
 4. A trade still open at 16:00 ET (the NYSE close) is closed there (`manual-close`).
 
 The doc doesn't say when an open trade ends. Step 4 is this implementation's choice; set `exit_at` to `null` to hold each trade until its stop or target instead.
 
-The windows are compared against the bars as real instants, and positions are labelled on the data's own clock. So the strategy runs on broker-server (MT5) and UTC (Dukascopy) data alike, and 09:30 ET stays 09:30 ET across daylight-saving changes. The bar size must divide the 15-minute range (1m, 3m, 5m or 15m); anything else raises.
+The windows are compared against the bars as real instants, and positions are labelled on the data's own clock. So the strategy runs on broker-server (MT5) and UTC (Dukascopy) data alike, and 09:30 ET stays 09:30 ET across daylight-saving changes. The bar size must be in minutes and divide `range_minutes` (for the default 15: 1m, 3m, 5m or 15m); anything else raises.
 
 ## Parameters
 
@@ -21,7 +21,8 @@ Each one can be set from a config's `strategy.parameters`. Times are `"HH:MM <zo
 
 | Parameter | Default | Meaning |
 |---|---|---|
-| `range_start`, `range_end` | `"09:30 America/New_York"`, `"09:45 America/New_York"` | the opening range (end exclusive); the orders start at `range_end` |
+| `range_start` | `"09:30 America/New_York"` | the opening range's start |
+| `range_minutes` | 15 | the opening range's length in minutes (end exclusive, wall clock); the orders start at its end, which must not be after `orders_expire` |
 | `orders_expire` | `"11:30 America/New_York"` | no entry on a bar opening at or after it |
 | `exit_at` | `"16:00 America/New_York"` | time stop (`exit_dt`); `null` for none |
 | `risk_reward` | 2.0 | target distance ÷ stop distance |

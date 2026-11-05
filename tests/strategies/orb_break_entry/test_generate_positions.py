@@ -1,7 +1,6 @@
 """Tests for `strategies.orb_break_entry.OrbBreakEntry.generate_positions`."""
 
-from datetime import UTC, date, time
-from zoneinfo import ZoneInfo
+from datetime import UTC, date
 
 import pandas as pd
 import pytest
@@ -12,8 +11,6 @@ from strategies.orb_break_entry import OrbBreakEntry
 
 from ._fakes import (BOTH_WAYS, BREAK_DOWN, BREAK_UP, FLAT, SUMMER_TUESDAY, TUESDAY, WEDNESDAY, data,
                      day_frame)
-
-NEW_YORK = ZoneInfo("America/New_York")
 
 
 def _positions(*frames, strategy: OrbBreakEntry | None = None, **kwargs):
@@ -121,7 +118,7 @@ def test_windows_follow_new_york_daylight_saving() -> None:
 
 
 def test_custom_windows() -> None:
-    strategy = OrbBreakEntry(range_end=time(10, 0, tzinfo=NEW_YORK))
+    strategy = OrbBreakEntry(range_minutes=30)
     # 09:50 is now inside the range, so it sets H rather than breaking it; 10:00 breaks the wider range.
     [position] = _positions(day_frame(overrides={"09:50": BREAK_UP, "10:00": BREAK_UP}), strategy=strategy)
 

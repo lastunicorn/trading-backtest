@@ -18,7 +18,7 @@ def _ny(hour: int, minute: int = 0) -> time:
 def test_defaults_match_the_description() -> None:
     strategy = OrbBreakEntry()
 
-    assert (strategy.range_start, strategy.range_end) == (_ny(9, 30), _ny(9, 45))
+    assert (strategy.range_start, strategy.range_minutes) == (_ny(9, 30), 15)
     assert strategy.orders_expire == _ny(11, 30)
     assert strategy.exit_at == _ny(16, 0)
     assert strategy.risk_reward == 2.0
@@ -30,7 +30,13 @@ def test_non_positive_risk_reward_is_rejected(risk_reward: float) -> None:
         OrbBreakEntry(risk_reward=risk_reward)
 
 
-@pytest.mark.parametrize("name", ["range_start", "range_end", "orders_expire", "exit_at"])
+@pytest.mark.parametrize("range_minutes", [0, -15])
+def test_non_positive_range_minutes_is_rejected(range_minutes: int) -> None:
+    with pytest.raises(ValueError, match="range_minutes must be positive"):
+        OrbBreakEntry(range_minutes=range_minutes)
+
+
+@pytest.mark.parametrize("name", ["range_start", "orders_expire", "exit_at"])
 def test_a_bound_without_a_timezone_is_rejected(name: str) -> None:
     bound = getattr(OrbBreakEntry(), name).replace(tzinfo=None)
 
@@ -39,12 +45,11 @@ def test_a_bound_without_a_timezone_is_rejected(name: str) -> None:
 
 
 @pytest.mark.parametrize("bounds", [
-    {"range_end": _ny(9, 30)},                         # empty range
-    {"range_end": _ny(9, 15)},                         # range ends before it starts
     {"orders_expire": _ny(9, 40)},                     # orders expire inside the range
+    {"range_minutes": 121},                            # range runs past 11:30
 ])
-def test_bounds_out_of_order_are_rejected(bounds: dict) -> None:
-    with pytest.raises(ValueError, match="range_start < range_end <= orders_expire"):
+def test_a_range_ending_after_the_orders_expire_is_rejected(bounds: dict) -> None:
+    with pytest.raises(ValueError, match="must end by orders_expire"):
         OrbBreakEntry(**bounds)
 
 
@@ -60,6 +65,7 @@ def test_no_time_stop_is_accepted() -> None:
 
 def test_orders_may_expire_when_the_range_ends() -> None:
     OrbBreakEntry(orders_expire=_ny(9, 45))
+    OrbBreakEntry(range_minutes=120)
 
 
 def test_bounds_may_be_in_different_zones() -> None:

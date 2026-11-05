@@ -6,9 +6,10 @@
 
 For each New York date D (the date in `range_start`'s zone):
 
-  1. The opening range -- bars opening in [09:30, 09:45) ET -- sets H and L,
+  1. The opening range -- bars opening in the `range_minutes` (15) from 09:30
+     ET, [09:30, 09:45) by default -- sets H and L,
      wicks included. A day without range bars, or with H == L, does not trade.
-  2. Two stop orders wait from 09:45 until 11:30 ET (`orders_expire`): the
+  2. Two stop orders wait from the range's end until 11:30 ET (`orders_expire`): the
      first bar opening in that window that reaches H opens a long at H, the
      first that reaches L a short at L. Each side fills at most once and they
      don't cancel each other, so a day has 0-2 trades; one bar through both
@@ -35,7 +36,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from dataclasses import dataclass
-from datetime import UTC, date, datetime, time
+from datetime import UTC, date, datetime, time, timedelta
 
 import numpy as np
 import pandas as pd
@@ -82,16 +83,18 @@ class _RangeDay:
 @dataclass(frozen=True)
 class OrbBreakEntry(TradingStrategy):
     range_start: ZonedTime = time(9, 30, tzinfo=_NEW_YORK)
-    range_end: ZonedTime = time(9, 45, tzinfo=_NEW_YORK)        # exclusive; the orders start here
+    range_minutes: int = 15                                     # the range's length; the orders start at its end
     orders_expire: ZonedTime = time(11, 30, tzinfo=_NEW_YORK)   # no entry on a bar opening at or after it
     exit_at: ZonedTime | None = time(16, 0, tzinfo=_NEW_YORK)   # flat by; None: no time stop
     risk_reward: float = 2.0
 
     def __post_init__(self) -> None:
-        for name in ("range_start", "range_end", "orders_expire", "exit_at"):
+        for name in ("range_start", "orders_expire", "exit_at"):
             bound = getattr(self, name)
             if bound is not None and bound.tzinfo is None:
                 raise ValueError(f"{name} must carry a timezone, got {bound}")
+        if self.range_minutes <= 0:
+            raise ValueError(f"range_minutes must be positive, got {self.range_minutes}")
         if self.risk_reward <= 0:
             raise ValueError(f"risk_reward must be positive, got {self.risk_reward}")
         self._windows_on(_REFERENCE_DATE)    # raises on bounds out of order
@@ -166,16 +169,19 @@ class OrbBreakEntry(TradingStrategy):
             )
 
     def _windows_on(self, day: date) -> _Windows:
-        """`day`'s bounds, checked to be in order: range_start < range_end <= orders_expire < exit_at."""
+        """`day`'s bounds, checked to be in order: range end (range_start + range_minutes) <= orders_expire < exit_at."""
         def utc(bound: time) -> datetime:
             return datetime.combine(day, bound).astimezone(UTC)
 
-        range_start, range_end, orders_expire = utc(self.range_start), utc(self.range_end), utc(self.orders_expire)
+        local_start = datetime.combine(day, self.range_start)
+        range_start = local_start.astimezone(UTC)
+        range_end = (local_start + timedelta(minutes=self.range_minutes)).astimezone(UTC)    # wall-clock minutes
+        orders_expire = utc(self.orders_expire)
         exit_at = None if self.exit_at is None else utc(self.exit_at)
 
-        if not range_start < range_end <= orders_expire:
-            raise ValueError(f"need range_start < range_end <= orders_expire, got {self.range_start}, "
-                             f"{self.range_end}, {self.orders_expire} on {day}")
+        if not range_end <= orders_expire:
+            raise ValueError(f"the range ({self.range_minutes} minutes from {self.range_start}) must end by "
+                             f"orders_expire {self.orders_expire} on {day}")
         if exit_at is not None and not orders_expire < exit_at:
             raise ValueError(f"exit_at {self.exit_at} must be after orders_expire {self.orders_expire} on {day}")
 
