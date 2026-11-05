@@ -10,7 +10,7 @@ A header with the strategy, its parameters, the data, the source, the cost model
 
 - `"none"`: one column, `all`.
 - `"dvt"`: one column per split and a final line, *Net positive in every split: yes/no*.
-- `"monthly"` / `"yearly"`: too many periods for a column each, so the table is turned around: one row per period and six key metrics as columns (every metric is still in `statistics.csv`). The final line counts the periods that made money: *Net positive in K of N months with trades (E without)*.
+- `"monthly"` / `"yearly"`: too many periods for a column each, so the table is turned around: one row per period and seven key metrics as columns (every metric is still in `statistics.csv`). The final line counts the periods that made money: *Net positive in K of N months with trades (E without)*.
 
 For example, the end of the [Narrow Asia London Fade](strategy-narrow-asia-fade.md) report with `"splits": "dvt"`:
 
@@ -29,13 +29,13 @@ Net positive in every split (discovery, validation, test): yes
 And with `"splits": "yearly"`:
 
 ```
-          trades  win_rate_pct  total_net_pips  profit_factor  expectancy_r  max_drawdown_pips
-----------------------------------------------------------------------------------------------
-all          207         72.0%           257.5           1.37         0.078               70.5
-2020          30         86.7%           139.5           4.63         0.269               20.0
-2021          53         66.0%            10.3           1.05         0.017               70.5
+          trades  win_rate_pct  total_net_pips  total_net_r  profit_factor  expectancy_r  max_drawdown_pips
+-----------------------------------------------------------------------------------------------------------
+all          207         72.0%           257.5       16.140           1.37         0.078               70.5
+2020          30         86.7%           139.5        8.068           4.63         0.269               20.0
+2021          53         66.0%            10.3        0.887           1.05         0.017               70.5
 ...
-2026          12         75.0%            30.8           2.86         0.186               10.9
+2026          12         75.0%            30.8        2.229           2.86         0.186               10.9
 
 Net positive in 6 of 7 years with trades (0 without)
 ```
@@ -60,6 +60,7 @@ The same numbers, one row for `all` and then one per split (`discovery`, `valida
 | `wins` / `losses` | `net_pips > 0` / `net_pips ≤ 0` |
 | `win_rate_pct` | wins ÷ resolved × 100 |
 | `total_gross_pips`, `total_cost_pips`, `total_net_pips` | sums before costs, of costs, and after costs |
+| `total_net_r` | sum of `net_r`: the net result in units of risk |
 | `avg_net_pips`, `median_net_pips` | per resolved trade |
 | `avg_win_pips`, `avg_loss_pips` | average net result of wins / of losses |
 | `profit_factor` | gross profit ÷ gross loss, net of costs (`inf` with no losses, `n/a` with no P&L) |

@@ -107,7 +107,8 @@ from strategies import STRATEGIES
 # table is transposed and shows these metrics only (statistics.csv has them all).
 _PERIOD_SPLITS = {SplitMode.MONTHLY: "months", SplitMode.YEARLY: "years"}
 _PERIOD_REPORT_METRICS = (
-    "trades", "win_rate_pct", "total_net_pips", "profit_factor", "expectancy_r", "max_drawdown_pips",
+    "trades", "win_rate_pct", "total_net_pips", "total_net_r", "profit_factor", "expectancy_r",
+    "max_drawdown_pips",
 )
 
 

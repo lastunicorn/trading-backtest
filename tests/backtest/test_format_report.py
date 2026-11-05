@@ -69,7 +69,8 @@ def test_calendar_splits_put_one_period_per_row() -> None:
 
     header = next(line for line in report.splitlines() if "win_rate_pct" in line)
     assert header.split() == [
-        "trades", "win_rate_pct", "total_net_pips", "profit_factor", "expectancy_r", "max_drawdown_pips"]
+        "trades", "win_rate_pct", "total_net_pips", "total_net_r", "profit_factor", "expectancy_r",
+        "max_drawdown_pips"]
     assert _row(report, "all")[:3] == ["2", "50.0%", "-3.4"]
     assert _row(report, "2026-02")[:2] == ["0", "n/a"]
     assert _row(report, "2026-03")[:3] == ["1", "0.0%", "-21.7"]

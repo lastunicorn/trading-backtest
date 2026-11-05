@@ -26,6 +26,7 @@ def test_pnl_totals_and_averages() -> None:
     assert stats["total_net_pips"] == 20
     assert stats["total_gross_pips"] == 24
     assert stats["total_cost_pips"] == 4
+    assert stats["total_net_r"] == pytest.approx(2)
     assert stats["avg_net_pips"] == 5
     assert stats["median_net_pips"] == 2.5
     assert stats["avg_win_pips"] == 15
@@ -72,6 +73,7 @@ def test_ambiguous_trades_are_counted_but_excluded_from_pnl() -> None:
     assert stats["resolved"] == 2
     assert stats["win_rate_pct"] == 50
     assert stats["total_net_pips"] == 5
+    assert stats["total_net_r"] == pytest.approx(0.5)
 
 
 def test_drawdown_and_streak_follow_open_time_not_row_order() -> None:
@@ -88,7 +90,7 @@ def test_no_trades_gives_zero_counts_and_nan_figures() -> None:
 
     assert stats["trades"] == 0
     assert stats["wins"] == 0
-    for key in ("win_rate_pct", "total_net_pips", "profit_factor", "max_drawdown_pips", "expectancy_r"):
+    for key in ("win_rate_pct", "total_net_pips", "total_net_r", "profit_factor", "max_drawdown_pips", "expectancy_r"):
         assert math.isnan(stats[key]), key
 
 

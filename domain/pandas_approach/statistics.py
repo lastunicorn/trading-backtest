@@ -78,6 +78,7 @@ def compute_statistics(trades: pd.DataFrame) -> dict[str, float]:
         "total_gross_pips": float(resolved["gross_pips"].sum()) if len(resolved) else float("nan"),
         "total_cost_pips": float(resolved["cost_pips"].sum()) if len(resolved) else float("nan"),
         "total_net_pips": float(net.sum()) if len(resolved) else float("nan"),
+        "total_net_r": float(resolved["net_r"].sum()) if len(resolved) else float("nan"),
         "avg_net_pips": float(net.mean()),
         "median_net_pips": float(net.median()),
         "avg_win_pips": float(wins.mean()),
