@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 
 from backtest import build_run_info
 from domain.broker_clock import BROKER_SERVER_TZ
-from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest, PositionCloseDelay
+from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest
 from domain.pandas_approach.cost_model import FixedCost
 from domain.pandas_approach.splits import SplitMode
 from ports.run_environment import GitCommit
@@ -73,13 +73,12 @@ def test_records_the_data() -> None:
 def test_records_the_simulation_settings() -> None:
     backtest = Backtest(
         ScriptedStrategy([0]), data(10, {}), cost_model=FixedCost(pips=1.2),
-        ambiguity_policy=AmbiguityPolicy.ASSUME_SL, position_resolve_delay=PositionCloseDelay.ENTRY_BAR,
+        ambiguity_policy=AmbiguityPolicy.ASSUME_SL,
     )
 
     assert _info(backtest)["simulation"] == {
         "cost_model": {"class": "FixedCost", "pips": 1.2},
         "ambiguity_policy": "assume-sl",
-        "position_resolve_delay": "entry-bar",
     }
 
 

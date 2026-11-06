@@ -79,6 +79,7 @@ One row per trade, sorted by entry time:
 |---|---|
 | `open_dt`, `side`, `open_price`, `sl`, `tp`, `exit_dt` | what the strategy asked for |
 | `close_dt`, `close_price`, `outcome` | what the simulator decided (`close_price` is empty for `ambiguous`) |
+| `entry_fill` | where in its bar the entry filled: `at-level` (SL/TP checked from the next bar) or `at-open` (from the entry bar) |
 | `tag` | the strategy's free-text label |
 | `gross_pips`, `cost_pips`, `net_pips` | result before costs, the cost, result after costs |
 | `risk_pips`, `net_r` | entry-to-stop distance, and net pips ÷ risk |
@@ -89,4 +90,4 @@ One row per trade, sorted by entry time:
 
 ## `run.json`
 
-Provenance: strategy name (the config's `strategy.name`, the same key `STRATEGIES` uses), class and parameters; data symbol, timeframe, clock, first/last bar and bar count; under `simulation`, the cost model, ambiguity and resolve-from settings; the `splits` mode; trade count; git commit and whether the working tree had uncommitted changes; creation time; source; and `notes`, the report's Notes as a list, only when there are any. Keep it with the results, so any number can be traced back to exactly what produced it.
+Provenance: strategy name (the config's `strategy.name`, the same key `STRATEGIES` uses), class and parameters; data symbol, timeframe, clock, first/last bar and bar count; under `simulation`, the cost model and ambiguity setting; the `splits` mode; trade count; git commit and whether the working tree had uncommitted changes; creation time; source; and `notes`, the report's Notes as a list, only when there are any. Keep it with the results, so any number can be traced back to exactly what produced it.

@@ -72,9 +72,6 @@ def test_errors_name_the_config_file(tmp_path) -> None:
     ({"strategy": {"name": "rsi_divergence"}, "data_source": data_source(), "out": "o",
       "simulation": {"ambiguity": "guess"}},
      '"simulation.ambiguity" is "guess"'),
-    ({"strategy": {"name": "rsi_divergence"}, "data_source": data_source(), "out": "o",
-      "simulation": {"resolve_from": "later"}},
-     '"simulation.resolve_from" is "later"'),
     ({"strategy": {"name": "rsi_divergence"}, "data_source": data_source(), "out": "o", "splits": "weekly"},
      '"splits" is "weekly"'),
 ])

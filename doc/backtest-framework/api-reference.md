@@ -97,13 +97,20 @@ pandas rejects custom `tzinfo` objects, so don't pass `BROKER_SERVER_TZ` to `tz_
 | `END_OF_DATA` | `end-of-data` | still open when the bars ran out |
 | `AMBIGUOUS` | `ambiguous` | one bar touched both SL and TP (with `EXCLUDE`); no price |
 
-**`Position(open_dt, open_price, side, sl, tp, exit_dt=None, close_dt=None, close_price=None, outcome=OPEN, tag="")`**: one trade. Prices are raw price units, not pips.
+**`EntryFill`**: where in its entry bar a position filled, which decides whether that bar can hit SL/TP.
+
+| Member | Value | Meaning |
+|---|---|---|
+| `AT_LEVEL` | `at-level` | at a price inside the bar (stop/limit order, break, re-cross); SL/TP are checked from the next bar |
+| `AT_OPEN` | `at-open` | at the bar's open; the entry bar is checked too |
+
+**`Position(open_dt, open_price, side, sl, tp, entry_fill=AT_LEVEL, exit_dt=None, close_dt=None, close_price=None, outcome=OPEN, tag="")`**: one trade. Prices are raw price units, not pips.
 
 - Construction validates: long `sl < open_price < tp`, short `tp < open_price < sl`, and `exit_dt` after `open_dt`.
 - `is_closed` → whether `outcome` is no longer `OPEN`.
 - `close(at, price, outcome)` → records the close. Called by the simulator, not by strategies. It closes once only; `price` must be `None` exactly when `outcome` is `AMBIGUOUS`.
 
-**`positions_to_frame(positions)`** → a DataFrame with the columns `FRAME_COLUMNS` (`open_dt, side, open_price, sl, tp, exit_dt, close_dt, close_price, outcome, tag`). Enums become their string values. An empty list gives an empty frame with the same columns and dtypes.
+**`positions_to_frame(positions)`** → a DataFrame with the columns `FRAME_COLUMNS` (`open_dt, side, open_price, sl, tp, entry_fill, exit_dt, close_dt, close_price, outcome, tag`). Enums become their string values. An empty list gives an empty frame with the same columns and dtypes.
 
 ## 3. Strategies
 
@@ -153,12 +160,11 @@ pandas rejects custom `tzinfo` objects, so don't pass `BROKER_SERVER_TZ` to `tz_
 
 ### `domain.pandas_approach.backtest`
 
-**`Backtest(strategy, data, cost_model=FixedCost(), ambiguity_policy=AmbiguityPolicy.EXCLUDE, position_resolve_delay=PositionResolveDelay.NEXT_BAR, splits=SplitMode.NONE)`**: one strategy, one dataset, one set of rules.
+**`Backtest(strategy, data, cost_model=FixedCost(), ambiguity_policy=AmbiguityPolicy.EXCLUDE, splits=SplitMode.NONE)`**: one strategy, one dataset, one set of rules.
 
 - `run() -> BacktestResult`: a pure calculation, with no files, clock or git. It closes every position the strategy returned under the rules in [How a backtest decides things](README.md#how-a-backtest-decides-things) (in the private `_simulate`, the one place exits are decided), then applies costs, splits and statistics. It raises `ValueError` on a position that is already closed or that opens before the first bar; these are never skipped silently.
 
 - **`AmbiguityPolicy`**: `EXCLUDE` (`"exclude"`), `ASSUME_SL` (`"assume-sl"`), `ASSUME_TP` (`"assume-tp"`).
-- **`PositionResolveDelay`**: `NEXT_BAR` (`"next-bar"`), `ENTRY_BAR` (`"entry-bar"`).
 
 **`BacktestResult(trades, statistics, notes=())`** (frozen):
 

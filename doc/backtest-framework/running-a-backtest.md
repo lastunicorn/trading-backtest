@@ -6,7 +6,7 @@ A companion to the [framework overview](README.md). The rules every run follows 
 
 1. [From the command line](#1-from-the-command-line)
 2. [From Python](#2-from-python)
-3. [Choosing `resolve_from` and `ambiguity`](#3-choosing-resolve_from-and-ambiguity)
+3. [Choosing `ambiguity`](#3-choosing-ambiguity)
 4. [Data sources and clocks](#4-data-sources-and-clocks)
 
 ---
@@ -30,7 +30,7 @@ Use this for several runs in a loop (parameter sweeps), or the numbers without f
 from application.load_historical_data_use_case import SourceFormat, load_source
 from backtest import run_backtest
 from domain.broker_clock import BROKER_SERVER_TZ
-from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest, PositionResolveDelay
+from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest
 from domain.pandas_approach.cost_model import FixedCost
 from domain.pandas_approach.splits import SplitMode
 from domain.sample_size import SampleSize
@@ -44,7 +44,6 @@ backtest = Backtest(
     data,
     cost_model=FixedCost(pips=1.7),
     ambiguity_policy=AmbiguityPolicy.EXCLUDE,
-    position_resolve_delay=PositionResolveDelay.NEXT_BAR,
     splits=SplitMode.DVT,                        # default SplitMode.NONE: "all" only
 )
 
@@ -68,16 +67,11 @@ for rr in (1.0, 1.5, 2.0):
 
 **Choose parameters on the discovery split only.** Validation and test are there to confirm a choice, not to make it. That is the repo's methodology.
 
-## 3. Choosing `resolve_from` and `ambiguity`
+## 3. Choosing `ambiguity`
 
-These are the config's `simulation.resolve_from` and `simulation.ambiguity`.
+This is the config's `simulation.ambiguity`. (Where SL/TP checking starts is not a setting: each position's `entry_fill`, which the strategy sets from how it enters, decides it. See [Where checking starts](README.md#how-a-backtest-decides-things).)
 
-| Your entry happens… | `resolve_from` | Why |
-|---|---|---|
-| at a level inside a bar (breakout, re-cross, limit or stop order) | `next-bar` | the bar's range may have happened before the fill |
-| at a bar's open (signal confirmed on the previous bar) | `entry-bar` | the whole bar happened after the fill |
-
-For `ambiguity`, keep `exclude` unless you are reproducing a study that used another rule, as `narrow_asia_fade` uses `assume-sl`. Then compare the two. If they differ a lot, your stop and target are close enough together that bar size matters; check the `excluded_ambiguous` count.
+Keep `exclude` unless you are reproducing a study that used another rule, as `narrow_asia_fade` uses `assume-sl`. Then compare the two. If they differ a lot, your stop and target are close enough together that bar size matters; check the `excluded_ambiguous` count.
 
 ## 4. Data sources and clocks
 

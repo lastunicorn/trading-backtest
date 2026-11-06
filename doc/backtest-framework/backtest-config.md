@@ -48,7 +48,6 @@ A config is one JSON object, grouped by what each setting controls:
 	"simulation": {
 		"timeframe": "5m",
 		"ambiguity": "assume-sl",
-		"resolve_from": "next-bar",
 		"cost": {
 			"commission_pips": 1.7
 		}
@@ -74,8 +73,7 @@ A config is one JSON object, grouped by what each setting controls:
 | `out` | yes | – | Output directory. Created if missing; existing result files are **overwritten**. What it receives is in [Reading the results](reading-the-backtest-results.md). |
 | `simulation` | no | all defaults | The rules the positions are traded under: an object with the `simulation.*` keys below. |
 | `simulation.timeframe` | no | `"5m"` | Bar size to test on: `5m`, `15m`, `1h`, `4h`, `1d`… (`m` minutes, `h` hours, `d` days, `w` weeks, `M` months). The source is resampled to it, so it must be a whole multiple of `data_source.timeframe` (`15m` from `5m`, not `1m` or `7m` from `5m`); anything else is rejected when the config loads (see [Checklist and common mistakes](README.md#checklist-and-common-mistakes)). |
-| `simulation.ambiguity` | no | `"exclude"` | A bar touching both SL and TP: `exclude`, `assume-sl` or `assume-tp`. See [Choosing `resolve_from` and `ambiguity`](running-a-backtest.md#3-choosing-resolve_from-and-ambiguity). |
-| `simulation.resolve_from` | no | `"next-bar"` | First bar SL/TP are checked on: `next-bar` or `entry-bar`. See [Choosing `resolve_from` and `ambiguity`](running-a-backtest.md#3-choosing-resolve_from-and-ambiguity). |
+| `simulation.ambiguity` | no | `"exclude"` | A bar touching both SL and TP: `exclude`, `assume-sl` or `assume-tp`. See [Choosing `ambiguity`](running-a-backtest.md#3-choosing-ambiguity). (The first bar SL/TP are checked on is not a key: the strategy sets it on each position, see [Where checking starts](README.md#how-a-backtest-decides-things).) |
 | `simulation.cost` | no | no cost | What each trade pays: an object with the `simulation.cost.*` keys below. Leaving it out, or leaving it empty, backtests with **zero cost**; `narrow_asia_fade`'s round-trip friction is `"cost": {"commission_pips": 1.7}`. |
 | `simulation.cost.spread` | no | `false` | `true`: charge each trade the spread of the bar where it crosses to the ask, entry for a long and exit for a short (`SpreadCost`). Needs data with a `spread` column: MT5 raw exports or Dukascopy, not histdata.com exports. A bar without a spread value (a Dukascopy minute with no ask price) is charged 0 spread, listed in the report's Notes. |
 | `simulation.cost.commission_pips` | no | `0` | A flat round-trip cost per trade, in pips. Without `simulation.cost.spread` it is the whole cost (`FixedCost`); with it, it is added to the spread. |
@@ -132,7 +130,7 @@ Both in `backtests/`:
 {
 	"strategy": {"name": "rsi_divergence"},
 	"data_source": {"path": "../../data/eurusd/1min", "format": "metatrader", "symbol": "EURUSD", "timezone": "broker"},
-	"simulation": {"timeframe": "15m", "resolve_from": "entry-bar"},
+	"simulation": {"timeframe": "15m"},
 	"out": "../../scratch/backtest_rsi_divergence"
 }
 
@@ -142,7 +140,6 @@ Both in `backtests/`:
 	"data_source": {"path": "/path/to/dukascopy/eurusd/2025", "format": "dukascopy", "symbol": "EURUSD"},
 	"simulation": {
 		"timeframe": "15m",
-		"resolve_from": "entry-bar",
 		"cost": {"spread": true, "commission_pips": 0.2}
 	},
 	"out": "../../scratch/backtest_rsi_duka"

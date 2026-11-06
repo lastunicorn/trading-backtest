@@ -14,7 +14,7 @@ from datetime import UTC
 import numpy as np
 import pandas as pd
 
-from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest, PositionCloseDelay
+from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest
 from domain.pandas_approach.cost_model import FixedCost
 from domain.pandas_approach.historical_data import HistoricalData
 from domain.pandas_approach.position import PositionOutcome
@@ -43,11 +43,10 @@ def _random_walk() -> pd.DataFrame:
 def _port_trades(frame: pd.DataFrame, max_range_pips: float, risk_reward: float) -> list[tuple]:
     data = HistoricalData(frame, SampleSize.Parse("1m"), EURUSD)
     backtest = Backtest(
-        SessionBreakout(max_range_pips=max_range_pips, risk_reward=risk_reward),
+        SessionBreakout(max_range_pips=max_range_pips, risk_reward=risk_reward, check_trigger_bar=True),
         data,
         cost_model=FixedCost(pips=0.0),
         ambiguity_policy=AmbiguityPolicy.EXCLUDE,
-        position_resolve_delay=PositionCloseDelay.ENTRY_BAR,
     )
     trades = backtest.run().trades.copy()
 

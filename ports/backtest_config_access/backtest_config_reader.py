@@ -79,14 +79,12 @@ class SimulationConfig:
     """The config's `simulation` object: the rules the positions are traded under.
 
     `timeframe` is the bar size to backtest on; `data_source.timeframe` divides it.
-    The `ambiguity` and `resolve_from` defaults are the values of
-    `AmbiguityPolicy.EXCLUDE` and `PositionCloseDelay.NEXT_BAR`. `cost` is
+    The `ambiguity` default is the value of `AmbiguityPolicy.EXCLUDE`. `cost` is
     what each trade pays; none by default.
     """
 
     timeframe: str = "5m"
     ambiguity: str = "exclude"
-    resolve_from: str = "next-bar"
     cost: CostConfig = field(default_factory=CostConfig)
 
 
@@ -133,7 +131,6 @@ _DATA_SOURCE_KEY_TYPES = {
 _SIMULATION_KEY_TYPES = {
     "timeframe": str,
     "ambiguity": str,
-    "resolve_from": str,
     "cost": dict,
 }
 

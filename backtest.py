@@ -50,8 +50,9 @@ broker-server clock (New York + 7h), or "histdata" for histdata.com downloads
 bars; nothing is shifted.
 
 `simulation` holds the rules the positions are traded under: `timeframe`
-(default "5m"), `ambiguity` (default "exclude"), `resolve_from` (default
-"next-bar") and `cost` (`spread`, `commission_pips`; no cost by default).
+(default "5m"), `ambiguity` (default "exclude") and `cost` (`spread`,
+`commission_pips`; no cost by default). Where SL/TP checking starts is not a
+setting: each position's `entry_fill`, set by the strategy, decides it.
 
 `splits` (default "none") breaks the statistics down by group as well as
 overall: "dvt" for the 60/20/20 discovery / validation / test cut, "monthly"
@@ -94,7 +95,7 @@ from pathlib import Path
 from application.load_backtest_config_use_case import cost_model, load_backtest_config
 from application.load_historical_data_use_case import SourceFormat, load_source
 from domain.broker_clock import timezone_by_name, timezone_name
-from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest, BacktestResult, PositionCloseDelay
+from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest, BacktestResult
 from domain.pandas_approach.splits import SplitMode
 from domain.sample_size import SampleSize
 from domain.symbol import Symbol, by_ticker
@@ -160,7 +161,6 @@ def _run(config: BacktestConfig, timeframe: SampleSize, symbol: Symbol) -> Backt
         data=data,
         cost_model=cost_model(config.simulation.cost),
         ambiguity_policy=AmbiguityPolicy(config.simulation.ambiguity),
-        position_resolve_delay=PositionCloseDelay(config.simulation.resolve_from),
         splits=SplitMode(config.splits),
     )
     return run_backtest(backtest, config.out, source=f"{config.data_source.path} ({source_format.value})",
@@ -233,7 +233,6 @@ def build_run_info(
                 **(asdict(backtest.cost_model) if is_dataclass(backtest.cost_model) else {}),
             },
             "ambiguity_policy": backtest.ambiguity_policy.value,
-            "position_resolve_delay": backtest.position_resolve_delay.value,
         },
         "splits": backtest.splits.value,
         "trades": len(result.trades),
@@ -264,7 +263,7 @@ def format_report(result: BacktestResult, run_info: dict) -> str:
         lines.append(f"Source:      {run_info['source']}")
     lines += [
         f"Costs:       {sim['cost_model']['class']}({_describe(cost)}) per trade, net of every P&L figure",
-        f"Simulation:  ambiguous bars {sim['ambiguity_policy']}, SL/TP checked from {sim['position_resolve_delay']}",
+        f"Simulation:  ambiguous bars {sim['ambiguity_policy']}",
         f"Created:     {run_info['created']}   git {run_info['git']['commit'] or 'n/a'}"
         + (" (uncommitted changes)" if run_info["git"]["dirty"] else ""),
         "",

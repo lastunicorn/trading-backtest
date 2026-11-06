@@ -6,10 +6,17 @@
     position.close(at=t2, price=1.1040, outcome=PositionOutcome.TAKE_PROFIT_HIT)
     frame = positions_to_frame([position])
 
-A strategy creates positions *open* -- entry, SL, TP, and optionally
-`exit_dt`, the time it should be cut off if neither level is hit. Deciding how
-it closed is the simulator's job, not the strategy's, which is why `close()`
-is the only way a position's close fields change.
+A strategy creates positions *open* -- entry, SL, TP, how the entry filled
+(`entry_fill`) and optionally `exit_dt`, the time it should be cut off if
+neither level is hit. Deciding how it closed is the simulator's job, not the
+strategy's, which is why `close()` is the only way a position's close fields
+change.
+
+`EntryFill` says where in its entry bar a position filled, which decides
+whether that bar can hit its SL or TP: at the bar's open the whole bar comes
+after the fill, so it can (`AT_OPEN`); at a level inside the bar, OHLC can't
+tell whether the bar's extremes came before or after the fill, so it can't
+(`AT_LEVEL`, the default).
 
 Prices are raw price units, not pips: a `Position` doesn't know its symbol's
 pip size. Converting to pips is the caller's job, via `domain.symbol.Symbol`.
@@ -27,7 +34,7 @@ import pandas as pd
 
 from domain.pandas_approach.side import Side
 
-__all__ = ["FRAME_COLUMNS", "Position", "PositionOutcome", "Side", "positions_to_frame"]
+__all__ = ["FRAME_COLUMNS", "EntryFill", "Position", "PositionOutcome", "Side", "positions_to_frame"]
 
 
 class PositionOutcome(Enum):
@@ -44,6 +51,15 @@ class PositionOutcome(Enum):
     AMBIGUOUS = "ambiguous"
 
 
+class EntryFill(Enum):
+    """Where in its entry bar a position filled."""
+
+    # At a price inside the bar (a stop or limit order): SL/TP are checked from the next bar.
+    AT_LEVEL = "at-level"
+    # At the bar's open (a market order on a closed signal bar): the entry bar is checked too.
+    AT_OPEN = "at-open"
+
+
 @dataclass(slots=True)
 class Position:
     """One trade: opened by a strategy, closed by the simulator."""
@@ -54,6 +70,7 @@ class Position:
     sl: float
     tp: float
 
+    entry_fill: EntryFill = EntryFill.AT_LEVEL
     exit_dt: datetime | None = None
     close_dt: datetime | None = None
     close_price: float | None = None
@@ -112,6 +129,7 @@ FRAME_COLUMNS = (
     "open_price",
     "sl",
     "tp",
+    "entry_fill",
     "exit_dt",
     "close_dt",
     "close_price",
@@ -138,6 +156,7 @@ def positions_to_frame(positions: list[Position]) -> pd.DataFrame:
                 p.open_price,
                 p.sl,
                 p.tp,
+                p.entry_fill.value,
                 p.exit_dt,
                 p.close_dt,
                 p.close_price,
@@ -157,7 +176,7 @@ def positions_to_frame(positions: list[Position]) -> pd.DataFrame:
     for column in _PRICE_COLUMNS:
         frame[column] = frame[column].astype("float64")
 
-    for column in ("side", "outcome", "tag"):
+    for column in ("side", "entry_fill", "outcome", "tag"):
         frame[column] = frame[column].astype("str")
 
     return frame

@@ -35,7 +35,7 @@ The split days are the dates with a usable opening range, traded or not.
 
 ## Running it
 
-The entry is at a level *inside* the trigger bar, so use the default `"resolve_from": "next-bar"`. It can't see a stop hit on the trigger bar itself, which makes it slightly optimistic. With the stop only half the range away, this matters more than for most strategies; `"entry-bar"` is the pessimistic bound for comparison. Fills are at the level even when a bar gaps through it (the framework's rule). Between 09:45 and 11:30 that should be rare.
+The entry is at a level *inside* the trigger bar, so its positions are `entry_fill` `at-level` and SL/TP are checked from the next bar. It can't see a stop hit on the trigger bar itself, which makes it slightly optimistic. With the stop only half the range away, this matters more than for most strategies. Fills are at the level even when a bar gaps through it (the framework's rule). Between 09:45 and 11:30 that should be rare.
 
 `backtests/orb_break_entry/backtest.json` runs it on Dukascopy EURUSD M1 (UTC) with the bar's real spread (`"cost": {"spread": true}`) and `"splits": "dvt"`. The broker MT5 exports would work too, but those on the share carry no spread column. Three trades fall on Dukascopy days without ask prices (2021-11-12, 2022-03-11, 2023-11-17); they are charged 0 spread and listed in the report's Notes.
 

@@ -21,11 +21,11 @@ For each weekday, in broker-server time:
 
 Step 4's exits are the simulator's job. This class only emits the entries,
 with `exit_dt` set to the end of the 14:00 bar. The strategy was designed with
-exits resolved from the bar after entry and a bar touching both SL and TP
-settled as a stop, which is `AmbiguityPolicy.ASSUME_SL` with
-`PositionResolveDelay.NEXT_BAR`:
+exits resolved from the bar after entry, which is what its `EntryFill.AT_LEVEL`
+entries get, and a bar touching both SL and TP settled as a stop, which is
+`AmbiguityPolicy.ASSUME_SL`:
 
-    python3 backtest.py backtests/narrow_asia_fade   # ambiguity assume-sl, resolve_from next-bar
+    python3 backtest.py backtests/narrow_asia_fade   # ambiguity assume-sl
 
 The windows are broker-server wall-clock times, so the data must be on that
 clock (`BROKER_SERVER_TZ`); anything else raises rather than trading the

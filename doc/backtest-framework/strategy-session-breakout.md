@@ -22,6 +22,7 @@ Each one can be set from a config's `strategy.parameters`.
 | `session_start`, `session_end` | 09:00, 18:00 | reference session, local time in `session_timezone` (end exclusive) |
 | `session_timezone` | `"Asia/Tokyo"` | an IANA zone name, or `"broker"` for the broker-server clock |
 | `max_range_pips` | 30.0 | a day whose session range is above this does not trade |
+| `check_trigger_bar` | false | `true`: the script's rule, SL/TP can hit on the trigger bar itself (the positions are marked `entry_fill` `at-open`). For parity only |
 | `risk_reward` | 1.5 | target distance ÷ stop distance |
 
 The defaults are the script's CLI defaults. The strategy description asks for a risk/reward of 1:2; set `"risk_reward": 2` for that.
@@ -32,7 +33,7 @@ These rules come from the code, not from `tokyo-session-breakout.md`, and they a
 
 - **Breakouts are looked for until the session's end on D+1**, not until midnight as the description says.
 - **A day's session only takes bars dated D in UTC, from 00:00 UTC.** A session crossing UTC midnight is cut there. A session that ends on D+1 never trades, because its breakout window is empty.
-- **SL/TP are checked on the trigger bar itself**, so run it with `simulation.resolve_from` `"entry-bar"`. The trigger is at a level inside the bar, so for results rather than parity, `next-bar` is the stricter choice.
+- **SL/TP are checked on the trigger bar itself**, with `"check_trigger_bar": true`. The trigger is at a level inside the bar, so for results rather than parity, the default `false` (checked from the next bar) is the stricter choice.
 - **The script charges no costs** (`simulation.cost.commission_pips` 0).
 
 There is one departure: a day whose session has H == L is skipped. The script would open two zero-risk positions there, which a `Position` cannot hold. The same day is also left out of `split_days`. The split days are the days with a usable session, whatever their range, so tuning `max_range_pips` doesn't move the split boundaries.
@@ -41,7 +42,7 @@ The script records no price for a force-closed position and leaves those positio
 
 ## Running it
 
-`backtests/session_breakout/backtest.json` runs with the parity settings (`entry-bar`, `exclude`, no costs):
+`backtests/session_breakout/backtest.json` runs with the parity settings (`"check_trigger_bar": true`, `exclude`, no costs):
 
 ```bash
 python3 backtest.py backtests/session_breakout

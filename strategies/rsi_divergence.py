@@ -39,10 +39,10 @@ If price has already run past the pivot extreme by the entry bar's open, the
 stop would sit on the wrong side of the entry; that signal is skipped.
 
 Entries are at a bar's *open*, so the entry bar's range all happened after the
-fill: run it with `simulation.resolve_from` "entry-bar". The default next-bar rule would
-ignore a stop or target hit on the entry bar itself.
+fill: the positions are `EntryFill.AT_OPEN`, and the simulator checks SL/TP on
+the entry bar itself.
 
-    python3 backtest.py backtests/rsi_divergence_15m     # simulation: timeframe 15m, resolve_from entry-bar
+    python3 backtest.py backtests/rsi_divergence_15m     # simulation: timeframe 15m
 
 Timezone-agnostic without an entry window: RSI and pivots depend on bar order,
 not the clock. With one, the data's `timezone` must be right, since the window
@@ -58,7 +58,7 @@ import pandas as pd
 from domain.pandas_approach.divergence import filter_regular_by_band, find_divergences
 from domain.pandas_approach.divergence_positions import open_positions
 from domain.pandas_approach.historical_data import HistoricalData
-from domain.pandas_approach.position import Position, Side
+from domain.pandas_approach.position import EntryFill, Position, Side
 from domain.pandas_approach.rsi import rsi
 from domain.pandas_approach.trading_strategy import TradingStrategy
 from domain.time_window import TimeWindow, ZonedTime
@@ -141,6 +141,7 @@ class RsiDivergence(TradingStrategy):
                 side=signal.side,
                 sl=sl,
                 tp=tp,
+                entry_fill=EntryFill.AT_OPEN,
                 tag=f"{direction} divergence, pivot {signal.divergence.end_time:%Y-%m-%d %H:%M}",
             ))
 

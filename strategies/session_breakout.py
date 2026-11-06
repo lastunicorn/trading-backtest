@@ -16,9 +16,13 @@ For each calendar day D (a UTC date):
   4. Still open at the session's end on D+1, it is closed there.
 
 Step 4's exits are the simulator's job; this class emits the entries with
-`exit_dt` at the session's end on D+1. The script checks SL/TP on the trigger
-bar itself, settles a bar touching both as ambiguous and charges no costs, so
-the parity run's `simulation` is `resolve_from` entry-bar, `ambiguity` exclude, `cost.commission_pips` 0:
+`exit_dt` at the session's end on D+1. The entry is at a level inside the
+trigger bar, so by default its positions are `EntryFill.AT_LEVEL` and SL/TP
+are checked from the next bar. The script checked them on the trigger bar
+itself, settled a bar touching both as ambiguous and charged no costs, so the
+parity run sets `check_trigger_bar` true (its positions become
+`EntryFill.AT_OPEN`, as if filled at the trigger bar's open), and its
+`simulation` is `ambiguity` exclude, `cost.commission_pips` 0:
 
     python3 backtest.py backtests/session_breakout
 
@@ -54,7 +58,7 @@ import pandas as pd
 
 from domain.broker_clock import timezone_by_name
 from domain.pandas_approach.historical_data import HistoricalData
-from domain.pandas_approach.position import Position, Side
+from domain.pandas_approach.position import EntryFill, Position, Side
 from domain.pandas_approach.shift_timezone import shift_timezone
 from domain.pandas_approach.trading_strategy import TradingStrategy
 from domain.trading_session import TradingSession
@@ -81,6 +85,8 @@ class SessionBreakout(TradingStrategy):
     session_timezone: str = "Asia/Tokyo"
     max_range_pips: float = 30.0
     risk_reward: float = 1.5
+    # The script's rule: SL/TP can hit on the trigger bar itself. For parity, not results.
+    check_trigger_bar: bool = False
 
     def __post_init__(self) -> None:
         if self.risk_reward <= 0:
@@ -119,6 +125,7 @@ class SessionBreakout(TradingStrategy):
                     side=side,
                     sl=mid,
                     tp=level + reward if side == Side.LONG else level - reward,
+                    entry_fill=EntryFill.AT_OPEN if self.check_trigger_bar else EntryFill.AT_LEVEL,
                     exit_dt=exit_dt,
                     tag=tag,
                 ))

@@ -8,7 +8,7 @@ import pytest
 from domain.broker_clock import BROKER_SERVER_TZ
 
 from domain.pandas_approach.divergence import Category, Direction
-from domain.pandas_approach.position import Side
+from domain.pandas_approach.position import EntryFill, Side
 from strategies.rsi_divergence import RsiDivergence
 
 from ._fakes import ENTRY, PIVOT, at, data, divergence, script
@@ -24,6 +24,7 @@ def test_bullish_divergence_is_a_long_with_stop_below_the_pivot_low(monkeypatch)
     assert position.open_price == 1.1000
     assert position.sl == pytest.approx(1.0979)            # pivot low - 1 pip
     assert position.tp == pytest.approx(1.1042)            # 2 x the 21-pip risk
+    assert position.entry_fill == EntryFill.AT_OPEN       # at the entry bar's open
     assert position.exit_dt is None
     assert position.tag == f"bullish divergence, pivot {at(PIVOT):%Y-%m-%d %H:%M}"
 

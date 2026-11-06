@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 
 from domain.broker_clock import BROKER_SERVER_TZ
-from domain.pandas_approach.position import PositionOutcome, Side
+from domain.pandas_approach.position import EntryFill, PositionOutcome, Side
 from domain.pandas_approach.shift_timezone import shift_timezone
 from strategies.session_breakout import SessionBreakout
 
@@ -34,7 +34,14 @@ def test_upside_break_is_a_long_at_the_session_high() -> None:
     assert position.tp == pytest.approx(1.10125)         # 1.5 x the 5-pip risk above entry
     assert position.exit_dt == _at("09:00", WEDNESDAY)   # the session's end the next day
     assert position.tag == "break-high"
+    assert position.entry_fill == EntryFill.AT_LEVEL     # inside the trigger bar
     assert position.outcome == PositionOutcome.OPEN
+
+
+def test_check_trigger_bar_marks_the_entries_as_filled_at_the_open() -> None:
+    [position] = _positions(day_frame(overrides={"10:30": BREAK_UP}), strategy=SessionBreakout(check_trigger_bar=True))
+
+    assert position.entry_fill == EntryFill.AT_OPEN
 
 
 def test_downside_break_is_a_short_at_the_session_low() -> None:

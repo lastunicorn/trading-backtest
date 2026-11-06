@@ -48,15 +48,17 @@ source .venv/bin/activate
 
 ## How a backtest decides things
 
-Every backtest runs under these rules. Two of them are settings (the config's `simulation.resolve_from` and `simulation.ambiguity`), so pick those deliberately for each strategy (see [Choosing `resolve_from` and `ambiguity`](running-a-backtest.md#3-choosing-resolve_from-and-ambiguity)).
+Every backtest runs under these rules. One of them is a setting (the config's `simulation.ambiguity`), so pick it deliberately for each strategy (see [Choosing `ambiguity`](running-a-backtest.md#3-choosing-ambiguity)).
 
 **Prices are bid.** The bars hold bid OHLC. Stop-loss and take-profit hits are checked against those prices.
 
 **A hit fills at the level itself.** A long hits TP when a bar's high reaches it and SL when its low does; a short mirrors that. Touching the level counts. The fill is the level even when a bar *gaps* past it, which flatters stop-loss fills after gaps.
 
-**Where checking starts (`PositionResolveDelay`, a setting).**
-- `NEXT_BAR` (default) skips the entry bar. Use it when the entry is at a price *inside* the bar, like a level being re-crossed: the bar's high and low may have happened before the fill.
-- `ENTRY_BAR` checks the entry bar too. Use it when the entry is at the bar's *open*: everything in that bar then happened after the fill.
+**Where checking starts (each position's `entry_fill`, set by the strategy).**
+- `EntryFill.AT_LEVEL` (default) skips the entry bar. It is for an entry at a price *inside* the bar, like a level being re-crossed: the bar's high and low may have happened before the fill.
+- `EntryFill.AT_OPEN` checks the entry bar too. It is for an entry at the bar's *open*: everything in that bar then happened after the fill.
+
+It is a fact about how the strategy enters, not a choice made per run, so the strategy sets it on every `Position` it emits (`positions.csv` has it as the `entry_fill` column).
 
 **A bar touching both SL and TP is ambiguous (`AmbiguityPolicy`, a setting).** OHLC can't say which came first.
 - `EXCLUDE` (default, the research convention) records it as `ambiguous` with no P&L. It is counted, but excluded from every profit figure.
@@ -81,7 +83,7 @@ Every backtest runs under these rules. Two of them are settings (the config's `s
 Before trusting a result:
 
 - [ ] **No look-ahead.** Each entry uses only bars up to its own.
-- [ ] **The right `simulation.resolve_from`** for how the strategy enters ([Choosing `resolve_from` and `ambiguity`](running-a-backtest.md#3-choosing-resolve_from-and-ambiguity)).
+- [ ] **The right `entry_fill`** on the strategy's positions for how it enters ([Where checking starts](#how-a-backtest-decides-things)).
 - [ ] **Costs included.** Never analyse `gross_pips` as if it were the result.
 - [ ] **All three splits positive** (run with `"splits": "dvt"`). One good split is noise. Parameters were chosen on discovery only.
 - [ ] **Enough trades per split** for the numbers to mean something.
@@ -94,7 +96,7 @@ Common mistakes:
 |---|---|
 | `ERROR: … windows are broker-server times; the data is on UTC` | a broker-clock strategy on data that isn't on the broker clock: Dukascopy, histdata (`"histdata"`), or a config that left `data_source.timezone` at its `"UTC"` default. If the files really are broker-server time, set `"timezone": "broker"`; otherwise convert them with `shift_timezone` or use broker MT5 exports |
 | `ERROR: SpreadCost needs a 'spread' column` | `"simulation": {"cost": {"spread": true}}` on data with no spread, such as histdata.com exports; drop `spread` and set `commission_pips`, or use broker MT5/Dukascopy data |
-| `ERROR: backtest.json: unknown key(s) …` | a misspelt config key, or a `simulation` key (`timeframe`, `ambiguity`, `resolve_from`, `cost`) written at the root; the message lists the allowed ones |
+| `ERROR: backtest.json: unknown key(s) …` | a misspelt config key, or a `simulation` key (`timeframe`, `ambiguity`, `cost`) written at the root; the message lists the allowed ones |
 | `ValueError: long position needs sl < open_price < tp` | the strategy built a position with levels on the wrong side; skip such signals |
 | `'datetime' must be strictly increasing` | the frame needs `clean_frame` before `HistoricalData` |
 | far fewer trades than expected | a fixture or real bar touching a level counts as a hit/break; check the ≥ / ≤ edges |
@@ -107,7 +109,7 @@ Common mistakes:
 
 ## Further reading
 
-- [Running a backtest](running-a-backtest.md): the `backtest.py` command, running from Python (custom parameters, sweeps), choosing `resolve_from` and `ambiguity`, data sources and their clocks. **Start here.**
+- [Running a backtest](running-a-backtest.md): the `backtest.py` command, running from Python (custom parameters, sweeps), choosing `ambiguity`, data sources and their clocks. **Start here.**
 - [The backtest config file](backtest-config.md): the JSON config's structure, every key and its default, strategy parameter overrides, validation.
 - [Reading the backtest results](reading-the-backtest-results.md): the four files a run writes, every statistic and every column.
 - [Writing a new strategy](writing-a-strategy.md): the strategy contract, a worked example, registering it for the CLI, parameter variants, tests.

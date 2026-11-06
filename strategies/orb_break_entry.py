@@ -24,10 +24,10 @@ session's start:
      `exit_at_session_end` False holds it until its stop or target, or the data's end.
 
 Step 4's exits are the simulator's job; this class emits the entries with
-`exit_dt` set. The entry is at a level inside the trigger bar, so the
-framework's default `simulation.resolve_from` "next-bar" applies (it can't
-see a stop hit on the trigger bar itself, a slight optimism). Fills are at the
-level even when a bar gaps through it.
+`exit_dt` set. The entry is at a level inside the trigger bar, so its
+positions are `EntryFill.AT_LEVEL` and SL/TP are checked from the next bar (it
+can't see a stop hit on the trigger bar itself, a slight optimism). Fills are
+at the level even when a bar gaps through it.
 
     python3 backtest.py backtests/orb_break_entry
 

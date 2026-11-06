@@ -1,6 +1,6 @@
 """`Backtest`: run one strategy over one dataset under one set of simulation rules.
 
-    from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest, PositionResolveDelay
+    from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest
     from domain.pandas_approach.splits import SplitMode
 
     result = Backtest(strategy, data, cost_model=FixedCost(pips=1.7), splits=SplitMode.DVT).run()
@@ -22,10 +22,10 @@ The exit rules, all on bid OHLC (see `HistoricalData`):
 - **Hits.** A long hits TP when a bar's high reaches it and SL when its low
   does; a short mirrors that. The fill is the level itself. That includes a bar
   that *gaps* through the level, so SL fills are optimistic after gaps.
-- **Where checking starts** is `PositionResolveDelay`. With NEXT_BAR (the default) the
-  entry bar is skipped, because an entry at a level *inside*
-  the bar can't tell whether the bar's extremes came before or after the fill.
-  ENTRY_BAR is right for entries at the bar's open.
+- **Where checking starts** is each position's `entry_fill`. AT_LEVEL (the
+  default) skips the entry bar, because an entry at a level *inside* the bar
+  can't tell whether the bar's extremes came before or after the fill. AT_OPEN
+  checks the entry bar too: the whole bar comes after a fill at its open.
 - **One bar touching both levels** is ambiguous: OHLC can't say which came
   first. `AmbiguityPolicy` decides. EXCLUDE (the repo's research convention)
   closes it as AMBIGUOUS with no price, so it drops out of P&L. ASSUME_SL
@@ -50,13 +50,13 @@ import pandas as pd
 
 from domain.pandas_approach.cost_model import CostModel, FixedCost
 from domain.pandas_approach.historical_data import HistoricalData
-from domain.pandas_approach.position import Position, PositionOutcome, Side, positions_to_frame
+from domain.pandas_approach.position import EntryFill, Position, PositionOutcome, Side, positions_to_frame
 from domain.pandas_approach.splits import SplitMode, assign_splits, split_labels
 from domain.pandas_approach.statistics import statistics_by_split
 from domain.pandas_approach.trade_results import trade_results
 from domain.pandas_approach.trading_strategy import TradingStrategy
 
-__all__ = ["AmbiguityPolicy", "Backtest", "BacktestResult", "PositionCloseDelay"]
+__all__ = ["AmbiguityPolicy", "Backtest", "BacktestResult"]
 
 
 class AmbiguityPolicy(Enum):
@@ -65,13 +65,6 @@ class AmbiguityPolicy(Enum):
     EXCLUDE = "exclude"
     ASSUME_SL = "assume-sl"
     ASSUME_TP = "assume-tp"
-
-
-class PositionCloseDelay(Enum):
-    """The first bar SL/TP are checked on."""
-
-    NEXT_BAR = "next-bar"
-    ENTRY_BAR = "entry-bar"
 
 
 @dataclass(frozen=True)
@@ -97,7 +90,6 @@ class Backtest:
     data: HistoricalData
     cost_model: CostModel = field(default_factory=FixedCost)
     ambiguity_policy: AmbiguityPolicy = AmbiguityPolicy.EXCLUDE
-    position_resolve_delay: PositionCloseDelay = PositionCloseDelay.NEXT_BAR
     # Report per split as well as overall: discovery/validation/test, month or year.
     splits: SplitMode = SplitMode.NONE
 
@@ -145,7 +137,7 @@ class Backtest:
             if entry_bar < 0:
                 raise ValueError(f"position opens at {position.open_dt}, before the first bar {self.data.start_dt}")
 
-            first = entry_bar + 1 if self.position_resolve_delay == PositionCloseDelay.NEXT_BAR else entry_bar
+            first = entry_bar if position.entry_fill == EntryFill.AT_OPEN else entry_bar + 1
 
             # One past the last bar the position may trade on.
             if position.exit_dt is None:

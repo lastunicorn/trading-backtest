@@ -5,9 +5,9 @@ import math
 import pandas as pd
 import pytest
 
-from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest, PositionCloseDelay
+from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest
 from domain.pandas_approach.cost_model import FixedCost
-from domain.pandas_approach.position import FRAME_COLUMNS, PositionOutcome
+from domain.pandas_approach.position import FRAME_COLUMNS, EntryFill, PositionOutcome
 from domain.pandas_approach.splits import SplitMode
 from domain.pandas_approach.trade_results import RESULT_COLUMNS
 
@@ -68,17 +68,6 @@ def test_ambiguity_policy_is_passed_through() -> None:
 
     assert excluded.trades["outcome"].tolist() == ["ambiguous"]
     assert assumed.trades["outcome"].tolist() == ["stop-loss-hit"]
-
-
-def test_position_resolve_delay_is_passed_through() -> None:
-    entry_bar_hits_tp = data(10, {})
-    entry_bar_hits_tp.data.loc[0, "high"] = 1.1025
-
-    next_bar = Backtest(ScriptedStrategy([0]), entry_bar_hits_tp).run()
-    entry_bar = Backtest(ScriptedStrategy([0]), entry_bar_hits_tp, position_resolve_delay=PositionCloseDelay.ENTRY_BAR).run()
-
-    assert next_bar.trades["outcome"].tolist() == ["end-of-data"]
-    assert entry_bar.trades["outcome"].tolist() == ["take-profit-hit"]
 
 
 def test_by_default_there_is_no_split_column_and_only_all() -> None:
@@ -194,21 +183,21 @@ def test_gap_through_the_stop_fills_at_the_stop_level() -> None:
 
 # where checking starts
 
-def test_next_bar_ignores_a_hit_on_the_entry_bar() -> None:
-    trade = _one([HITS_TP_LONG, QUIET, HITS_SL_LONG], long_position(), position_resolve_delay=PositionCloseDelay.NEXT_BAR)
+def test_at_level_entry_ignores_a_hit_on_the_entry_bar() -> None:
+    trade = _one([HITS_TP_LONG, QUIET, HITS_SL_LONG], long_position(entry_fill=EntryFill.AT_LEVEL))
 
     assert trade.outcome == PositionOutcome.STOP_LOSS_HIT.value
     assert trade.close_dt == at(2)
 
 
-def test_entry_bar_counts_a_hit_on_the_entry_bar() -> None:
-    trade = _one([HITS_TP_LONG, QUIET, HITS_SL_LONG], long_position(), position_resolve_delay=PositionCloseDelay.ENTRY_BAR)
+def test_at_open_entry_counts_a_hit_on_the_entry_bar() -> None:
+    trade = _one([HITS_TP_LONG, QUIET, HITS_SL_LONG], long_position(entry_fill=EntryFill.AT_OPEN))
 
     assert trade.outcome == PositionOutcome.TAKE_PROFIT_HIT.value
     assert trade.close_dt == at(0)
 
 
-def test_next_bar_is_the_default() -> None:
+def test_at_level_is_the_default() -> None:
     trade = _one([HITS_TP_LONG, QUIET], long_position())
 
     assert trade.outcome == PositionOutcome.END_OF_DATA.value

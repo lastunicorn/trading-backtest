@@ -40,7 +40,7 @@ Each bound carries its own timezone, so `"08:00 Europe/London"` stays 08:00 Lond
 
 ## Running it
 
-Run with `"simulation": {"timeframe": "15m", "resolve_from": "entry-bar"}`. `backtests/rsi_divergence_15m/backtest.json` does that on the raw M1 exports, and `backtests/rsi_divergence_dukascopy/` on Dukascopy data with spread costs:
+Run with `"simulation": {"timeframe": "15m"}`. Entries are at a bar's open, so its positions are `entry_fill` `at-open` and SL/TP are checked on the entry bar too. `backtests/rsi_divergence_15m/backtest.json` does that on the raw M1 exports, and `backtests/rsi_divergence_dukascopy/` on Dukascopy data with spread costs:
 
 ```bash
 python3 backtest.py backtests/rsi_divergence_15m

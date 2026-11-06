@@ -2,7 +2,7 @@
 
 import pandas as pd
 
-from domain.pandas_approach.position import FRAME_COLUMNS, PositionOutcome, positions_to_frame
+from domain.pandas_approach.position import FRAME_COLUMNS, EntryFill, PositionOutcome, positions_to_frame
 
 from ._fakes import T0, long_position, short_position
 
@@ -15,12 +15,13 @@ def test_one_row_per_position_in_frame_column_order() -> None:
 
 
 def test_enums_become_their_string_values() -> None:
-    closed = short_position(tag="break-high")
+    closed = short_position(entry_fill=EntryFill.AT_OPEN, tag="break-high")
     closed.close(T0 + pd.Timedelta("5min"), 1.1020, PositionOutcome.STOP_LOSS_HIT)
 
     row = positions_to_frame([closed]).iloc[0]
 
     assert row["side"] == "short"
+    assert row["entry_fill"] == "at-open"
     assert row["outcome"] == "stop-loss-hit"
     assert row["tag"] == "break-high"
 

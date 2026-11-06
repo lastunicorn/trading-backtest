@@ -23,7 +23,7 @@ Subclass `TradingStrategy` and implement one method:
 def generate_positions(self, data: HistoricalData) -> list[Position]:
 ```
 
-Return **open** positions: `Position(open_dt, open_price, side, sl, tp, exit_dt=None, tag="")`. Don't close them; the simulator does that.
+Return **open** positions: `Position(open_dt, open_price, side, sl, tp, entry_fill=EntryFill.AT_LEVEL, exit_dt=None, tag="")`. Don't close them; the simulator does that. Set `entry_fill` to `EntryFill.AT_OPEN` when the entry is at its bar's open, so the simulator checks SL/TP on that bar too (see [Where checking starts](README.md#how-a-backtest-decides-things)).
 
 Optional overrides:
 
@@ -114,7 +114,7 @@ class OpeningRangeBreakout(TradingStrategy):
 Things this example gets right, and every strategy should:
 
 - **No look-ahead.** The opening range uses only bars before `range_end`, and the entry is the first bar that breaks it.
-- **Entry at the level.** The fill is inside the breaking bar, so this strategy should run with `simulation.resolve_from` `"next-bar"` (the default).
+- **Entry at the level.** The fill is inside the breaking bar, so its positions keep the default `entry_fill`, `EntryFill.AT_LEVEL`, and SL/TP are checked from the next bar.
 - **Valid levels.** `Position` checks that `sl < open_price < tp` for a long and the reverse for a short, and raises otherwise. Skip a signal whose levels would be invalid rather than letting it raise.
 - **A time stop.** `exit_dt` flattens the trade at 18:00 instead of leaving it open for days.
 - **A `tag`.** It becomes a column in `positions.csv` that you can group results by later.

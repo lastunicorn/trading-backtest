@@ -22,7 +22,7 @@ def test_minimal_config_takes_the_defaults(tmp_path) -> None:
         data_source=DataSourceConfig(path=tmp_path / "m5.csv", format="metatrader", symbol="EURUSD", timeframe="1m",
                                      timezone="UTC"),
         out=tmp_path / "results",
-        simulation=SimulationConfig(timeframe="5m", ambiguity="exclude", resolve_from="next-bar",
+        simulation=SimulationConfig(timeframe="5m", ambiguity="exclude",
                                     cost=CostConfig(spread=False, commission_pips=0.0)),
         splits="none",
     )
@@ -63,7 +63,6 @@ def test_reads_every_setting(tmp_path) -> None:
         "simulation": {
             "timeframe": "15m",
             "ambiguity": "assume-sl",
-            "resolve_from": "entry-bar",
             "cost": {"spread": True, "commission_pips": 0.2},
         },
         "splits": "monthly",
@@ -73,7 +72,7 @@ def test_reads_every_setting(tmp_path) -> None:
         strategy=StrategyConfig(name="rsi_divergence", parameters={"risk_reward": 1.5}), out=tmp_path / "out",
         data_source=DataSourceConfig(path=tmp_path / "duka", format="dukascopy", symbol="GBPUSD", timeframe="5m",
                                      timezone="Etc/UTC"),
-        simulation=SimulationConfig(timeframe="15m", ambiguity="assume-sl", resolve_from="entry-bar",
+        simulation=SimulationConfig(timeframe="15m", ambiguity="assume-sl",
                                     cost=CostConfig(spread=True, commission_pips=0.2)),
         splits="monthly",
     )
@@ -82,9 +81,9 @@ def test_reads_every_setting(tmp_path) -> None:
 def test_simulation_keys_default_inside_the_simulation_object(tmp_path) -> None:
     config = read_config(write_config(tmp_path, {"strategy": {"name": "rsi_divergence"}, "data_source": data_source(),
                                                  "out": "o",
-                                                 "simulation": {"resolve_from": "entry-bar"}}))
+                                                 "simulation": {"ambiguity": "assume-sl"}}))
 
-    assert config.simulation == SimulationConfig(resolve_from="entry-bar")
+    assert config.simulation == SimulationConfig(ambiguity="assume-sl")
 
 
 def test_cost_keys_default_inside_the_cost_object(tmp_path) -> None:
@@ -160,7 +159,8 @@ def test_values_are_not_validated(tmp_path) -> None:
      "unknown key.*timeframe"),
     ({"strategy": {"name": "rsi_divergence"}, "data_source": data_source(), "out": "o", "ambiguity": "exclude"},
      "unknown key.*ambiguity"),
-    ({"strategy": {"name": "rsi_divergence"}, "data_source": data_source(), "out": "o", "resolve_from": "entry-bar"},
+    ({"strategy": {"name": "rsi_divergence"}, "data_source": data_source(), "out": "o",
+      "simulation": {"resolve_from": "entry-bar"}},
      "unknown key.*resolve_from"),
     ({"strategy": {"name": "rsi_divergence"}, "data_source": data_source(), "out": "o",
       "cost": {}},
