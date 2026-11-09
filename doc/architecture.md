@@ -95,7 +95,7 @@ The domain knows *what the data means*: what one OHLC candle is, how bars collap
 
 ### Strategies
 
-The strategy plugins: `TradingStrategy` subclasses (pure logic on top of the domain), plus the `STRATEGIES` registry in `strategies/__init__.py`, through which application code and scripts find them by name. Adding a strategy touches only this folder, its tests and its help page; see [Writing a new strategy](backtest-framework/writing-a-strategy.md).
+The strategy plugins: `TradingStrategy` subclasses (pure logic on top of the domain), plus the `STRATEGIES` registry in `strategies/__init__.py`, through which application code and scripts find them by name. A base class several strategies share stays here too, unregistered: `opening_range.OpeningRangeStrategy` holds the ORB strategies' range and windows. Adding a strategy touches only this folder, its tests and its help page; see [Writing a new strategy](backtest-framework/writing-a-strategy.md).
 
 ### UI
 

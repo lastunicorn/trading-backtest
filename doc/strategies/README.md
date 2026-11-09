@@ -4,5 +4,6 @@ One folder per strategy in the `strategies/STRATEGIES` registry, `<name>/`. Its 
 
 - [Narrow Asia London Fade](narrow-asia-fade/narrow-asia-fade-implementation.md) (`narrow_asia_fade`): fade the London break of a narrow Asia range.
 - [ORB — Break Entry](orb-break-entry/orb-break-entry-implementation.md) (`orb_break_entry`): stop entries at the New York 09:30–09:45 opening range, stop at its midpoint, 2R target. Original rules: [orb-break-entry-rules.md](orb-break-entry/orb-break-entry-rules.md).
+- [ORB — Retest Entry](orb-retest-entry/orb-retest-entry-implementation.md) (`orb_retest_entry`): after a break of the New York 09:30–09:45 opening range, a limit at its midpoint, stop at its other side, 3R target. Original rules: [orb-retest-entry-rules.md](orb-retest-entry/orb-retest-entry-rules.md).
 - [RSI Divergence](rsi-divergence/rsi-divergence-implementation.md) (`rsi_divergence`): regular RSI divergences on M15.
 - [Session Breakout](session-breakout/session-breakout-implementation.md) (`session_breakout`): breakout of the Tokyo/Asian session range, the rules of the removed `session_breakout_strategy.py`. Original rules: [session-breakout-rules.md](session-breakout/session-breakout-rules.md).

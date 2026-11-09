@@ -35,6 +35,8 @@ Set the TP to be **3R**
 
 - This means that the TP (reward) is three times as big as the SL (risk)
 
+**Note:** The TP may be adapted for each symbol based on the results of the backtesting performed on that symbol.
+
 ## Additional rules
 
 - Cancel limit orders after 11:30 ET

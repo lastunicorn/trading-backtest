@@ -137,11 +137,12 @@ strategies/__init__.py                     STRATEGIES registry: the names a back
 strategies/narrow_asia_fade.py             Candle DNA — Narrow Asia London Fade (NarrowAsiaFade)
 strategies/opening_range.py                OpeningRangeStrategy, the ORB strategies' base (not registered): a `TradingSession`'s (`session`, default New York) opening range, order window, time stop, `split_days`
 strategies/orb_break_entry.py              Opening Range Break, break entry (OrbBreakEntry), the rules of doc/strategies/orb-break-entry/orb-break-entry-rules.md on an OpeningRangeStrategy
+strategies/orb_retest_entry.py             Opening Range Break, retest entry (OrbRetestEntry), the rules of doc/strategies/orb-retest-entry/orb-retest-entry-rules.md on an OpeningRangeStrategy: a limit at the range's midpoint after its first break
 strategies/rsi_divergence.py               RSI divergence reversal (RsiDivergence), entries = the removed M15 scan `rsi_divergence_strategy.py`'s
 strategies/session_breakout.py             Tokyo/Asian session breakout (SessionBreakout), the rules of the removed `session_breakout_strategy.py`
 application/load_backtest_config_use_case.py  load_backtest_config: read_config + value checks (strategy, symbol, zone, timeframes) + strategy.parameters → field types; cost_model(CostConfig)
 backtest.py                                the CLI (one arg: a JSON config, loaded by load_backtest_config → BacktestConfig), plus run_backtest → BacktestRun; build_run_info, format_report, write_results
-backtests/<name>/backtest.json             ready-made configs: narrow_asia_fade, orb_break_entry (Dukascopy M1, spread), rsi_divergence_15m, rsi_divergence_dukascopy, session_breakout (script parity)
+backtests/<name>/backtest.json             ready-made configs: narrow_asia_fade, orb_break_entry, orb_retest_entry (Dukascopy M1, spread), rsi_divergence_15m, rsi_divergence_dukascopy, session_breakout (script parity)
 ```
 
 ```bash
@@ -150,6 +151,7 @@ python3 backtest.py backtests/narrow_asia_fade            # a folder means its b
 python3 backtest.py backtests/rsi_divergence_15m/backtest.json
 python3 backtest.py backtests/rsi_divergence_dukascopy
 python3 backtest.py backtests/orb_break_entry
+python3 backtest.py backtests/orb_retest_entry
 python3 backtest.py backtests/session_breakout        # script parity settings
 ```
 
