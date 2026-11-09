@@ -135,7 +135,8 @@ domain/pandas_approach/backtest.py         Backtest(strategy, data, cost_model, 
 application/load_historical_data_use_case.py  load_mt5 / load_histdata / load_dukascopy / load_source(source, SourceFormat) → HistoricalData
 strategies/__init__.py                     STRATEGIES registry: the names a backtest.py config's `strategy.name` accepts
 strategies/narrow_asia_fade.py             Candle DNA — Narrow Asia London Fade (NarrowAsiaFade)
-strategies/orb_break_entry.py              Opening Range Break, break entry (OrbBreakEntry), the rules of doc/strategies/orb-break-entry/orb-break-entry-rules.md on any `TradingSession` (`session`, default New York)
+strategies/opening_range.py                OpeningRangeStrategy, the ORB strategies' base (not registered): a `TradingSession`'s (`session`, default New York) opening range, order window, time stop, `split_days`
+strategies/orb_break_entry.py              Opening Range Break, break entry (OrbBreakEntry), the rules of doc/strategies/orb-break-entry/orb-break-entry-rules.md on an OpeningRangeStrategy
 strategies/rsi_divergence.py               RSI divergence reversal (RsiDivergence), entries = the removed M15 scan `rsi_divergence_strategy.py`'s
 strategies/session_breakout.py             Tokyo/Asian session breakout (SessionBreakout), the rules of the removed `session_breakout_strategy.py`
 application/load_backtest_config_use_case.py  load_backtest_config: read_config + value checks (strategy, symbol, zone, timeframes) + strategy.parameters → field types; cost_model(CostConfig)
