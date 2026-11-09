@@ -114,4 +114,4 @@ Common mistakes:
 - [Reading the backtest results](reading-the-backtest-results.md): the four files a run writes, every statistic and every column.
 - [Writing a new strategy](writing-a-strategy.md): the strategy contract, a worked example, registering it for the CLI, parameter variants, tests.
 - [API reference](api-reference.md): every public name, module by module.
-- [The strategies](../strategies/README.md): one page per registered strategy (rules, parameters, how to backtest it), kept in `doc/strategies/`.
+- [The strategies](../strategies/README.md): one folder per registered strategy in `doc/strategies/`: its implementation (rules, parameters, how to backtest it) and, for some, its original rules.

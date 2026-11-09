@@ -94,7 +94,7 @@ def test_a_level_touched_inside_the_session_is_not_a_break() -> None:
 # --- the breakout window runs to the session's end the next day -----------------------
 
 def test_a_break_after_midnight_still_belongs_to_the_previous_day() -> None:
-    # Not midnight, as doc/strategies/session-breakout-rules.md says: the script's window runs to 09:00 next day.
+    # Not midnight, as doc/strategies/session-breakout/session-breakout-rules.md says: the script's window runs to 09:00 next day.
     tuesday = day_frame(TUESDAY)
     wednesday = day_frame(WEDNESDAY, session=QUIET, overrides={"03:00": BREAK_UP})
 

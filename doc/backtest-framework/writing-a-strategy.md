@@ -146,7 +146,7 @@ STRATEGIES: dict[str, type[TradingStrategy]] = {
 
 The key is the name a config's `strategy.name` takes. The CLI builds the class with its default parameters, overridden by the config's `strategy.parameters` (next section).
 
-Then document it: a page `doc/strategies/<name>.md` (its rules, parameters and how to backtest it, like the [existing ones](../strategies/README.md)), listed in `doc/strategies/README.md`.
+Then document it: a folder `doc/strategies/<name>/` holding `<name>-implementation.md` (its rules, parameters and how to backtest it, like the [existing ones](../strategies/README.md)), listed in `doc/strategies/README.md`.
 
 ## 4. Variants with different parameters
 

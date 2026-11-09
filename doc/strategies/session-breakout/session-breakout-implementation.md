@@ -48,4 +48,4 @@ The script records no price for a force-closed position and leaves those positio
 python3 backtest.py backtests/session_breakout
 ```
 
-See also: [Running a backtest](../backtest-framework/running-a-backtest.md) · [framework overview](../backtest-framework/README.md) · [all strategies](README.md)
+See also: [Running a backtest](../../backtest-framework/running-a-backtest.md) · [framework overview](../../backtest-framework/README.md) · [all strategies](../README.md)

@@ -29,7 +29,8 @@ parity run sets `check_trigger_bar` true (its positions become
 Behaviour kept from the script on purpose (the port is trade-for-trade):
 
 - Breakouts are looked for until the session's end on D+1, not until
-  midnight as doc/strategies/session-breakout-rules.md says.
+  midnight as doc/strategies/session-breakout/session-breakout-rules.md
+  says.
 - A day's session bars are only those on UTC date D, so a session crossing
   UTC midnight is cut there, and one ending on D+1 never trades (its
   breakout window is empty).
