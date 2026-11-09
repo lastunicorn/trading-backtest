@@ -26,4 +26,4 @@ The strategy was designed with exits checked from the bar after entry (its `at-l
 python3 backtest.py backtests/narrow_asia_fade
 ```
 
-See also: [Running a backtest](running-a-backtest.md) · [framework overview](README.md)
+See also: [Running a backtest](../backtest-framework/running-a-backtest.md) · [framework overview](../backtest-framework/README.md) · [all strategies](README.md)

@@ -2,7 +2,7 @@
 
 `"strategy": {"name": "session_breakout"}` · class `strategies.session_breakout.SessionBreakout`
 
-The Tokyo/Asian session breakout from `tokyo-session-breakout.md`, ported from `session_breakout_strategy.py`, a standalone backtest script since deleted. It matches that script trade for trade: `tests/strategies/session_breakout/test_script_parity.py` checks it on every `pytest` run against the trades the script produced on a synthetic M1 random walk (recorded in `_script_trades.py`), and the two also agreed on all 912 trades of the 2020–2026 broker M5 data.
+The Tokyo/Asian session breakout from [its rules](session-breakout-rules.md), ported from `session_breakout_strategy.py`, a standalone backtest script since deleted. It matches that script trade for trade: `tests/strategies/session_breakout/test_script_parity.py` checks it on every `pytest` run against the trades the script produced on a synthetic M1 random walk (recorded in `_script_trades.py`), and the two also agreed on all 912 trades of the 2020–2026 broker M5 data.
 
 For each UTC calendar day D:
 
@@ -29,7 +29,7 @@ The defaults are the script's CLI defaults. The strategy description asks for a 
 
 ## Kept from the script
 
-These rules come from the code, not from `tokyo-session-breakout.md`, and they are kept for parity:
+These rules come from the code, not from [the rules doc](session-breakout-rules.md), and they are kept for parity:
 
 - **Breakouts are looked for until the session's end on D+1**, not until midnight as the description says.
 - **A day's session only takes bars dated D in UTC, from 00:00 UTC.** A session crossing UTC midnight is cut there. A session that ends on D+1 never trades, because its breakout window is empty.
@@ -48,4 +48,4 @@ The script records no price for a force-closed position and leaves those positio
 python3 backtest.py backtests/session_breakout
 ```
 
-See also: [Running a backtest](running-a-backtest.md) · [framework overview](README.md)
+See also: [Running a backtest](../backtest-framework/running-a-backtest.md) · [framework overview](../backtest-framework/README.md) · [all strategies](README.md)

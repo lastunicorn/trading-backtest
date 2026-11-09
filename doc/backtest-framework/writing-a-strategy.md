@@ -146,6 +146,8 @@ STRATEGIES: dict[str, type[TradingStrategy]] = {
 
 The key is the name a config's `strategy.name` takes. The CLI builds the class with its default parameters, overridden by the config's `strategy.parameters` (next section).
 
+Then document it: a page `doc/strategies/<name>.md` (its rules, parameters and how to backtest it, like the [existing ones](../strategies/README.md)), listed in `doc/strategies/README.md`.
+
 ## 4. Variants with different parameters
 
 From the command line, set the fields in the config's `strategy.parameters`. Each dataclass field is a key; the values are checked against the field's type, and the strategy is built once while the config loads, so a `__post_init__` check fails before any data is read:

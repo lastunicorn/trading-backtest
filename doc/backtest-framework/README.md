@@ -114,8 +114,4 @@ Common mistakes:
 - [Reading the backtest results](reading-the-backtest-results.md): the four files a run writes, every statistic and every column.
 - [Writing a new strategy](writing-a-strategy.md): the strategy contract, a worked example, registering it for the CLI, parameter variants, tests.
 - [API reference](api-reference.md): every public name, module by module.
-- The strategies:
-  - [Narrow Asia London Fade](strategy-narrow-asia-fade.md) (`narrow_asia_fade`): fade the London break of a narrow Asia range.
-  - [ORB — Break Entry](strategy-orb-break-entry.md) (`orb_break_entry`): stop entries at the New York 09:30–09:45 opening range, stop at its midpoint, 2R target.
-  - [RSI Divergence](strategy-rsi-divergence.md) (`rsi_divergence`): regular RSI divergences on M15.
-  - [Session Breakout](strategy-session-breakout.md) (`session_breakout`): breakout of the Tokyo/Asian session range, the rules of the removed `session_breakout_strategy.py`.
+- [The strategies](../strategies/README.md): one page per registered strategy (rules, parameters, how to backtest it), kept in `doc/strategies/`.

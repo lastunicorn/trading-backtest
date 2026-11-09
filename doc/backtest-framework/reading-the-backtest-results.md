@@ -12,7 +12,7 @@ A header with the strategy, its parameters, the data, the source, the cost model
 - `"dvt"`: one column per split and a final line, *Net positive in every split: yes/no*.
 - `"monthly"` / `"yearly"`: too many periods for a column each, so the table is turned around: one row per period and seven key metrics as columns (every metric is still in `statistics.csv`). The final line counts the periods that made money: *Net positive in K of N months with trades (E without)*.
 
-For example, the end of the [Narrow Asia London Fade](strategy-narrow-asia-fade.md) report with `"splits": "dvt"`:
+For example, the end of the [Narrow Asia London Fade](../strategies/narrow-asia-fade.md) report with `"splits": "dvt"`:
 
 ```
                                   all   discovery  validation        test

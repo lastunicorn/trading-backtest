@@ -1,4 +1,4 @@
-"""Opening Range Break, Break Entry (doc/orb-break-entry.md), as a `TradingStrategy`.
+"""Opening Range Break, Break Entry (doc/strategies/orb-break-entry-rules.md), as a `TradingStrategy`.
 
     from domain.trading_session import LONDON_SESSION
     from strategies.orb_break_entry import OrbBreakEntry

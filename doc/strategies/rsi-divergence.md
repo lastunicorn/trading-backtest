@@ -46,4 +46,4 @@ Run with `"simulation": {"timeframe": "15m"}`. Entries are at a bar's open, so i
 python3 backtest.py backtests/rsi_divergence_15m
 ```
 
-See also: [Running a backtest](running-a-backtest.md) · [framework overview](README.md)
+See also: [Running a backtest](../backtest-framework/running-a-backtest.md) · [framework overview](../backtest-framework/README.md) · [all strategies](README.md)

@@ -2,7 +2,7 @@
 
 `"strategy": {"name": "orb_break_entry"}` · class `strategies.orb_break_entry.OrbBreakEntry`
 
-The Opening Range Break with a break entry, from [`doc/orb-break-entry.md`](../orb-break-entry.md). Stop orders at both edges of a session's opening range open a trade the moment price breaks out. The session is a parameter: by default New York's (`NEW_YORK_SESSION`, 09:30–16:00 ET, the NYSE bells), so the range is 09:30–09:45 ET as the doc describes.
+The Opening Range Break with a break entry, from [its rules](orb-break-entry-rules.md). Stop orders at both edges of a session's opening range open a trade the moment price breaks out. The session is a parameter: by default New York's (`NEW_YORK_SESSION`, 09:30–16:00 ET, the NYSE bells), so the range is 09:30–09:45 ET as the doc describes.
 
 For each date D in the session's time zone (the zone of its start):
 
@@ -43,4 +43,4 @@ The entry is at a level *inside* the trigger bar, so its positions are `entry_fi
 python3 backtest.py backtests/orb_break_entry
 ```
 
-See also: [Running a backtest](running-a-backtest.md) · [framework overview](README.md)
+See also: [Running a backtest](../backtest-framework/running-a-backtest.md) · [framework overview](../backtest-framework/README.md) · [all strategies](README.md)
