@@ -8,11 +8,13 @@ This file describes the ORB strategy that uses the Break Entry approach.
 
 ### 1) Opening Range (OR)
 
-Define the New York Opening Range (the backtest's `session` parameter can move it to another session's open, see [the implementation](orb-break-entry-implementation.md)):
+Define the New York Opening Range:
 
 - 9:30 - 9:45 ET (15 min)
 
-Also draw horizontal lines for the max and min prices that occur during this range.
+Draw horizontal lines for the max and min prices of this range.
+
+**Note:** The size of the opening range (15 min) may be adapted for each symbol based on the results of the backtesting performed on that symbol.
 
 ### 2) Stop orders
 
