@@ -25,14 +25,21 @@ ALLOWED_IMPORTS = {
     SCRIPTS: {"application", "domain", "ports", "strategies", "ui"},
     "application": {"application", "domain", "ports", "strategies"},
     "strategies": {"strategies", "domain"},
-    "ports": {"ports", "domain", "libs"},  # domain entities only, see PORT_DOMAIN_ENTITIES
+    "ports": {"ports", "domain", "libs"},  # only the domain names in PORT_DOMAIN_NAMES
     "ui": {"ui", "domain"},
     "domain": {"domain"},
     "libs": {"libs"},  # and only its own library, see test_each_library_imports_only_itself
 }
 
-# The domain modules a port may import: entities it parses into, never logic.
-PORT_DOMAIN_ENTITIES = frozenset({"domain.bar_approach.bar"})
+# The domain names a port may import, by module: the entities it parses into
+# or writes out, and the enums and name tables that spell them. Never logic.
+PORT_DOMAIN_NAMES = {
+    "domain.bar_approach.bar": {"Bar"},
+    "domain.pandas_approach.backtest": {"BacktestResult"},
+    "domain.pandas_approach.splits": {"SplitMode"},
+    "domain.broker_clock": {"timezone_name"},
+    "domain.trading_session": {"SESSIONS", "TradingSession"},
+}
 
 
 def source_files(component: str) -> list[Path]:
@@ -48,11 +55,20 @@ def module_name(path: Path) -> str:
 
 def imported_modules(path: Path) -> list[tuple[int, str]]:
     """(line, absolute module name) for every import in `path`."""
+    return [(line, module) for line, module, _ in import_statements(path)]
+
+
+def import_statements(path: Path) -> list[tuple[int, str, tuple[str, ...] | None]]:
+    """(line, absolute module name, names imported) for every import in `path`.
+
+    The names are those of a `from module import ...`; None for a plain
+    `import module`, which imports the whole module.
+    """
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     found = []
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
-            found.extend((node.lineno, alias.name) for alias in node.names)
+            found.extend((node.lineno, alias.name, None) for alias in node.names)
         elif isinstance(node, ast.ImportFrom):
             if node.level:  # relative: resolve against the importing package
                 package = module_name(path).split(".")
@@ -62,7 +78,7 @@ def imported_modules(path: Path) -> list[tuple[int, str]]:
                 module = ".".join(base + ([node.module] if node.module else []))
             else:
                 module = node.module
-            found.append((node.lineno, module))
+            found.append((node.lineno, module, tuple(alias.name for alias in node.names)))
     return found
 
 
@@ -98,16 +114,19 @@ def test_component_imports_only_allowed_components(component):
                             + "\n  ".join(violations))
 
 
-def test_ports_import_only_domain_entities():
+def test_ports_import_only_the_allowed_domain_names():
     violations = [
-        describe(path, line, module)
+        describe(path, line, module if name is None else f"{module}.{name}")
         for path in source_files("ports")
-        for line, module in imported_modules(path)
-        if component_of(module) == "domain" and module not in PORT_DOMAIN_ENTITIES
+        for line, module, names in import_statements(path)
+        if component_of(module) == "domain"
+        for name in (names or (None,))
+        if name not in PORT_DOMAIN_NAMES.get(module, ())
     ]
 
-    entities = ", ".join(sorted(PORT_DOMAIN_ENTITIES))
-    assert not violations, (f"ports may import only these domain entities: {entities}\n  "
+    allowed = ", ".join(f"{module}.{name}" for module, names in sorted(PORT_DOMAIN_NAMES.items())
+                        for name in sorted(names))
+    assert not violations, (f"ports may import only these domain names: {allowed}\n  "
                             + "\n  ".join(violations))
 
 

@@ -31,7 +31,7 @@ The application has seven components. Six are packages; the seventh is the set o
    ┌───────┐   │                │                   │
    │ ports │───┼────────────────┼───────────────────┼───────►┌──────┐
    └───┬───┘   │                │                   │        │ libs │
-       │ entities only          │                   │        └──────┘
+       │ allowed names          │                   │        └──────┘
        ▼       ▼                ▼                   ▼
    ┌───────────────────────────────────────────────────────┐
    │                         domain                        │
@@ -70,13 +70,13 @@ The question is "would the script stop being readable without this module?", not
 Ports know *external resources*: file formats, config files, the clock, git. Anything read from or written to outside the process goes through a port.
 
 - A port **parses records and stops**. No cleaning, no deduplication, no resampling, whether it hands back `Bar` objects or a DataFrame. That is the domain's job.
-- Most ports are **stdlib-only** (no pandas, no numpy), so they run anywhere as-is. `mt5_file_access.mt5_frame_reader`, the histdata reader and the Dukascopy reader are the deliberate exceptions: they build a DataFrame directly.
-- A port may import a domain **entity** it parses into, never domain logic. The MT5 port parses files into `Bar` (`domain/bar_approach/bar.py`), but `Bar` belongs to the domain.
-- The clock and git are external resources too: `ports/run_environment/` provides `now()` and `git_commit()`. `backtest.py`'s `build_run_info` takes both as parameters, so tests pass fakes.
+- Most ports are **stdlib-only** (no pandas, no numpy), so they run anywhere as-is. `mt5_file_access.mt5_frame_reader`, the histdata reader and the Dukascopy reader are the deliberate exceptions: they build a DataFrame directly. `backtest_result_access` imports no pandas but writes the result's DataFrames through their own methods.
+- A port may import a domain **entity** it parses into or writes out, and the enums and name tables that spell it, never domain logic. The MT5 port parses files into `Bar` (`domain/bar_approach/bar.py`), but `Bar` belongs to the domain. `ports/backtest_result_access` writes a `BacktestResult` out, spelling its parameters with `timezone_name` and `SESSIONS`; what goes into the result (the split verdict included) is decided by the domain, how it looks on disk by the port.
+- The clock and git are external resources too: `ports/run_environment/` provides `now()` and `git_commit()`. `backtest.py`'s `run_backtest` takes both as parameters, so tests pass fakes.
 
 - A port may delegate the format itself to a [library](#libraries) and keep only what is specific to this application. `ports/dukascopy_file_access` takes each Dukascopy bid file and ask file from `libs.dukascopy_csv` and decides how they become one bar (OHLC from bid, spread from ask − bid). `ports/mt5_file_access` takes MetaTrader records and frames from `libs.metatrader_csv` and turns them into `Bar`s and the repo's frame shape (a blank volume is 0, a headerless 8-column export ends in the spread). `ports/histdata_file_access` reads histdata.com's downloads through the same library: same format, but its files name their own conventions (the always-zero volume is dropped, the clock is New York's, on the EU daylight-saving dates from 2019, only `DAT_MT_*.csv` files are sources).
 
-Current ports: `mt5_file_access`, `histdata_file_access`, `dukascopy_file_access`, `file_system_access`, `backtest_config_access`, `run_environment`.
+Current ports: `mt5_file_access`, `histdata_file_access`, `dukascopy_file_access`, `file_system_access`, `backtest_config_access`, `backtest_result_access`, `run_environment`.
 
 ### Libraries
 
@@ -119,7 +119,7 @@ These rules are the point of the layout. `tests/architecture/test_package_import
 | entry scripts | `application`, `ports`, `domain`, `strategies`, `ui` |
 | `application/` | `ports`, `domain`, `strategies` |
 | `strategies/` | `domain` |
-| `ports/` | domain **entities only** (today just `domain.bar_approach.bar`), `libs` |
+| `ports/` | the domain names listed in `PORT_DOMAIN_NAMES` (entities, and the enums and name tables that spell them), `libs` |
 | `libs/` | nothing in the repo; each library only its own modules |
 | `ui/` | `domain` (to format entities); never `ports` or `application` |
 | `domain/` | nothing in the repo |
@@ -132,7 +132,7 @@ Also:
 
 Keeping the test in step:
 
-- A new domain entity a port needs → add it to `PORT_DOMAIN_ENTITIES`.
+- A new domain name a port needs (an entity, an enum, a name table) → add it under its module in `PORT_DOMAIN_NAMES`. Names, not modules: a port may take `BacktestResult` from `domain.pandas_approach.backtest` without being allowed `Backtest`.
 - A new top-level package → add it to `PACKAGES` and `ALLOWED_IMPORTS`.
 
 ---

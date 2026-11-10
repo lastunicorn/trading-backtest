@@ -2,13 +2,17 @@
 
 A [port](README.md) of the [application blueprint](../README.md).
 
-*Python: `backtest.py`'s `write_results`.* In the Python code this lives in the entry script rather than under `ports/`; a rewrite should put it behind a port like the others.
+*Python: `ports/backtest_result_access/` (`backtest_result_writer.py`).*
+
+Formats a finished backtest and writes it. Everything about how the results look on disk is decided here: the [BacktestResult](../domain/backtest.md#backtestresult) says what ran and what it produced, the [RunProvenance](#runprovenance) adds what only the caller knows, and the port lays both out.
 
 ## Actions
 
 | Action | Returns | Description |
 |---|---|---|
-| `write_results(result: BacktestResult, run_info: RunInfo, report: String, out_dir: Path, price_decimals: Integer)` | `List<Path>` | Creates `out_dir` if needed and writes, **overwriting**, `positions.csv`, `statistics.txt`, `statistics.csv` and `run.json`, returned in that order. Prices in `positions.csv` are rounded to `price_decimals` (the symbol's), pips to 2 places, `net_r` to 3, `duration_min` to 1. Formats: [below](#file-format-backtest-result-files). |
+| `write_results(result: BacktestResult, provenance: RunProvenance, out_dir: Path)` | `List<Path>` | Creates `out_dir` if needed and writes, **overwriting**, `positions.csv`, `statistics.txt`, `statistics.csv` and `run.json`, returned in that order. Formats: [below](#file-format-backtest-result-files). |
+| `format_report(result: BacktestResult, provenance: RunProvenance)` | `String` | The content of [`statistics.txt`](#statisticstxt), also what the `backtest` CLI prints. Writes nothing. |
+| `run_info(result: BacktestResult, provenance: RunProvenance)` | `Map<String, Any>` | The content of [`run.json`](#runjson), as a JSON object. Writes nothing. |
 
 ## Errors
 
@@ -20,32 +24,20 @@ A [port](README.md) of the [application blueprint](../README.md).
 
 `BacktestResult` is a domain type ([domain/backtest.md](../domain/backtest.md#backtestresult)).
 
-### RunInfo
+### RunProvenance
 
-The provenance of one backtest run, built by [RecordBacktest](../use-cases/record-backtest.md) and written as `run.json`. A JSON object, keys in this order:
+What a run's record holds beyond its `BacktestResult`, built by [RecordBacktest](../use-cases/record-backtest.md).
 
-| Key | Type | Content |
+| Property | Type | Notes |
 |---|---|---|
-| `created` | `String` | `now()`, ISO 8601 to the second (`2026-11-09T13:21:25`) |
-| `strategy.name` | `String` | the config's `strategy.name`, or the strategy's own `name` when none was given |
-| `strategy.class` | `String` | the strategy's fully qualified class name (`strategies.narrow_asia_fade.NarrowAsiaFade`) |
-| `strategy.parameters` | `Map<String, Any>` | every parameter, in the spelling a config reads back ([recording parameters](../plugins/README.md#recording-parameters)) |
-| `data.symbol` | `String` | ticker |
-| `data.timeframe` | `String` | `SampleSize` text |
-| `data.timezone` | `String` | the clock's **display name** (`broker-server (America/New_York+7h)`, `UTC`) |
-| `data.first_bar`, `data.last_bar` | `String` | ISO 8601 (`2020-01-02T00:00:00`) |
-| `data.bars` | `Integer` | |
-| `simulation.cost_model` | `Map` | `class` (`FixedCost` / `SpreadCost`) followed by its properties (`pips` / `commission_pips`) |
-| `simulation.ambiguity_policy` | `String` | wire value |
-| `splits` | `String` | wire value |
-| `trades` | `Integer` | number of trades |
-| `git` | `Map` | `commit`, `dirty` from [`GitCommit`](run-environment.md#gitcommit) |
-| `source` | `String` | only when given: `{data_source.path} ({format})` from the CLI |
-| `notes` | `List<String>` | only when there are any: `BacktestResult.notes` |
+| `created` | `LocalDateTime` | RunEnvironment `now()` |
+| `git` | [`GitCommit`](run-environment.md#gitcommit) | RunEnvironment `git_commit()` |
+| `source` | `String? = null` | where the bars were read from; the CLI passes `{data_source.path} ({format})` |
+| `strategy_name` | `String? = null` | the name the strategy is reported under; the CLI passes the config's `strategy.name`. When `null`, the strategy's own `name` |
 
 ## File format: Backtest result files
 
-*Python: `format_report` (`backtest.py`) lays out `statistics.txt`.* A run writes four files into `out`, overwriting earlier ones. User documentation: `doc/backtest-framework/reading-the-backtest-results.md`.
+A run writes four files into `out`, overwriting earlier ones. User documentation: `doc/backtest-framework/reading-the-backtest-results.md`.
 
 CSV conventions for both CSV files: comma-separated, header row, `\n` line endings, minimal quoting (a field containing a comma or quote is quoted), no index column. A `null` or `NaN` is an empty field; `+∞` is `inf`. Floats are written as the shortest text that reads back as the same `Float`.
 
@@ -57,7 +49,7 @@ One row per trade, sorted by `open_dt`. Columns, in this order:
 |---|---|---|
 | `open_dt` | `YYYY-MM-DD HH:MM:SS` | |
 | `side` | `long` / `short` | |
-| `open_price`, `sl`, `tp` | rounded to the symbol's `price_decimals` | |
+| `open_price`, `sl`, `tp` | rounded to `result.data.symbol`'s `price_decimals` | |
 | `entry_fill` | `at-level` / `at-open` | |
 | `exit_dt` | `YYYY-MM-DD HH:MM:SS` | empty when none |
 | `close_dt` | `YYYY-MM-DD HH:MM:SS` | the hitting bar's open time; `exit_dt` for a time stop |
@@ -105,7 +97,7 @@ Notes:                                                       ← only with notes
 - {note}
 ```
 
-The file ends with a newline. `{bars}` has thousands separators. Values come from `run.json`'s fields; parameter and cost values are written as the Python code prints them (booleans `True`/`False`, null `None`, floats in shortest form: `1.7`, `0.0`).
+The file ends with a newline. `{bars}` has thousands separators. Values are spelled as in [`run.json`](#runjson); parameter and cost values are written as the Python code prints them (booleans `True`/`False`, null `None`, floats in shortest form: `1.7`, `0.0`).
 
 **Cell format.** Each statistic is formatted by the first rule that applies to its value and name:
 
@@ -138,17 +130,36 @@ all          207         72.0%           257.5       16.140           1.37      
 2020          30         86.7%           139.5        8.068           4.63         0.269               20.0
 ```
 
-**Verdict:**
+**Verdict:** from `result.verdict` ([SplitVerdict](../domain/backtest.md#splitverdict)).
 
 | Split mode | Line |
 |---|---|
 | `none` | none |
-| `dvt` | `Net positive in every split ({split names, comma-separated}): {yes \| no}`: `yes` when every split's `total_net_pips > 0` (a NaN counts as not) |
-| `monthly`, `yearly` | `Net positive in {k} of {n} {months \| years} with trades ({m} without)`: `n` periods with trades, `k` of them with `total_net_pips > 0`, `m` periods without trades |
+| `dvt` | `Net positive in every split ({splits, comma-separated}): {yes \| no}`: `yes` when `holds_in_every_split`. No line when there are no splits |
+| `monthly`, `yearly` | `Net positive in {k} of {n} {months \| years} with trades ({m} without)`: `k` = the number of `net_positive` splits, `n` of `traded`, `m` = `splits` − `traded` |
 
 ### `run.json`
 
-The run's provenance, the [RunInfo](#runinfo) object: JSON indented with one tab per level, keys in RunInfo's order, a trailing newline. Values JSON has no type for (paths, times of day) are written as text.
+The run's provenance (`run_info`): JSON indented with one tab per level, keys in this order, a trailing newline. Values JSON has no type for (paths, times of day) are written as text.
+
+| Key | Type | Content |
+|---|---|---|
+| `created` | `String` | `provenance.created`, ISO 8601 to the second (`2026-11-09T13:21:25`) |
+| `strategy.name` | `String` | `provenance.strategy_name`, or `result.strategy.name` when it is `null` |
+| `strategy.class` | `String` | the strategy's fully qualified class name (`strategies.narrow_asia_fade.NarrowAsiaFade`) |
+| `strategy.parameters` | `Map<String, Any>` | `result.strategy.parameters()`, in the spelling a config reads back ([recording parameters](../plugins/README.md#recording-parameters)) |
+| `data.symbol` | `String` | `result.data.symbol`'s ticker |
+| `data.timeframe` | `String` | `SampleSize` text |
+| `data.timezone` | `String` | the clock's **display name** (`broker-server (America/New_York+7h)`, `UTC`) |
+| `data.first_bar`, `data.last_bar` | `String` | ISO 8601 (`2020-01-02T00:00:00`) |
+| `data.bars` | `Integer` | |
+| `simulation.cost_model` | `Map` | `class` (`FixedCost` / `SpreadCost`) followed by `result.cost_model.parameters()` (`pips` / `commission_pips`) |
+| `simulation.ambiguity_policy` | `String` | wire value |
+| `splits` | `String` | wire value |
+| `trades` | `Integer` | number of trades |
+| `git` | `Map` | `commit`, `dirty` from `provenance.git` |
+| `source` | `String` | only when `provenance.source` is given |
+| `notes` | `List<String>` | only when there are any: `result.notes` |
 
 ```json
 {

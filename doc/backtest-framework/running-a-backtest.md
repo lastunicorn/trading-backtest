@@ -50,9 +50,20 @@ backtest = Backtest(
 result = backtest.run()                          # numbers only, nothing written
 result.statistics.loc[["all", "test"], ["trades", "win_rate_pct", "total_net_pips", "profit_factor"]]
 result.trades[["open_dt", "side", "outcome", "net_pips", "split"]]
+result.verdict.holds_in_every_split              # net positive in discovery, validation and test?
 
 run = run_backtest(backtest, "scratch/orb_1_5r", source="clean M5")   # also writes the 4 files
 print(run.report)
+```
+
+To see the report without writing anything, format the result yourself:
+
+```python
+from datetime import datetime
+from ports.backtest_result_access import RunProvenance, format_report
+from ports.run_environment import git_commit
+
+print(format_report(result, RunProvenance(created=datetime.now(), git=git_commit())))
 ```
 
 Load the data once and reuse it across runs; `HistoricalData` must not be modified in place.

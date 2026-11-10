@@ -12,24 +12,23 @@ Runs a prepared `Backtest` and records it: the domain result, its provenance (cl
 | `out_dir` | `Path` | | overwritten |
 | `source` | `String?` | `null` | recorded as `run.json`'s `source` |
 | `strategy_name` | `String?` | `null` | recorded as `strategy.name`; the strategy's own `name` (its class name) when absent |
-| `now` | RunEnvironment `now` | the real clock | in Python, a parameter of `build_run_info` only |
-| `git_commit` | RunEnvironment `git_commit` | the real repository | in Python, a parameter of `build_run_info` only |
+| `now` | RunEnvironment `now` | the real clock | |
+| `git_commit` | RunEnvironment `git_commit` | the real repository | |
 
 ## Output: `BacktestRun`
 
 | Field | Type | Notes |
 |---|---|---|
 | `result` | `BacktestResult` | as `Backtest.run()` returned it |
-| `run_info` | `RunInfo` | [DTO](../ports/backtest-result-store.md#runinfo) |
-| `report` | `String` | the content of `statistics.txt` |
+| `provenance` | `RunProvenance` | [DTO](../ports/backtest-result-store.md#runprovenance) |
 | `paths` | `List<Path>` | the four files written |
+| `report` | `String` | derived: `BacktestResultStore.format_report(result, provenance)`, the content of `statistics.txt` |
 
 ## Steps
 
 1. `result = backtest.run()` ([domain/backtest.md](../domain/backtest.md#4-backtest-and-the-exit-rules)).
-2. `run_info = build_run_info(backtest, result, source, strategy_name, now, git_commit)`: the [RunInfo](../ports/backtest-result-store.md#runinfo) fields, from the backtest's strategy, data, cost model and settings, `now()` and `git_commit()`.
-3. `report = format_report(result, run_info)`: the text laid out in [BacktestResultStore](../ports/backtest-result-store.md#statisticstxt).
-4. `paths = BacktestResultStore.write_results(result, run_info, report, out_dir, price_decimals = data.symbol.price_decimals)`.
+2. `provenance = RunProvenance(created = now(), git = git_commit(), source, strategy_name)`.
+3. `paths = BacktestResultStore.write_results(result, provenance, out_dir)`: the port formats and writes all four files ([BacktestResultStore](../ports/backtest-result-store.md)).
 
 ## Errors
 

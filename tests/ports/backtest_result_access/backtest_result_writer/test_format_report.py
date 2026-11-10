@@ -1,15 +1,17 @@
-"""Tests for `backtest.format_report`."""
+"""Tests for `ports.backtest_result_access.backtest_result_writer.format_report`."""
 
-from backtest import build_run_info, format_report
-from domain.pandas_approach.backtest import Backtest
+from dataclasses import replace
+
 from domain.pandas_approach.splits import SplitMode
-from tests.domain.pandas_approach.backtest._fakes import NotedCost, ScriptedStrategy, data
+from ports.backtest_result_access import format_report
+from ports.run_environment import GitCommit
+from tests.domain.pandas_approach.backtest._fakes import NotedCost
+
+from ._fakes import PROVENANCE, result
 
 
-def _report(entry_days, results, *, source=None, days=10, splits=SplitMode.DVT, **kwargs) -> str:
-    backtest = Backtest(ScriptedStrategy(entry_days), data(days, results), splits=splits, **kwargs)
-    result = backtest.run()
-    return format_report(result, build_run_info(backtest, result, source=source))
+def _report(entry_days, results, *, days=10, splits=SplitMode.DVT, provenance=PROVENANCE, **settings) -> str:
+    return format_report(result(entry_days, results, days=days, splits=splits, **settings), provenance)
 
 
 def _row(report: str, metric: str) -> list[str]:
@@ -25,6 +27,24 @@ def test_header_names_strategy_data_and_settings() -> None:
     assert "EURUSD 5m, 60 bars" in report
     assert "FixedCost(pips=1.7)" in report
     assert "ambiguous bars exclude" in report
+
+
+def test_the_given_strategy_name_heads_the_report() -> None:
+    assert "BACKTEST -- scripted" in _report([0], {}, provenance=replace(PROVENANCE, strategy_name="scripted"))
+
+
+def test_created_line_names_the_commit_and_uncommitted_changes() -> None:
+    clean = _report([0], {})
+    dirty = _report([0], {}, provenance=replace(PROVENANCE, git=GitCommit("abc1234", dirty=True)))
+
+    assert "Created:     2026-03-04T05:06:07   git abc1234\n" in clean
+    assert "Created:     2026-03-04T05:06:07   git abc1234 (uncommitted changes)\n" in dirty
+
+
+def test_created_line_without_git_reads_n_a() -> None:
+    report = _report([0], {}, provenance=replace(PROVENANCE, git=GitCommit(None, dirty=None)))
+
+    assert "   git n/a\n" in report
 
 
 def test_one_column_per_split() -> None:
@@ -56,7 +76,7 @@ def test_verdict_requires_net_profit_in_every_split() -> None:
 
 def test_source_line_appears_only_when_recorded() -> None:
     assert "Source:" not in _report([0], {})
-    assert "Source:      clean.csv" in _report([0], {}, source="clean.csv")
+    assert "Source:      clean.csv" in _report([0], {}, provenance=replace(PROVENANCE, source="clean.csv"))
 
 
 def test_without_splits_there_is_no_verdict() -> None:

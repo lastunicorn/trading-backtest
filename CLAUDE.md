@@ -52,6 +52,7 @@ ports/histdata_file_access/histdata_frame_reader.py  histdata.com MT downloads �
 ports/file_system_access/file_system.py   list the source csv files in a folder (or pass one file through) [stdlib]
 ports/backtest_config_access/backtest_config_reader.py  backtest.py's JSON config → `BacktestConfig` (`StrategyConfig`, `DataSourceConfig`, `SimulationConfig` → `CostConfig`) (`read_config`): shape only — keys, JSON types, relative paths [stdlib]
 ports/run_environment/run_environment.py  the wall clock (`now`) and the repo's git state (`git_commit` → `GitCommit(commit, dirty)`), for `run.json` [stdlib]
+ports/backtest_result_access/backtest_result_writer.py  a `BacktestResult` + `RunProvenance` (created, git, source, strategy name) → the 4 result files (`write_results`); `format_report` (statistics.txt, also printed), `run_info` (run.json) [stdlib; writes the result's frames]
 ports/dukascopy_file_access/dukascopy_frame_reader.py  Dukascopy bid/ask M1 pairs → one bar frame (OHLC from bid, spread = ask - bid): `read_path(folder or one file of a pair)` [pandas]
 libs/metatrader_csv/                      read/write MetaTrader bar exports: `iterate_records`/`read_records`/`write_records` (stdlib) and `read_frame`/`write_frame` (pandas), `sniff_layout`; blank volumes stay None/NA; nothing from the repo, see its README.md
 libs/dukascopy_csv/                       find (`find_files`), pair (`pair_files`, `find_pair`) and read (`read_file`) Dukascopy exports, one DataFrame per file, all columns kept; nothing from the repo, see its README.md [pandas]
@@ -119,9 +120,9 @@ HistoricalData ─► TradingStrategy.generate_positions() ─► open Positions
                          Backtest._simulate() ◄─────────────┘   the ONE place exits are decided
                                 │
        positions_to_frame ─► CostModel.cost_pips ─► trade_results ─► assign_splits ─► statistics_by_split
-       └─────────────────────── Backtest.run() → BacktestResult(trades, statistics) ───────────────────┘   [domain, no I/O]
+       └──── Backtest.run() → BacktestResult(what ran: strategy, data summary, rules; trades, statistics, verdict) ────┘   [domain, no I/O]
                                 │
-       run_backtest(): run_info (git, clock) + statistics.txt + 4 files                               [backtest.py]
+       run_backtest(): RunProvenance (git, clock, source) ─► write_results(): the 4 result files     [backtest.py → ports]
 ```
 
 ```
@@ -132,7 +133,7 @@ domain/pandas_approach/trading_strategy.py TradingStrategy base class (generate_
 domain/pandas_approach/cost_model.py       CostModel, FixedCost (default 1.7 pips), SpreadCost
 domain/pandas_approach/trade_results.py    per-trade gross/cost/net pips, risk pips, net R, duration
 domain/pandas_approach/splits.py           SplitMode (none/dvt/monthly/yearly), split_labels, Split, split_dates (the 60/20/20 cut), assign_splits
-domain/pandas_approach/statistics.py       compute_statistics, statistics_by_split, max_drawdown, max_consecutive_losses
+domain/pandas_approach/statistics.py       compute_statistics, statistics_by_split, split_verdict → SplitVerdict, max_drawdown, max_consecutive_losses
 domain/pandas_approach/backtest.py         Backtest(strategy, data, cost_model, ambiguity_policy, splits).run(); exits (`_simulate`), AmbiguityPolicy
 application/load_historical_data_use_case.py  load_mt5 / load_histdata / load_dukascopy / load_source(source, SourceFormat) → HistoricalData
 strategies/__init__.py                     STRATEGIES registry: the names a backtest.py config's `strategy.name` accepts
@@ -143,7 +144,7 @@ strategies/orb_retest_entry.py             Opening Range Break, retest entry (Or
 strategies/rsi_divergence.py               RSI divergence reversal (RsiDivergence), entries = the removed M15 scan `rsi_divergence_strategy.py`'s
 strategies/session_breakout.py             Tokyo/Asian session breakout (SessionBreakout), the rules of the removed `session_breakout_strategy.py`
 application/load_backtest_config_use_case.py  load_backtest_config: read_config + value checks (strategy, symbol, zone, timeframes) + strategy.parameters → field types; cost_model(CostConfig)
-backtest.py                                the CLI (one arg: a JSON config, loaded by load_backtest_config → BacktestConfig), plus run_backtest → BacktestRun; build_run_info, format_report, write_results
+backtest.py                                the CLI (one arg: a JSON config, loaded by load_backtest_config → BacktestConfig), plus run_backtest → BacktestRun(result, provenance, paths, report)
 backtests/<name>/backtest.json             ready-made configs: narrow_asia_fade, orb_break_entry, orb_retest_entry (Dukascopy M1, spread), rsi_divergence_15m, rsi_divergence_dukascopy, session_breakout (script parity)
 ```
 

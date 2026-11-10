@@ -21,9 +21,9 @@ HistoricalData ──► TradingStrategy.generate_positions() ──► open Pos
                           Backtest._simulate() ◄──────────────┘  decides how each position closed
                                  │
    positions_to_frame ─► CostModel.cost_pips ─► trade_results ─► assign_splits ─► statistics_by_split
-   └──────────────────── Backtest.run() → BacktestResult(trades, statistics) ─────────────────────┘
+   └──────── Backtest.run() → BacktestResult(what ran, trades, statistics, verdict) ──────────────┘
                                  │
-   run_backtest(): provenance (git, time) + report + 4 files in the output directory
+   run_backtest(): provenance (git, time) ─► write_results(): report + 4 files in the output directory
 ```
 
 The central idea: **a strategy only decides where to enter.** It returns open positions: entry time and price, side, stop-loss, take-profit, and optionally a time to be flat by. The framework decides how each one ended, subtracts costs, and computes statistics. So the exit logic, the part most likely to hide bugs, is written and tested once, and every strategy is judged by the same rules.
@@ -32,9 +32,9 @@ The framework follows the repo's [architecture](../architecture.md). Each compon
 
 | Component | Where | Does in a backtest |
 |---|---|---|
-| entry script | `backtest.py` | the command line; `run_backtest()` runs the backtest, records provenance (git commit, time) and writes the report and result files |
+| entry script | `backtest.py` | the command line; `run_backtest()` runs the backtest, gathers the provenance (git commit, time) and has the result files written |
 | application | `application/` | validates the config (`load_backtest_config`) and loads the historical data (`load_historical_data_use_case.load_source`) |
-| ports | `ports/` | read the config file, the MT5 and Dukascopy exports, the clock and git |
+| ports | `ports/` | read the config file, the MT5 and Dukascopy exports, the clock and git; format and write the result files (`backtest_result_access`) |
 | domain | `domain/pandas_approach/`, `domain/broker_clock.py`, `domain/time_window.py`, `domain/sample_size.py`, `domain/symbol.py` | the concepts and all the calculations; no file access, no clock, no git |
 | strategies | `strategies/` | concrete `TradingStrategy` subclasses and the registry the config's `strategy.name` looks up |
 

@@ -8,7 +8,7 @@ A companion to the [framework overview](README.md). For how these pieces fit tog
 2. [Positions](#2-positions)
 3. [Strategies](#3-strategies)
 4. [Costs, results, the backtest](#4-costs-results-the-backtest)
-5. [Application (files, provenance)](#5-application-files-provenance)
+5. [Application and ports (files, provenance)](#5-application-and-ports-files-provenance)
 
 ---
 
@@ -177,7 +177,7 @@ pandas rejects custom `tzinfo` objects, so don't pass `BROKER_SERVER_TZ` to `tz_
 - `verdict`: `split_verdict(statistics)`, a `SplitVerdict`; `None` with `SplitMode.NONE`.
 - `notes`: the cost model's `notes`, printed at the end of the report and recorded in `run.json`.
 
-## 5. Application (files, provenance)
+## 5. Application and ports (files, provenance)
 
 ### `application.load_historical_data_use_case`
 
@@ -190,10 +190,15 @@ pandas rejects custom `tzinfo` objects, so don't pass `BROKER_SERVER_TZ` to `tz_
 
 All return a `HistoricalData` resampled to `timeframe`, labelled with the required `timezone` (the clock the source is on; never assumed, never shifted). Pass `progress=print` to see one line per file.
 
+### `ports.backtest_result_access`
+
+Formats a `BacktestResult` and writes the four result files; layouts in [Reading the backtest results](reading-the-backtest-results.md).
+
+- **`RunProvenance(created, git, source=None, strategy_name=None)`** (frozen): what the record holds beyond the result. `created` (a `datetime`) and `git` (a `GitCommit`) come from `ports.run_environment.now()` and `git_commit()`; `source` is recorded as `run.json`'s `source`; `strategy_name` is the name the strategy is reported under, its own `name` (its class name by default) when `None`.
+- **`write_results(result, provenance, out_dir) -> list[Path]`**: creates `out_dir` if needed and writes, overwriting, `positions.csv` (prices rounded to the symbol's precision, pips to 2 places), `statistics.txt`, `statistics.csv` and `run.json`, returned in that order.
+- **`format_report(result, provenance) -> str`**: the `statistics.txt` text; writes nothing.
+- **`run_info(result, provenance) -> dict`**: the `run.json` content; writes nothing.
+
 ### `backtest` (the CLI module, importable)
 
-- **`run_backtest(backtest, out_dir, *, source=None, strategy_name=None) -> BacktestRun`**: runs the backtest and writes the four files. `strategy_name` is recorded as `run.json`'s `strategy.name` and shown in the report header; the CLI passes the config's `strategy.name`, and without it the strategy's own `name` (its class name by default) is used. `BacktestRun` has `result`, `run_info` (the `run.json` content), `report` (the `statistics.txt` text) and `paths`.
-- The three steps it chains, usable on their own:
-  - `build_run_info(backtest, result, *, source=None, strategy_name=None, now=ports.run_environment.now, git_commit=ports.run_environment.git_commit)`: `now` and `git_commit` are the clock and the repo state recorded as `created` and `git`; pass fakes for a deterministic `run.json`
-  - `format_report(result, run_info)`
-  - `write_results(result, run_info, report, out_dir, *, price_decimals)`
+- **`run_backtest(backtest, out_dir, *, source=None, strategy_name=None, now=ports.run_environment.now, git_commit=ports.run_environment.git_commit) -> BacktestRun`**: runs the backtest, records a `RunProvenance` and writes the four files with `write_results`. `strategy_name` is recorded as `run.json`'s `strategy.name` and shown in the report header; the CLI passes the config's `strategy.name`. `now` and `git_commit` are the clock and the repo state recorded as `created` and `git`; pass fakes for a deterministic `run.json`. `BacktestRun` has `result`, `provenance`, `paths` and `report` (the `statistics.txt` text, from `format_report`).
