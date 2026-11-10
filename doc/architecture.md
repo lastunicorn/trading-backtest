@@ -2,6 +2,8 @@
 
 How the code is split into components, what each one is responsible for, and which component may depend on which. Read this before adding a module or moving code between folders.
 
+This page is about the Python code's layout. What the application does, independent of the language (its entities, ports, use cases, strategies, UI and file formats), is the blueprint in [architecture/](architecture/README.md).
+
 ## Contents
 
 1. [The components](#1-the-components)

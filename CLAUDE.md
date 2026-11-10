@@ -40,6 +40,8 @@ Raw data lives under `data/` (gitignored, local-only); `data/eurusd/1min/EURUSD_
 
 **The architecture is documented in [doc/architecture.md](doc/architecture.md). Read it before adding a module or moving code between folders, and keep it in sync when the structure changes.** In short: seven components, namely the entry scripts at the repo root (one per use case, with `main()` kept apart from the use-case function), `application/` (orchestration), `ports/` (external resources: files, config, clock, git), `libs/` (application-neutral file-format libraries that import nothing from the repo; only ports use them), `domain/` (concepts and calculations, no I/O), `strategies/` (the `TradingStrategy` plugins and the `STRATEGIES` registry) and `ui/` (UI shared by scripts). Their import rules are enforced by `tests/architecture/test_package_imports.py`. **New domain work goes in `domain/pandas_approach/`**, not `bar_approach/`.
 
+[doc/architecture/](doc/architecture/README.md) is a language-independent blueprint of the application (domain entities, ports, use cases, strategies, CLIs, file formats), meant for rebuilding it in another language. Keep it in sync when behaviour, a file format, a config key or a CLI flag changes.
+
 The modules, one line each:
 
 ```
