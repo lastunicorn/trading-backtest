@@ -56,7 +56,7 @@ Each page lists the errors its items can return, as **a short code in `UPPER_SNA
 
 Where the UI prints an error's message to the user, the page gives its wording, with placeholders in `{braces}`. Errors about a config file are prefixed with the file's path (`{file}: ...`).
 
-The CLIs print every expected error as one line, `ERROR: {message}`, to standard error and exit with code 1; see [ui.md](ui.md#1-common-behaviour).
+The CLIs print every expected error as one line, `ERROR: {message}`, to standard error and exit with code 1; see [ui/](ui/README.md#common-behaviour).
 
 ## 4. Progress reporting
 
