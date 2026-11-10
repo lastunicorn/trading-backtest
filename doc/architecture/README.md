@@ -9,9 +9,7 @@ How the *Python* code is organised (folders, import rules, where new code goes) 
 | Page | Covers |
 |---|---|
 | [conventions.md](conventions.md) | **Read first.** Type notation, naming, errors, progress reporting, and the rules about market data that hold everywhere (bars, bid prices, units, clocks) |
-| [domain-market-data.md](domain-market-data.md) | Domain: `SampleSize`, `Symbol`, clocks, `TimeWindow`, `TradingSession`, `Bar`, bar table operations, `HistoricalData` |
-| [domain-backtest.md](domain-backtest.md) | Domain: `Position`, cost models, the backtest and its exit rules, trade results, splits, statistics |
-| [domain-indicators.md](domain-indicators.md) | Domain: RSI and divergence detection |
+| [domain/](domain/README.md) | The concepts and calculations, one page per area: market data (`SampleSize`, `Symbol`, clocks, sessions, `HistoricalData`), the backtest (positions, costs, exit rules, splits, statistics), indicators (RSI, divergences) |
 | [plugins/](plugins/README.md) | The strategy contract, the registry and parameters; one page per strategy |
 | [ports/](ports/README.md) | The seven ports, one page each: actions, errors, DTOs, and the format libraries behind the bar ports |
 | [use-cases/](use-cases/README.md) | The nine use cases, one page each: input, output, steps, errors |
@@ -69,14 +67,14 @@ Everything points towards the domain, which can therefore be tested without a fi
 1. The `backtest` CLI passes a config path to [RunBacktestFromConfig](use-cases/run-backtest-from-config.md).
 2. [LoadBacktestConfig](use-cases/load-backtest-config.md) reads the JSON and checks every value against the registry, the symbols, the clocks and the strategy's own parameter rules.
 3. [LoadHistoricalData](use-cases/load-historical-data.md) reads the bars with the format's port, merges files, drops duplicate timestamps, resamples and converts the spread to pips: a validated `HistoricalData`.
-4. The strategy [generates open positions](plugins/README.md#the-plugin-contract-tradingstrategy); the backtest [closes each one](domain-backtest.md#the-exit-rules), charges costs, computes per-trade results and statistics, overall and per split.
+4. The strategy [generates open positions](plugins/README.md#the-plugin-contract-tradingstrategy); the backtest [closes each one](domain/backtest.md#the-exit-rules), charges costs, computes per-trade results and statistics, overall and per split.
 5. [RecordBacktest](use-cases/record-backtest.md) adds provenance (clock, git), formats the report and writes `positions.csv`, `statistics.txt`, `statistics.csv` and `run.json`.
 
 ---
 
 ## Rebuilding the application from this blueprint
 
-A workable order: [conventions](conventions.md) → [market data](domain-market-data.md) → [backtest domain](domain-backtest.md) → one strategy ([`orb_break_entry`](plugins/orb-break-entry.md) is the simplest) → [ports](ports/README.md) with [external formats](external-formats.md) → [use cases](use-cases/README.md) → [UI](ui/README.md) → the remaining strategies and [indicators](domain-indicators.md).
+A workable order: [conventions](conventions.md) → [market data](domain/market-data.md) → [backtest domain](domain/backtest.md) → one strategy ([`orb_break_entry`](plugins/orb-break-entry.md) is the simplest) → [ports](ports/README.md) with [external formats](external-formats.md) → [use cases](use-cases/README.md) → [UI](ui/README.md) → the remaining strategies and [indicators](domain/indicators.md).
 
 To check a rewrite, run the same config on the same data in both versions and compare `positions.csv` and `statistics.csv` (and `statistics.txt`, apart from its `Created` line). The Python tests under `tests/` mirror the source layout, one file per function, and are executable examples of each item's behaviour; `tests/strategies/session_breakout/_script_trades.py` holds the trades the `session_breakout` strategy must reproduce exactly.
 
@@ -88,13 +86,13 @@ The blueprint describes what the Python code does. In a few places it is not wha
 |---|---|
 | [ports/backtest-result-store.md](ports/backtest-result-store.md) | Writing the result files lives in the `backtest` entry script; put it behind a port like the others. |
 | [use-cases/prepare-bars.md](use-cases/prepare-bars.md), [scan-rsi-divergences.md](use-cases/scan-rsi-divergences.md) | `read_csv`'s pipeline and `rsi_divergence`'s scan sit in the CLIs' `main()`; give them use-case functions. |
-| [domain-market-data.md §7](domain-market-data.md#7-bar-table-operations) | `resample_ohlc` also accepts raw pandas rules; take a `SampleSize` only. |
+| [domain/market-data.md §7](domain/market-data.md#7-bar-table-operations) | `resample_ohlc` also accepts raw pandas rules; take a `SampleSize` only. |
 | [ui/README.md](ui/README.md#common-behaviour) | Some use-case errors end in a stack trace; report every one as an `ERROR:` line. |
 | [ui/calculate-daily-sessions.md](ui/calculate-daily-sessions.md), [rsi-divergence.md](ui/rsi-divergence.md) | `calculate_daily_sessions` defaults to a machine-specific folder and validates `--source-timezone` differently from `read_csv`; `rsi_divergence` doesn't range-check its numbers. |
 
 ### Scope
 
-Covered: everything the five CLIs do, and the Python API a notebook uses to run and record a backtest. Left out: the legacy bar-stream code nothing uses ([domain-market-data.md §9](domain-market-data.md#9-legacy-not-needed-for-a-rewrite)), `temp/` (the Pine source of the RSI indicator, a reference), the tests themselves and the development environment.
+Covered: everything the five CLIs do, and the Python API a notebook uses to run and record a backtest. Left out: the legacy bar-stream code nothing uses ([domain/market-data.md §9](domain/market-data.md#9-legacy-not-needed-for-a-rewrite)), `temp/` (the Pine source of the RSI indicator, a reference), the tests themselves and the development environment.
 
 ### Format of these pages
 

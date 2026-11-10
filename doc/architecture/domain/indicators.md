@@ -1,6 +1,8 @@
 # Domain: Indicators
 
-The RSI and the RSI divergence detection, used by the [`rsi_divergence` plugin](plugins/rsi-divergence.md) and the [ScanRsiDivergences use case](use-cases/scan-rsi-divergences.md). Pure calculations over a bar table. Types and rules are in [conventions.md](conventions.md).
+Part of the [domain](README.md) of the [application blueprint](../README.md).
+
+The RSI and the RSI divergence detection, used by the [`rsi_divergence` plugin](../plugins/rsi-divergence.md) and the [ScanRsiDivergences use case](../use-cases/scan-rsi-divergences.md). Pure calculations over a bar table. Types and rules are in [conventions.md](../conventions.md).
 
 ## Contents
 

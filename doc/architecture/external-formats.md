@@ -204,7 +204,7 @@ open_dt,side,open_price,sl,tp,entry_fill,exit_dt,close_dt,close_price,outcome,ta
 
 ### `statistics.csv`
 
-One row per statistics row (`all` first, then each split in order), unrounded. Header: `split`, then the [metrics](domain-backtest.md#7-statistics) in order. Counts are written as integers.
+One row per statistics row (`all` first, then each split in order), unrounded. Header: `split`, then the [metrics](domain/backtest.md#7-statistics) in order. Counts are written as integers.
 
 ### `statistics.txt`
 

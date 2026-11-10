@@ -1,6 +1,8 @@
 # Domain: Backtest
 
-How a backtest turns a strategy's entries into trades, results and statistics. All of it is a pure calculation over `HistoricalData` ([domain-market-data.md](domain-market-data.md#8-historicaldata)): no files, no clock, no git. Recording a run and writing its files is the [RecordBacktest use case](use-cases/record-backtest.md)'s job. The strategy contract is in [plugins/](plugins/README.md#the-plugin-contract-tradingstrategy).
+Part of the [domain](README.md) of the [application blueprint](../README.md).
+
+How a backtest turns a strategy's entries into trades, results and statistics. All of it is a pure calculation over `HistoricalData` ([market-data.md](market-data.md#8-historicaldata)): no files, no clock, no git. Recording a run and writing its files is the [RecordBacktest use case](../use-cases/record-backtest.md)'s job. The strategy contract is in [plugins/](../plugins/README.md#the-plugin-contract-tradingstrategy).
 
 ## Contents
 
@@ -125,7 +127,7 @@ One row per position, in list order, with these columns in this order: `open_dt`
 |---|---|---|
 | `pips` | `Float = 1.7` | >= 0 (`NEGATIVE_COST`); charged to every trade |
 
-`1.7` is the domain's default, the friction the Narrow Asia Fade research assumed. A config **without** `simulation.cost` builds `FixedCost(pips = 0)`, not this default ([LoadBacktestConfig](use-cases/load-backtest-config.md)).
+`1.7` is the domain's default, the friction the Narrow Asia Fade research assumed. A config **without** `simulation.cost` builds `FixedCost(pips = 0)`, not this default ([LoadBacktestConfig](../use-cases/load-backtest-config.md)).
 
 ### SpreadCost
 
@@ -161,7 +163,7 @@ What to do when one bar touches both SL and TP: `EXCLUDE` (`exclude`, the defaul
 
 | Property | Type | Notes |
 |---|---|---|
-| `strategy` | `TradingStrategy` | [plugins](plugins/README.md) |
+| `strategy` | `TradingStrategy` | [plugins](../plugins/README.md) |
 | `data` | `HistoricalData` | |
 | `cost_model` | `CostModel = FixedCost(1.7)` | |
 | `ambiguity_policy` | `AmbiguityPolicy = EXCLUDE` | |

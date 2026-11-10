@@ -38,4 +38,4 @@ Resampling to the source's own bar size is a no-op. Asking for a size **finer** 
 | `CLOCK_NOT_UTC` | Dukascopy with a non-UTC clock: `Dukascopy bars are UTC (epoch timestamps), not {timezone}`. |
 | `NO_USABLE_SOURCE_FILES` | From BuildCleanDataset (`METATRADER`, `HISTDATA`). |
 | `DUKASCOPY_*` | From [DukascopyBarFiles](../ports/dukascopy-bar-files.md). |
-| `NO_BARS`, `MISSING_COLUMNS`, `NON_INTEGRAL_VOLUME`, … | From `HistoricalData` ([invariants](../domain-market-data.md#8-historicaldata)), e.g. Dukascopy files with no rows. |
+| `NO_BARS`, `MISSING_COLUMNS`, `NON_INTEGRAL_VOLUME`, … | From `HistoricalData` ([invariants](../domain/market-data.md#8-historicaldata)), e.g. Dukascopy files with no rows. |

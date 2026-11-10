@@ -28,7 +28,7 @@ Detects RSI divergences on M5 bars resampled from MetaTrader M1 exports: the pla
 
 1. `bars = BuildCleanDataset(source, timeframe = 5m, progress)` (MetaTrader reader).
 2. `oscillator = rsi(bars.close, rsi_length)`.
-3. `divergences = find_divergences(bars, oscillator, pivot_left, pivot_right, range_lower, range_upper, include_hidden)` ([domain-indicators.md](../domain-indicators.md#2-divergence)).
+3. `divergences = find_divergences(bars, oscillator, pivot_left, pivot_right, range_lower, range_upper, include_hidden)` ([domain/indicators.md](../domain/indicators.md#2-divergence)).
 
 In the Python code these steps are inline in the CLI's `main()`; a rewrite should give them their own function, as above.
 

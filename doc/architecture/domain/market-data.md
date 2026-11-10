@@ -1,6 +1,8 @@
 # Domain: Market Data
 
-The concepts behind the bars themselves: timeframes, instruments, clocks, daily time windows, trading sessions, the bar table's operations and `HistoricalData`, the validated bars a backtest runs on. Pure calculations: nothing here reads or writes a file, the clock or git. Types and rules are in [conventions.md](conventions.md).
+Part of the [domain](README.md) of the [application blueprint](../README.md).
+
+The concepts behind the bars themselves: timeframes, instruments, clocks, daily time windows, trading sessions, the bar table's operations and `HistoricalData`, the validated bars a backtest runs on. Pure calculations: nothing here reads or writes a file, the clock or git. Types and rules are in [conventions.md](../conventions.md).
 
 ## Contents
 
@@ -421,4 +423,4 @@ Invariants, checked on construction, which **never changes the table**: a wrong 
 | `BarChunks` | splits a `Stream<Bar>` into monthly/yearly runs in constant memory |
 | `shift_bars` | `shift_timezone` for a `Stream<Bar>` |
 | `DailySessionBase`, `DailyStrategyBase` | a bar-by-bar daily session lifecycle (create a session per day, feed it bars, force-close at its end) |
-| `position.Position`, `PendingPosition`, `Outcome` | the script's own position model; the application's is in [domain-backtest.md](domain-backtest.md#2-position) |
+| `position.Position`, `PendingPosition`, `Outcome` | the script's own position model; the application's is in [backtest.md](backtest.md#2-position) |

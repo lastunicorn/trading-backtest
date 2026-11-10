@@ -18,7 +18,7 @@ A [port](README.md) of the [application blueprint](../README.md).
 
 ## DTOs
 
-`BacktestResult` is a domain type ([domain-backtest.md](../domain-backtest.md#backtestresult)).
+`BacktestResult` is a domain type ([domain/backtest.md](../domain/backtest.md#backtestresult)).
 
 ### RunInfo
 

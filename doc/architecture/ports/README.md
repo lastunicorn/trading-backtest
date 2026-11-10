@@ -16,7 +16,7 @@ The use cases' access to everything outside the process: data files, the config 
 
 These rules hold for every port:
 
-- **A port parses and stops.** It returns what the file holds, in the application's shape. It never sorts, deduplicates, fills, resamples or shifts a clock: those are domain decisions ([domain-market-data.md](../domain-market-data.md#7-bar-table-operations)).
+- **A port parses and stops.** It returns what the file holds, in the application's shape. It never sorts, deduplicates, fills, resamples or shifts a clock: those are domain decisions ([domain/market-data.md](../domain/market-data.md#7-bar-table-operations)).
 - **A port may hand over a domain entity** it parses into (`Bar`), never call domain logic.
 - **The format itself lives in a library** ([metatrader_csv](metatrader-bar-files.md#format-library-metatrader_csv), [dukascopy_csv](dukascopy-bar-files.md#format-library-dukascopy_csv)) that knows nothing of this application; the port adds what is specific to it (which of two ambiguous layouts this broker uses, which columns are noise).
 - **Use cases receive ports as parameters** (in Python: functions passed in, such as `read_file`, `now`, `git_commit`), so tests pass fakes. A rewrite should define each port as an interface and inject it.

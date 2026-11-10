@@ -26,7 +26,7 @@ Runs a prepared `Backtest` and records it: the domain result, its provenance (cl
 
 ## Steps
 
-1. `result = backtest.run()` ([domain-backtest.md](../domain-backtest.md#4-backtest-and-the-exit-rules)).
+1. `result = backtest.run()` ([domain/backtest.md](../domain/backtest.md#4-backtest-and-the-exit-rules)).
 2. `run_info = build_run_info(backtest, result, source, strategy_name, now, git_commit)`: the [RunInfo](../ports/backtest-result-store.md#runinfo) fields, from the backtest's strategy, data, cost model and settings, `now()` and `git_commit()`.
 3. `report = format_report(result, run_info)`: the text laid out in [external-formats.md](../external-formats.md#statisticstxt).
 4. `paths = BacktestResultStore.write_results(result, run_info, report, out_dir, price_decimals = data.symbol.price_decimals)`.

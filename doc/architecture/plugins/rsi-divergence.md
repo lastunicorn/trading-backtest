@@ -22,10 +22,10 @@ A [plugin](README.md) of the [application blueprint](../README.md).
 
 ## Steps
 
-1. `osc = rsi(close, rsi_length)`; `divergences = find_divergences(data, osc, pivot_left, pivot_right, range_lower, range_upper, include_hidden = false)`; `filter_regular_by_band(divergences, rsi_lower, rsi_upper)` ([domain-indicators.md](../domain-indicators.md)).
+1. `osc = rsi(close, rsi_length)`; `divergences = find_divergences(data, osc, pivot_left, pivot_right, range_lower, range_upper, include_hidden = false)`; `filter_regular_by_band(divergences, rsi_lower, rsi_upper)` ([domain/indicators.md](../domain/indicators.md)).
 2. `signals = open_positions(data, divergences, pivot_right, rsi_lower, rsi_upper)`: the entry is the open of the bar `pivot_right + 1` bars after the newer pivot; long below `rsi_lower`, short above `rsi_upper`.
 3. For each signal, with `pivot` = the newer pivot's bar and `entry` = the signal's `open_price`:
-   1. Skip it unless its `open_time`, read on the data's clock, is inside `TimeWindow(start_time, end_time)` ([domain-market-data.md](../domain-market-data.md#4-timewindow)). Only entries are limited: RSI and pivots run over every bar.
+   1. Skip it unless its `open_time`, read on the data's clock, is inside `TimeWindow(start_time, end_time)` ([domain/market-data.md](../domain/market-data.md#4-timewindow)). Only entries are limited: RSI and pivots run over every bar.
    2. Long: `sl = pivot.low − stop_buffer_pips × pip_size`; skip unless `sl < entry`; `tp = entry + risk_reward × (entry − sl)`.
    3. Short: `sl = pivot.high + stop_buffer_pips × pip_size`; skip unless `sl > entry`; `tp = entry − risk_reward × (sl − entry)`.
 

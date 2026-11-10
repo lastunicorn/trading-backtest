@@ -26,7 +26,7 @@ The notation every other page of the blueprint uses, and the rules about data th
 | `LocalDateTime` | A wall-clock date and time with microsecond precision and **no zone**. Which clock it is on is stated separately, by a `TimeZone` held next to it (see [Clocks](#clocks)). |
 | `Instant` | An absolute moment, stored as UTC. |
 | `Duration` | A length of time. |
-| `TimeZone` | A clock: an IANA zone, or one of the application's own (`ShiftedZone`, `SwitchingZone`); see [domain-market-data.md](domain-market-data.md#3-clocks-time-zones). |
+| `TimeZone` | A clock: an IANA zone, or one of the application's own (`ShiftedZone`, `SwitchingZone`); see [domain/market-data.md](domain/market-data.md#3-clocks-time-zones). |
 | `Path` | A file-system path. |
 | `T?` | A `T` or `null` (absent). |
 | `List<T>` | An ordered sequence. |
@@ -78,7 +78,7 @@ Most of the application works on a **bar table**, `Table<BarRow>`, one bar per r
 | `volume` | `Integer?` | no | real (exchange) volume; MetaTrader's `<VOL>` |
 | `spread` | `Float?` or `Integer?` | no | its unit depends on the stage, see [Units](#units) |
 
-A table read straight from a source can be unsorted and hold duplicate timestamps. A **clean** table is sorted by `datetime` with no duplicates (`clean_frame`, [domain-market-data.md](domain-market-data.md#7-bar-table-operations)). Everything downstream of loading works on clean tables only, and `HistoricalData` refuses any other.
+A table read straight from a source can be unsorted and hold duplicate timestamps. A **clean** table is sorted by `datetime` with no duplicates (`clean_frame`, [domain/market-data.md](domain/market-data.md#7-bar-table-operations)). Everything downstream of loading works on clean tables only, and `HistoricalData` refuses any other.
 
 Extra columns are allowed and pass through untouched.
 
@@ -104,7 +104,7 @@ The spread column changes unit along the way:
 | Dukascopy port's table | price (ask − bid) | `Float?` |
 | `HistoricalData` (everything the backtest sees) | **pips** | `Float?` |
 
-The loaders convert, using `SpreadUnit` ([domain-market-data.md](domain-market-data.md#8-historicaldata)). All P&L and every statistic is in pips.
+The loaders convert, using `SpreadUnit` ([domain/market-data.md](domain/market-data.md#8-historicaldata)). All P&L and every statistic is in pips.
 
 ### Clocks
 
@@ -114,7 +114,7 @@ Timestamps are **naive** (`LocalDateTime`): a wall-clock reading with no zone at
 - **The clock is never inferred from the file format.** The caller states it.
 - A strategy that compares bars with session times converts both to instants (UTC) first, so it works on any clock, across daylight-saving changes.
 
-The sources' clocks, which [domain-market-data.md](domain-market-data.md#3-clocks-time-zones) defines:
+The sources' clocks, which [domain/market-data.md](domain/market-data.md#3-clocks-time-zones) defines:
 
 | Source | Clock | Name in configs and CLIs |
 |---|---|---|

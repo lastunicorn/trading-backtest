@@ -17,7 +17,7 @@ The open, high, low and close of each chosen trading session on every day of a s
 
 ## Output
 
-`Map<TradingSession, Table<SessionOhlcRow>>`, in `sessions` order; each table has one row per day whose session has at least one bar ([`session_ohlc`](../domain-market-data.md#7-bar-table-operations)).
+`Map<TradingSession, Table<SessionOhlcRow>>`, in `sessions` order; each table has one row per day whose session has at least one bar ([`session_ohlc`](../domain/market-data.md#7-bar-table-operations)).
 
 ## Steps
 
