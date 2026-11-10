@@ -19,7 +19,8 @@ spread value (Dukascopy has whole days without ask prices) is charged no
 spread, and `notes` says which trades that happened to.
 
 `notes` is how a cost model reports what the numbers alone don't show; the
-backtest report prints them at its end.
+backtest report prints them at its end. `parameters()` is what describes it in
+a run's record: a dataclass cost model's fields, like a strategy's.
 
 `FixedCost` is the default because not every source has a `spread` column.
 Its 1.7 pips is the round-trip friction the Narrow Asia Fade research assumed.
@@ -28,7 +29,7 @@ Its 1.7 pips is the round-trip friction the Narrow Asia Fade research assumed.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, fields, is_dataclass
 
 import pandas as pd
 
@@ -48,6 +49,10 @@ class CostModel(ABC):
     def notes(self, trades: pd.DataFrame, data: HistoricalData) -> list[str]:
         """What a reader of the results should know about how `trades` were charged; none by default."""
         return []
+
+    def parameters(self) -> dict[str, object]:
+        """The settings that define this cost model: a dataclass's fields, else none. Override for anything else."""
+        return {field.name: getattr(self, field.name) for field in fields(self)} if is_dataclass(self) else {}
 
 
 @dataclass(frozen=True)

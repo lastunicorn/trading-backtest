@@ -7,6 +7,7 @@
     data = HistoricalData.from_frame(frame, SampleSize.Parse("5m"), EURUSD, spread_unit=SpreadUnit.POINTS)
     data.data            # the frame
     data.start_dt, data.end_dt, len(data)
+    data.summary()         # the same facts plus symbol, timeframe, clock, without the bars
     data.locate([t1, t2])  # row index of the bar each time falls in
 
 The frame holds one bar per row, prices on the **bid** side:
@@ -47,7 +48,7 @@ from domain.broker_clock import BROKER_SERVER_TZ
 from domain.sample_size import SampleSize
 from domain.symbol import Symbol
 
-__all__ = ["HistoricalData", "SpreadUnit"]
+__all__ = ["DataSummary", "HistoricalData", "SpreadUnit"]
 
 _OHLC = ("open", "high", "low", "close")
 _VOLUMES = ("tick_volume", "volume")
@@ -61,6 +62,18 @@ class SpreadUnit(Enum):
     POINTS = "points"
     # Raw price difference (ask - bid) -- Dukascopy's reader.
     PRICE = "price"
+
+
+@dataclass(frozen=True)
+class DataSummary:
+    """What a `HistoricalData` covers, without its bars: how a backtest result describes its data."""
+
+    symbol: Symbol
+    timeframe: SampleSize
+    timezone: tzinfo
+    first_bar: datetime   # open time of the first bar
+    last_bar: datetime    # open time of the last bar
+    bars: int
 
 
 # eq=False: comparing two DataFrames with == is element-wise, not a bool, so
@@ -153,6 +166,10 @@ class HistoricalData:
 
     def __len__(self) -> int:
         return len(self.data)
+
+    def summary(self) -> DataSummary:
+        """What these bars cover: symbol, timeframe, clock, first and last bar, count."""
+        return DataSummary(self.symbol, self.timeframe, self.timezone, self.start_dt, self.end_dt, len(self))
 
     def locate(self, stamps: Iterable[datetime]) -> np.ndarray:
         """Row index of the bar each stamp falls in: the last bar opening at or before it.

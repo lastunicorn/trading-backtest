@@ -120,6 +120,7 @@ One row per position, in list order, with these columns in this order: `open_dt`
 |---|---|---|
 | `cost_pips(trades: Table<TradeRow>, data: HistoricalData)` | `List<Float>` | One round-trip cost per trade, aligned with the rows. |
 | `notes(trades, data)` | `List<String>` | What a reader of the results should know about how the trades were charged. Empty by default. |
+| `parameters()` | `Map<String, Any>` | The settings that define it, for a run's record: the properties of `FixedCost` / `SpreadCost` below, in order. |
 
 ### FixedCost
 

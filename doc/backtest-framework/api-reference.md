@@ -43,6 +43,7 @@ Extra columns are kept. The constructor only **validates**, and raises `ValueErr
 | `HistoricalData.from_frame(frame, timeframe, symbol, *, spread_unit=SpreadUnit.PIPS, timezone=BROKER_SERVER_TZ)` | a new instance from a copy of `frame`, after normalising it: OHLC → float, whole-number float volumes → `Int64` (fractional volumes raise), spread → pips. It does not sort or deduplicate. |
 | `start_dt`, `end_dt` | first and last bar timestamps (bar open times) |
 | `len(data)` | number of bars |
+| `summary()` | a `DataSummary` (frozen): `symbol`, `timeframe`, `timezone`, `first_bar`, `last_bar`, `bars`, the same facts without the frame; what `BacktestResult.data` holds |
 | `locate(stamps)` | NumPy array: for each timestamp, the row of the bar it falls in (the last bar opening at or before it); `-1` when before the first bar or missing |
 
 **`SpreadUnit`**: the unit of a source's `spread` column: `PIPS`, `POINTS` (multiples of tick size, MT5), `PRICE` (ask − bid, Dukascopy).
@@ -133,7 +134,7 @@ pandas rejects custom `tzinfo` objects, so don't pass `BROKER_SERVER_TZ` to `tz_
 
 ### `domain.pandas_approach.cost_model`
 
-**`CostModel`** (abstract): `cost_pips(trades, data) -> pd.Series`, one round-trip cost in pips per row of a positions frame, aligned to its index. Subclass it to model other frictions. `notes(trades, data) -> list[str]` (none by default) is what the report should warn about how the trades were charged; `Backtest.run` puts them in `BacktestResult.notes`.
+**`CostModel`** (abstract): `cost_pips(trades, data) -> pd.Series`, one round-trip cost in pips per row of a positions frame, aligned to its index. Subclass it to model other frictions. `notes(trades, data) -> list[str]` (none by default) is what the report should warn about how the trades were charged; `Backtest.run` puts them in `BacktestResult.notes`. `parameters() -> dict` is what describes it in `run.json` and the report: a dataclass cost model's fields, else `{}` (override for anything else).
 
 | Class | Parameters | Charges |
 |---|---|---|
