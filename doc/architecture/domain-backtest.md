@@ -1,6 +1,6 @@
 # Domain: Backtest
 
-How a backtest turns a strategy's entries into trades, results and statistics. All of it is a pure calculation over `HistoricalData` ([domain-market-data.md](domain-market-data.md#8-historicaldata)): no files, no clock, no git. Recording a run and writing its files is the [RecordBacktest use case](use-cases.md#4-recordbacktest)'s job. The strategy contract is in [plugins/](plugins/README.md#the-plugin-contract-tradingstrategy).
+How a backtest turns a strategy's entries into trades, results and statistics. All of it is a pure calculation over `HistoricalData` ([domain-market-data.md](domain-market-data.md#8-historicaldata)): no files, no clock, no git. Recording a run and writing its files is the [RecordBacktest use case](use-cases/record-backtest.md)'s job. The strategy contract is in [plugins/](plugins/README.md#the-plugin-contract-tradingstrategy).
 
 ## Contents
 
@@ -125,7 +125,7 @@ One row per position, in list order, with these columns in this order: `open_dt`
 |---|---|---|
 | `pips` | `Float = 1.7` | >= 0 (`NEGATIVE_COST`); charged to every trade |
 
-`1.7` is the domain's default, the friction the Narrow Asia Fade research assumed. A config **without** `simulation.cost` builds `FixedCost(pips = 0)`, not this default ([use-cases.md](use-cases.md#3-loadbacktestconfig)).
+`1.7` is the domain's default, the friction the Narrow Asia Fade research assumed. A config **without** `simulation.cost` builds `FixedCost(pips = 0)`, not this default ([LoadBacktestConfig](use-cases/load-backtest-config.md)).
 
 ### SpreadCost
 

@@ -2,7 +2,7 @@
 
 A [port](README.md) of the [application blueprint](../README.md).
 
-*Python: `ports/backtest_config_access/`.* Reads the JSON file that drives one backtest and checks its **shape** only: known keys, JSON types, required keys. Whether the values make sense (a registered strategy, a known symbol) is the [LoadBacktestConfig use case](../use-cases.md#3-loadbacktestconfig)'s job. The file format is in [external-formats.md](../external-formats.md#4-backtest-config-file).
+*Python: `ports/backtest_config_access/`.* Reads the JSON file that drives one backtest and checks its **shape** only: known keys, JSON types, required keys. Whether the values make sense (a registered strategy, a known symbol) is the [LoadBacktestConfig use case](../use-cases/load-backtest-config.md)'s job. The file format is in [external-formats.md](../external-formats.md#4-backtest-config-file).
 
 ## Constants
 

@@ -147,7 +147,7 @@ Read back by the MetaTrader reader, a written file gives the same table except f
 |---|---|---|---|---|
 | `strategy` | object | yes | | which strategy runs, and with what |
 | `strategy.name` | string | yes | | a [registry](plugins/README.md#registry-and-parameters) name |
-| `strategy.parameters` | object | no | `{}` | overrides of the strategy's parameters ([how values are written](use-cases.md#parameter-conversion)) |
+| `strategy.parameters` | object | no | `{}` | overrides of the strategy's parameters ([how values are written](use-cases/load-backtest-config.md#parameter-conversion)) |
 | `data_source` | object | yes | | the bars as they are on disk |
 | `data_source.path` | string | yes | | a file or a folder; relative to the config file's folder |
 | `data_source.format` | string | yes | | `metatrader`, `histdata` or `dukascopy` |
@@ -165,7 +165,7 @@ Read back by the MetaTrader reader, a written file gives the same table except f
 
 - An unknown key, a value of the wrong JSON type and a missing required key are errors, never ignored or defaulted. A boolean is never a number.
 - Where SL/TP checking starts is not a setting: each position's `entry_fill`, chosen by the strategy, decides it.
-- Every check and its error: [BacktestConfigSource](ports/backtest-config-source.md) (shape) and [LoadBacktestConfig](use-cases.md#3-loadbacktestconfig) (values).
+- Every check and its error: [BacktestConfigSource](ports/backtest-config-source.md) (shape) and [LoadBacktestConfig](use-cases/load-backtest-config.md) (values).
 
 ---
 

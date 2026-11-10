@@ -54,7 +54,7 @@ Construction validates the parameters; an invalid one is the error `INVALID_PARA
 
 ### Parameters
 
-A strategy's parameters are its constructor arguments, each with a type and a default. A config's `strategy.parameters` overrides any subset; the rest keep their defaults. The types a config can set are `Integer`, `Float`, `Boolean`, `String`, `LocalTime`, `ZonedTime`, `TradingSession` and optional versions of these; how each is written in JSON is in [use-cases.md](../use-cases.md#parameter-conversion). A parameter of any other type can only be set from code.
+A strategy's parameters are its constructor arguments, each with a type and a default. A config's `strategy.parameters` overrides any subset; the rest keep their defaults. The types a config can set are `Integer`, `Float`, `Boolean`, `String`, `LocalTime`, `ZonedTime`, `TradingSession` and optional versions of these; how each is written in JSON is in [LoadBacktestConfig](../use-cases/load-backtest-config.md#parameter-conversion). A parameter of any other type can only be set from code.
 
 `LocalTime` and `ZonedTime` are different types on purpose: a `LocalTime` is read on the data's own clock (`"10:00"`), a `ZonedTime` names its zone (`"10:00 broker"`, `"08:00 Europe/London"`), so neither can be written as the other.
 

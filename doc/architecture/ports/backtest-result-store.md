@@ -22,7 +22,7 @@ A [port](README.md) of the [application blueprint](../README.md).
 
 ### RunInfo
 
-The provenance of one backtest run, built by [RecordBacktest](../use-cases.md#4-recordbacktest) and written as `run.json`. A JSON object, keys in this order:
+The provenance of one backtest run, built by [RecordBacktest](../use-cases/record-backtest.md) and written as `run.json`. A JSON object, keys in this order:
 
 | Key | Type | Content |
 |---|---|---|

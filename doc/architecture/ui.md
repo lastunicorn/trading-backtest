@@ -1,6 +1,6 @@
 # UI
 
-The application's user interface is five command-line programs, one per task, plus a little presentation code they share. A CLI parses and validates its arguments, calls a [use case](use-cases.md), prints the result and sets the exit code; it holds no business logic. Types and rules are in [conventions.md](conventions.md).
+The application's user interface is five command-line programs, one per task, plus a little presentation code they share. A CLI parses and validates its arguments, calls a [use case](use-cases/README.md), prints the result and sets the exit code; it holds no business logic. Types and rules are in [conventions.md](conventions.md).
 
 In the Python code each CLI is an entry script at the repo root (`backtest.py`, …); its `main()` is the UI part.
 
@@ -33,7 +33,7 @@ In the Python code each CLI is an entry script at the repo root (`backtest.py`, 
 
 ## 2. `backtest`
 
-*Python: `backtest.py`.* Runs a backtest from a JSON config and writes its results. Use case: [RunBacktestFromConfig](use-cases.md#5-runbacktestfromconfig).
+*Python: `backtest.py`.* Runs a backtest from a JSON config and writes its results. Use case: [RunBacktestFromConfig](use-cases/run-backtest-from-config.md).
 
 ```
 backtest <config>
@@ -48,7 +48,7 @@ backtest <config>
 | Input | Rule | On failure |
 |---|---|---|
 | `config` | given | exit 2 |
-| the config's contents | every rule of [LoadBacktestConfig](use-cases.md#3-loadbacktestconfig) | `ERROR: {file}: …`, exit 1 |
+| the config's contents | every rule of [LoadBacktestConfig](use-cases/load-backtest-config.md) | `ERROR: {file}: …`, exit 1 |
 
 There is no other UI-level validation: every setting lives in the config, whose format is in [external-formats.md](external-formats.md#4-backtest-config-file).
 
@@ -65,7 +65,7 @@ Errors caught (exit 1): every `ValueError` and `FileNotFoundError` class error, 
 
 ## 3. `read_csv`
 
-*Python: `read_csv.py`.* Prints a bar source as a table, raw or processed, or writes the processed bars to a MetaTrader-format CSV. Use case: [PrepareBars](use-cases.md#6-preparebars).
+*Python: `read_csv.py`.* Prints a bar source as a table, raw or processed, or writes the processed bars to a MetaTrader-format CSV. Use case: [PrepareBars](use-cases/prepare-bars.md).
 
 ```
 read_csv <source> [--source-format F] [--source-timezone TZ] [--source-symbol TICKER]
@@ -126,7 +126,7 @@ Then, with `--output`, a blank line and `Written: {path}`; otherwise the bar tab
 
 ## 4. `calculate_daily_sessions`
 
-*Python: `calculate_daily_sessions.py`.* Prints the open, high, low and close of trading sessions for every day of a source. Use case: [CollectDailySessions](use-cases.md#8-collectdailysessions).
+*Python: `calculate_daily_sessions.py`.* Prints the open, high, low and close of trading sessions for every day of a source. Use case: [CollectDailySessions](use-cases/collect-daily-sessions.md).
 
 ```
 calculate_daily_sessions [source] [--source-format F] [--session NAME]... [--source-timezone TZ] [--source-symbol TICKER]
@@ -171,7 +171,7 @@ followed by a blank line; or, with no bar in the window, `  (no bars in window)`
 
 ## 5. `rsi_divergence`
 
-*Python: `rsi_divergence.py`.* Prints the RSI divergences found on M5 bars resampled from MetaTrader M1 exports. Use case: [ScanRsiDivergences](use-cases.md#7-scanrsidivergences).
+*Python: `rsi_divergence.py`.* Prints the RSI divergences found on M5 bars resampled from MetaTrader M1 exports. Use case: [ScanRsiDivergences](use-cases/scan-rsi-divergences.md).
 
 ```
 rsi_divergence <source> [--rsi-length N] [--pivot-left N] [--pivot-right N] [--range-lower N] [--range-upper N] [--hidden]
@@ -216,7 +216,7 @@ The heading says EURUSD whatever the data is.
 
 ## 6. `show_symbols`
 
-*Python: `show_symbols.py`.* Lists the known symbols. Use case: [ListSymbols](use-cases.md#9-listsymbols).
+*Python: `show_symbols.py`.* Lists the known symbols. Use case: [ListSymbols](use-cases/list-symbols.md).
 
 ```
 show_symbols [--filter TEXT]
