@@ -1,6 +1,6 @@
 # Ports
 
-The use cases' access to everything outside the process: data files, the config file, the result files, the wall clock and git. Each port has its own page, with its actions, its errors, the DTOs it hands over and, for the bar ports, the format library behind it. The exact file formats are in [external-formats.md](../external-formats.md). Types and rules are in [conventions.md](../conventions.md).
+The use cases' access to everything outside the process: data files, the config file, the result files, the wall clock and git. Each port has its own page, with its actions, its errors, the DTOs it hands over, the exact format of the files it reads or writes and, for the bar ports, the format library behind it. Types and rules are in [conventions.md](../conventions.md).
 
 | Port | Page | Python | Used by |
 |---|---|---|---|
@@ -20,4 +20,5 @@ These rules hold for every port:
 - **A port may hand over a domain entity** it parses into (`Bar`), never call domain logic.
 - **The format itself lives in a library** ([metatrader_csv](metatrader-bar-files.md#format-library-metatrader_csv), [dukascopy_csv](dukascopy-bar-files.md#format-library-dukascopy_csv)) that knows nothing of this application; the port adds what is specific to it (which of two ambiguous layouts this broker uses, which columns are noise).
 - **Use cases receive ports as parameters** (in Python: functions passed in, such as `read_file`, `now`, `git_commit`), so tests pass fakes. A rewrite should define each port as an interface and inject it.
+- **A port's page specifies its file formats exactly.** They are the contracts a rewrite must keep for existing data, configs and results to keep working.
 - **A DTO is described on the page of the port that hands it over.** Where another port uses it too, that page links to it (`SkipHandler`, for example, is on the MetatraderBarFiles page and also used by HistdataBarFiles).

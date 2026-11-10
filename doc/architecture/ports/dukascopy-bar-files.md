@@ -2,7 +2,7 @@
 
 A [port](README.md) of the [application blueprint](../README.md).
 
-*Python: `ports/dukascopy_file_access/`.* Dukascopy M1 candle exports, which come as one **bid** file and one **ask** file per period ([external-formats.md](../external-formats.md#3-dukascopy-candle-export)). What it adds: how a pair becomes one bar.
+*Python: `ports/dukascopy_file_access/`.* Dukascopy M1 candle exports, which come as one **bid** file and one **ask** file per period ([file format below](#file-format-dukascopy-candle-export)). What it adds: how a pair becomes one bar.
 
 ## Actions
 
@@ -45,9 +45,29 @@ A row of the table `read_path` returns: a bar table ([conventions.md](../convent
 | `volume` | `Integer?` | always null |
 | `spread` | `Float?` | price units |
 
+## File format: Dukascopy candle export
+
+*Python: `libs/dukascopy_csv/`.* The CSVs [dukascopy-node](https://github.com/Leo4815162342/dukascopy-node) downloads. Each file holds **one price side** of one instrument over one period.
+
+- **Names:** `{instrument}-{timeframe}-{side}-{start}-{end}.csv`, all lower case:
+
+  | Part | Form | Example |
+  |---|---|---|
+  | `instrument` | letters and digits | `eurusd`, `deuidxeur` |
+  | `timeframe` | letters and digits | `m1` |
+  | `side` | `bid` or `ask` | |
+  | `start` | `YYYY-MM-DD`, the first day covered | `2020-01-01` |
+  | `end` | `YYYY-MM-DD` (exclusive) for a whole period, or `YYYY-MM-DDTHH-MM`, the download time of a partial one | `2020-02-01`, `2026-09-21T17-14` |
+
+  The name is the only place the instrument and the side are recorded. Other files in a folder are ignored.
+- **Content:** a CSV with a header, columns `timestamp,open,high,low,close`, plus `volume` when downloaded with volumes. `timestamp` is epoch **milliseconds**, UTC, as integers. A missing required column or a non-integer timestamp is `DUKASCOPY_FORMAT_ERROR`.
+- **Pairs:** a bid file and an ask file are partners when they are in the same folder and share instrument, timeframe and start. Their ends may differ (each side of a partial download has its own download time).
+- **Known anomalies,** passed on unchanged by the reader: a trading day missing on one side; a day of flat filler candles on the other; whole days without ask prices.
+- **Clock:** UTC, always.
+
 ## Format library: dukascopy_csv
 
-*Python: `libs/dukascopy_csv/`.* Self-contained code that knows the Dukascopy export format and nothing of this application; only this port uses it. A rewrite needs the behaviour, which [external-formats.md](../external-formats.md#3-dukascopy-candle-export) specifies; how it is packaged is free. Its public API, for reference:
+*Python: `libs/dukascopy_csv/`.* Self-contained code that knows the Dukascopy export format and nothing of this application; only this port uses it. A rewrite needs the behaviour, which the [file format](#file-format-dukascopy-candle-export) specifies; how it is packaged is free. Its public API, for reference:
 
 | Item | Description |
 |---|---|

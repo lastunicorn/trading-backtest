@@ -2,7 +2,7 @@
 
 A [port](README.md) of the [application blueprint](../README.md).
 
-*Python: `ports/backtest_config_access/`.* Reads the JSON file that drives one backtest and checks its **shape** only: known keys, JSON types, required keys. Whether the values make sense (a registered strategy, a known symbol) is the [LoadBacktestConfig use case](../use-cases/load-backtest-config.md)'s job. The file format is in [external-formats.md](../external-formats.md#4-backtest-config-file).
+*Python: `ports/backtest_config_access/`.* Reads the JSON file that drives one backtest and checks its **shape** only: known keys, JSON types, required keys. Whether the values make sense (a registered strategy, a known symbol) is the [LoadBacktestConfig use case](../use-cases/load-backtest-config.md)'s job. Its file format is [below](#file-format-backtest-config-file).
 
 ## Constants
 
@@ -18,7 +18,7 @@ A [port](README.md) of the [application blueprint](../README.md).
 `read_config`:
 
 1. Find the file; parse it as JSON; the top level must be an object.
-2. Check the top-level keys, then `strategy`'s, `data_source`'s, `simulation`'s and `simulation.cost`'s: no unknown key, every value of its JSON type, every required key present ([key table](../external-formats.md#keys)).
+2. Check the top-level keys, then `strategy`'s, `data_source`'s, `simulation`'s and `simulation.cost`'s: no unknown key, every value of its JSON type, every required key present ([key table](#keys)).
 3. JSON type rules: a JSON boolean is never a number; a whole number is accepted where a number is expected and converted to `Float`.
 4. `simulation.cost.commission_pips` must not be negative.
 5. Resolve `data_source.path` and `out` against **the config file's folder**, not the working directory, folding `..` away (symbolic links untouched). An absolute path stays as is.
@@ -83,3 +83,56 @@ The config file, shape-checked (`read_config`), or value-checked too (`load_back
 |---|---|---|
 | `spread` | `Boolean` | `false`; charge each trade the spread of its ask-side bar |
 | `commission_pips` | `Float` | `0`; charged on every trade; without `spread`, the whole cost |
+
+## File format: Backtest config file
+
+One JSON file drives one backtest. It is passed directly, or as a folder holding `backtest.json`. User documentation: `doc/backtest-framework/backtest-config.md`.
+
+```json
+{
+    "strategy": {
+        "name": "narrow_asia_fade",
+        "parameters": {"rel_vol_min": 1.8, "study_end": "13:00"}
+    },
+    "data_source": {
+        "path": "../../data/eurusd/1min",
+        "format": "metatrader",
+        "symbol": "EURUSD",
+        "timeframe": "1m",
+        "timezone": "broker"
+    },
+    "simulation": {
+        "timeframe": "5m",
+        "ambiguity": "assume-sl",
+        "cost": {"commission_pips": 1.7}
+    },
+    "out": "output",
+    "splits": "dvt"
+}
+```
+
+### Keys
+
+| Key | JSON type | Required | Default | Meaning |
+|---|---|---|---|---|
+| `strategy` | object | yes | | which strategy runs, and with what |
+| `strategy.name` | string | yes | | a [registry](../plugins/README.md#registry-and-parameters) name |
+| `strategy.parameters` | object | no | `{}` | overrides of the strategy's parameters ([how values are written](../use-cases/load-backtest-config.md#parameter-conversion)) |
+| `data_source` | object | yes | | the bars as they are on disk |
+| `data_source.path` | string | yes | | a file or a folder; relative to the config file's folder |
+| `data_source.format` | string | yes | | `metatrader`, `histdata` or `dukascopy` |
+| `data_source.symbol` | string | yes | | a ticker in `SYMBOLS` |
+| `data_source.timeframe` | string | no | `1m` | the source's bar size as stored |
+| `data_source.timezone` | string | no | `UTC` | the clock of the source's timestamps: `broker`, `histdata` or an IANA name; never inferred from `format` |
+| `simulation` | object | no | all defaults | the rules the positions are traded under |
+| `simulation.timeframe` | string | no | `5m` | the bar size to backtest on; a whole multiple of `data_source.timeframe` |
+| `simulation.ambiguity` | string | no | `exclude` | `exclude`, `assume-sl` or `assume-tp` |
+| `simulation.cost` | object | no | **no cost** | |
+| `simulation.cost.spread` | boolean | no | `false` | charge each trade the spread of the bar where it crosses to the ask |
+| `simulation.cost.commission_pips` | number >= 0 | no | `0` | pips charged on every trade; without `spread`, the whole cost |
+| `out` | string | yes | | the results folder, relative to the config file's folder; **overwritten** |
+| `splits` | string | no | `none` | `none`, `dvt`, `monthly` or `yearly`; groups the statistics only |
+
+- An unknown key, a value of the wrong JSON type and a missing required key are errors, never ignored or defaulted. A boolean is never a number.
+- Where SL/TP checking starts is not a setting: each position's `entry_fill`, chosen by the strategy, decides it.
+- Every check and its error: this port's [errors](#errors) (shape) and [LoadBacktestConfig](../use-cases/load-backtest-config.md) (values).

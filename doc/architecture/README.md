@@ -11,10 +11,9 @@ How the *Python* code is organised (folders, import rules, where new code goes) 
 | [conventions.md](conventions.md) | **Read first.** Type notation, naming, errors, progress reporting, and the rules about market data that hold everywhere (bars, bid prices, units, clocks) |
 | [domain/](domain/README.md) | The concepts and calculations, one page per area: market data (`SampleSize`, `Symbol`, clocks, sessions, `HistoricalData`), the backtest (positions, costs, exit rules, splits, statistics), indicators (RSI, divergences) |
 | [plugins/](plugins/README.md) | The strategy contract, the registry and parameters; one page per strategy |
-| [ports/](ports/README.md) | The seven ports, one page each: actions, errors, DTOs, and the format libraries behind the bar ports |
+| [ports/](ports/README.md) | The seven ports, one page each: actions, errors, DTOs, the exact format of every file read or written, and the format libraries behind the bar ports |
 | [use-cases/](use-cases/README.md) | The nine use cases, one page each: input, output, steps, errors |
 | [ui/](ui/README.md) | The five CLIs, one page each: arguments, validation at UI level, output; shared presentation |
-| [external-formats.md](external-formats.md) | Every file read or written: bar data, the backtest config, the result files |
 
 ---
 
@@ -74,7 +73,7 @@ Everything points towards the domain, which can therefore be tested without a fi
 
 ## Rebuilding the application from this blueprint
 
-A workable order: [conventions](conventions.md) → [market data](domain/market-data.md) → [backtest domain](domain/backtest.md) → one strategy ([`orb_break_entry`](plugins/orb-break-entry.md) is the simplest) → [ports](ports/README.md) with [external formats](external-formats.md) → [use cases](use-cases/README.md) → [UI](ui/README.md) → the remaining strategies and [indicators](domain/indicators.md).
+A workable order: [conventions](conventions.md) → [market data](domain/market-data.md) → [backtest domain](domain/backtest.md) → one strategy ([`orb_break_entry`](plugins/orb-break-entry.md) is the simplest) → [ports](ports/README.md), with their file formats → [use cases](use-cases/README.md) → [UI](ui/README.md) → the remaining strategies and [indicators](domain/indicators.md).
 
 To check a rewrite, run the same config on the same data in both versions and compare `positions.csv` and `statistics.csv` (and `statistics.txt`, apart from its `Created` line). The Python tests under `tests/` mirror the source layout, one file per function, and are executable examples of each item's behaviour; `tests/strategies/session_breakout/_script_trades.py` holds the trades the `session_breakout` strategy must reproduce exactly.
 

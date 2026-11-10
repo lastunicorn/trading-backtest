@@ -2,7 +2,7 @@
 
 A [port](README.md) of the [application blueprint](../README.md).
 
-*Python: `ports/histdata_file_access/`.* histdata.com's MetaTrader downloads ([external-formats.md](../external-formats.md#2-histdatacom-download)), read through the same format library as [MetatraderBarFiles](metatrader-bar-files.md#format-library-metatrader_csv). What it adds: the seventh column (a volume histdata always leaves at 0) is dropped, and only `DAT_MT_*.csv` files are sources (each sits beside a `.txt` gap report).
+*Python: `ports/histdata_file_access/`.* histdata.com's MetaTrader downloads ([file format below](#file-format-histdatacom-download)), read through the same format library as [MetatraderBarFiles](metatrader-bar-files.md#format-library-metatrader_csv). What it adds: the seventh column (a volume histdata always leaves at 0) is dropped, and only `DAT_MT_*.csv` files are sources (each sits beside a `.txt` gap report).
 
 ## Constants
 
@@ -33,3 +33,11 @@ A row of the table `read_frame` returns: a bar table ([conventions.md](../conven
 |---|---|
 | `datetime` | `LocalDateTime` |
 | `open`, `high`, `low`, `close` | `Float` |
+
+## File format: histdata.com download
+
+histdata.com's "MetaTrader" M1 downloads: plain headerless MetaTrader exports, read by the [MetaTrader format's rules](metatrader-bar-files.md#file-format-metatrader-bar-export).
+
+- **Names:** `DAT_MT_{SYMBOL}_M1_{YYYYMM}.csv` (`DAT_MT_EURUSD_M1_202501.csv`). Each sits beside a `.txt` gap report, which is not a source; only names matching `DAT_MT_*.csv` are read.
+- **Content:** 7 comma-separated columns, `date`, `time`, `open`, `high`, `low`, `close`, and a volume histdata always leaves at 0, which the port drops. No spread.
+- **Clock:** `histdata` (`HISTDATA_TZ`): New York time until 2019-01-01, London − 5 hours from then on. Nothing in the file says so; the config or CLI must.

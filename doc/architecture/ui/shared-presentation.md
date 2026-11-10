@@ -35,4 +35,4 @@ Part of the [UI](README.md) of the [application blueprint](../README.md).
 
 ## The backtest report
 
-`format_report` (*`backtest.py`*) lays out `statistics.txt`, which is also what the `backtest` CLI prints. Its exact layout is in [external-formats.md](../external-formats.md#statisticstxt).
+`format_report` (*`backtest.py`*) lays out `statistics.txt`, which is also what the `backtest` CLI prints. Its exact layout is on the [BacktestResultStore page](../ports/backtest-result-store.md#statisticstxt).
