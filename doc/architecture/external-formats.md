@@ -146,7 +146,7 @@ Read back by the MetaTrader reader, a written file gives the same table except f
 | Key | JSON type | Required | Default | Meaning |
 |---|---|---|---|---|
 | `strategy` | object | yes | | which strategy runs, and with what |
-| `strategy.name` | string | yes | | a [registry](plugins.md#2-registry-and-parameters) name |
+| `strategy.name` | string | yes | | a [registry](plugins/README.md#registry-and-parameters) name |
 | `strategy.parameters` | object | no | `{}` | overrides of the strategy's parameters ([how values are written](use-cases.md#parameter-conversion)) |
 | `data_source` | object | yes | | the bars as they are on disk |
 | `data_source.path` | string | yes | | a file or a folder; relative to the config file's folder |

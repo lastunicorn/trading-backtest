@@ -1,6 +1,6 @@
 # Domain: Backtest
 
-How a backtest turns a strategy's entries into trades, results and statistics. All of it is a pure calculation over `HistoricalData` ([domain-market-data.md](domain-market-data.md#8-historicaldata)): no files, no clock, no git. Recording a run and writing its files is the [RecordBacktest use case](use-cases.md#4-recordbacktest)'s job. The strategy contract is in [plugins.md](plugins.md#1-the-plugin-contract-tradingstrategy).
+How a backtest turns a strategy's entries into trades, results and statistics. All of it is a pure calculation over `HistoricalData` ([domain-market-data.md](domain-market-data.md#8-historicaldata)): no files, no clock, no git. Recording a run and writing its files is the [RecordBacktest use case](use-cases.md#4-recordbacktest)'s job. The strategy contract is in [plugins/](plugins/README.md#the-plugin-contract-tradingstrategy).
 
 ## Contents
 
@@ -161,7 +161,7 @@ What to do when one bar touches both SL and TP: `EXCLUDE` (`exclude`, the defaul
 
 | Property | Type | Notes |
 |---|---|---|
-| `strategy` | `TradingStrategy` | [plugins.md](plugins.md) |
+| `strategy` | `TradingStrategy` | [plugins](plugins/README.md) |
 | `data` | `HistoricalData` | |
 | `cost_model` | `CostModel = FixedCost(1.7)` | |
 | `ambiguity_policy` | `AmbiguityPolicy = EXCLUDE` | |

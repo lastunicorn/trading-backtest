@@ -12,7 +12,7 @@ How the *Python* code is organised (folders, import rules, where new code goes) 
 | [domain-market-data.md](domain-market-data.md) | Domain: `SampleSize`, `Symbol`, clocks, `TimeWindow`, `TradingSession`, `Bar`, bar table operations, `HistoricalData` |
 | [domain-backtest.md](domain-backtest.md) | Domain: `Position`, cost models, the backtest and its exit rules, trade results, splits, statistics |
 | [domain-indicators.md](domain-indicators.md) | Domain: RSI and divergence detection |
-| [plugins.md](plugins.md) | The strategy contract, the registry, parameters, and the five strategies |
+| [plugins/](plugins/README.md) | The strategy contract, the registry and parameters; one page per strategy |
 | [ports/](ports/README.md) | The seven ports, one page each: actions, errors, DTOs, and the format libraries behind the bar ports |
 | [use-cases.md](use-cases.md) | The nine use cases: input, output, steps, errors |
 | [ui.md](ui.md) | The five CLIs: arguments, validation at UI level, output; shared presentation |
@@ -69,14 +69,14 @@ Everything points towards the domain, which can therefore be tested without a fi
 1. The `backtest` CLI passes a config path to [RunBacktestFromConfig](use-cases.md#5-runbacktestfromconfig).
 2. [LoadBacktestConfig](use-cases.md#3-loadbacktestconfig) reads the JSON and checks every value against the registry, the symbols, the clocks and the strategy's own parameter rules.
 3. [LoadHistoricalData](use-cases.md#2-loadhistoricaldata) reads the bars with the format's port, merges files, drops duplicate timestamps, resamples and converts the spread to pips: a validated `HistoricalData`.
-4. The strategy [generates open positions](plugins.md#1-the-plugin-contract-tradingstrategy); the backtest [closes each one](domain-backtest.md#the-exit-rules), charges costs, computes per-trade results and statistics, overall and per split.
+4. The strategy [generates open positions](plugins/README.md#the-plugin-contract-tradingstrategy); the backtest [closes each one](domain-backtest.md#the-exit-rules), charges costs, computes per-trade results and statistics, overall and per split.
 5. [RecordBacktest](use-cases.md#4-recordbacktest) adds provenance (clock, git), formats the report and writes `positions.csv`, `statistics.txt`, `statistics.csv` and `run.json`.
 
 ---
 
 ## Rebuilding the application from this blueprint
 
-A workable order: [conventions](conventions.md) → [market data](domain-market-data.md) → [backtest domain](domain-backtest.md) → one strategy ([`orb_break_entry`](plugins.md#5-orb_break_entry-orbbreakentry) is the simplest) → [ports](ports/README.md) with [external formats](external-formats.md) → [use cases](use-cases.md) → [UI](ui.md) → the remaining strategies and [indicators](domain-indicators.md).
+A workable order: [conventions](conventions.md) → [market data](domain-market-data.md) → [backtest domain](domain-backtest.md) → one strategy ([`orb_break_entry`](plugins/orb-break-entry.md) is the simplest) → [ports](ports/README.md) with [external formats](external-formats.md) → [use cases](use-cases.md) → [UI](ui.md) → the remaining strategies and [indicators](domain-indicators.md).
 
 To check a rewrite, run the same config on the same data in both versions and compare `positions.csv` and `statistics.csv` (and `statistics.txt`, apart from its `Created` line). The Python tests under `tests/` mirror the source layout, one file per function, and are executable examples of each item's behaviour; `tests/strategies/session_breakout/_script_trades.py` holds the trades the `session_breakout` strategy must reproduce exactly.
 

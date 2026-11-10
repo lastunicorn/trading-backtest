@@ -1,6 +1,6 @@
 # Use Cases
 
-What the application does, as tasks that wire [ports](ports/README.md), the [domain](domain-backtest.md) and the [plugins](plugins.md) together. Each use case lists its input and output DTOs, its steps and the errors it can return. A use case never prints and never parses command-line arguments: it takes plain values, returns a result and reports progress through a callback ([conventions.md](conventions.md#4-progress-reporting)). The CLIs that call them are in [ui.md](ui.md).
+What the application does, as tasks that wire [ports](ports/README.md), the [domain](domain-backtest.md) and the [plugins](plugins/README.md) together. Each use case lists its input and output DTOs, its steps and the errors it can return. A use case never prints and never parses command-line arguments: it takes plain values, returns a result and reports progress through a callback ([conventions.md](conventions.md#4-progress-reporting)). The CLIs that call them are in [ui.md](ui.md).
 
 In the Python code, a use case shared by several scripts (or too big for one) is a module in `application/`; the others are a function inside their entry script. Each section names where it lives.
 
@@ -215,7 +215,7 @@ Runs a prepared `Backtest` and records it: the domain result, its provenance (cl
 
 | Code | Description |
 |---|---|
-| strategy errors | Raised by `generate_positions`, e.g. `WRONG_CLOCK`, `UNSUPPORTED_TIMEFRAME` ([plugins.md](plugins.md)), or `INVALID_POSITION_LEVELS` from a faulty strategy. |
+| strategy errors | Raised by `generate_positions`, e.g. `WRONG_CLOCK`, `UNSUPPORTED_TIMEFRAME` ([plugins](plugins/README.md)), or `INVALID_POSITION_LEVELS` from a faulty strategy. |
 | `POSITION_NOT_OPEN`, `POSITION_BEFORE_DATA` | A strategy returned a closed position, or one before the first bar. |
 | `SPREAD_REQUIRED`, `NO_BAR_AT_ASK_MOMENT` | From `SpreadCost`. |
 | `TRADE_DATE_NOT_IN_SPLIT` | A trade on a day the strategy's `split_days` doesn't include. |

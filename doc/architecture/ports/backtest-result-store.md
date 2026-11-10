@@ -29,7 +29,7 @@ The provenance of one backtest run, built by [RecordBacktest](../use-cases.md#4-
 | `created` | `String` | `now()`, ISO 8601 to the second (`2026-11-09T13:21:25`) |
 | `strategy.name` | `String` | the config's `strategy.name`, or the strategy's own `name` when none was given |
 | `strategy.class` | `String` | the strategy's fully qualified class name (`strategies.narrow_asia_fade.NarrowAsiaFade`) |
-| `strategy.parameters` | `Map<String, Any>` | every parameter, in the spelling a config reads back ([recording parameters](../plugins.md#recording-parameters)) |
+| `strategy.parameters` | `Map<String, Any>` | every parameter, in the spelling a config reads back ([recording parameters](../plugins/README.md#recording-parameters)) |
 | `data.symbol` | `String` | ticker |
 | `data.timeframe` | `String` | `SampleSize` text |
 | `data.timezone` | `String` | the clock's **display name** (`broker-server (America/New_York+7h)`, `UTC`) |
