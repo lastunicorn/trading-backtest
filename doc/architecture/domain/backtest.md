@@ -300,3 +300,16 @@ A mean or median over no values is NaN. An empty table gives counts of 0 and NaN
 ### `statistics_by_split(trades, splits: List<String> = []) -> Table<StatisticsRow>`
 
 Row `all` (every trade), then one row per name in `splits`, in order, computed over the trades with that `split`. Every named split gets a row even when it has no trades, so a missing split shows as zeros instead of vanishing. With no splits, only `all`.
+
+### `split_verdict(table: Table<StatisticsRow>) -> SplitVerdict`
+
+The methodology's test of a split result (it only counts when it holds in every split), over every row of `table` after `all`.
+
+### SplitVerdict
+
+| Property | Type | Notes |
+|---|---|---|
+| `splits` | `List<String>` | every split, in table order |
+| `traded` | `List<String>` | the splits with `trades > 0` |
+| `net_positive` | `List<String>` | the splits with `total_net_pips > 0`; a NaN (no resolved trades) is not |
+| `holds_in_every_split` | `Boolean` | derived: every split is net positive, those without trades included; true when there are no splits |

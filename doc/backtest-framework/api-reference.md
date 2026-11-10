@@ -156,6 +156,7 @@ pandas rejects custom `tzinfo` objects, so don't pass `BROKER_SERVER_TZ` to `tz_
 
 - **`compute_statistics(trades) -> dict`**: every metric in [`statistics.csv`](reading-the-backtest-results.md#statisticscsv) in *Reading the backtest results*, in report order.
 - **`statistics_by_split(trades, splits=()) -> pd.DataFrame`**: one row for `all`, then one per name in `splits`, in that order (a split without trades gets a row of zeros).
+- **`split_verdict(table) -> SplitVerdict`**: the verdict on a `statistics_by_split` table's splits (every row after `all`). **`SplitVerdict`** (frozen) has `splits`, `traded` (those with trades) and `net_positive` (those with `total_net_pips > 0`), each a tuple of split names in table order, and `holds_in_every_split`: every split is net positive, those without trades included.
 - **`max_drawdown(net_pips)`**, **`max_consecutive_losses(net_pips)`**: the two building blocks, usable on any sequence.
 
 ### `domain.pandas_approach.backtest`

@@ -4,6 +4,7 @@
 
     stats = compute_statistics(trades)          # {"trades": 207, "win_rate_pct": 72.0, ...}
     table = statistics_by_split(trades)         # rows: all, discovery, validation, test
+    split_verdict(table).holds_in_every_split   # was every split net positive?
 
 `trades` is a `trade_results` frame. Every P&L figure is **net of costs**, and
 a trade is a win when `net_pips > 0`. That is not the same as hitting TP: a TP
@@ -18,18 +19,44 @@ A loss is `net_pips <= 0`, in the loss count and the losing-streak count
 alike, and profit factor is NaN rather than inf when there is no P&L at all.
 
 Drawdown and streaks follow the trades in `open_dt` order.
+
+`split_verdict` is the methodology's test of a split result: a result only
+counts when it holds in every split, so it says which splits ended net
+positive (and which traded at all).
 """
 
 from __future__ import annotations
 
 from collections.abc import Sequence
+from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
 
 from domain.pandas_approach.position import PositionOutcome
 
-__all__ = ["compute_statistics", "max_consecutive_losses", "max_drawdown", "statistics_by_split"]
+__all__ = [
+    "SplitVerdict", "compute_statistics", "max_consecutive_losses", "max_drawdown", "split_verdict",
+    "statistics_by_split",
+]
+
+
+@dataclass(frozen=True)
+class SplitVerdict:
+    """Which splits of a `statistics_by_split` table traded, and which ended net positive.
+
+    A split is net positive when its `total_net_pips > 0`; one without
+    resolved trades (NaN) is not.
+    """
+
+    splits: tuple[str, ...]         # every split, in table order
+    traded: tuple[str, ...]         # those with at least one trade
+    net_positive: tuple[str, ...]   # those with total_net_pips > 0
+
+    @property
+    def holds_in_every_split(self) -> bool:
+        """Every split is net positive, including those without trades (true when there are none)."""
+        return len(self.net_positive) == len(self.splits)
 
 
 def max_drawdown(net_pips: Sequence[float]) -> float:
@@ -104,6 +131,16 @@ def statistics_by_split(trades: pd.DataFrame, splits: Sequence[str] = ()) -> pd.
         rows[split] = compute_statistics(trades[trades["split"] == split])
 
     return pd.DataFrame.from_dict(rows, orient="index")
+
+
+def split_verdict(table: pd.DataFrame) -> SplitVerdict:
+    """The verdict on the splits of a `statistics_by_split` table: every row after "all"."""
+    splits = table.drop(index="all")
+    return SplitVerdict(
+        splits=tuple(splits.index),
+        traded=tuple(splits.index[splits["trades"] > 0]),
+        net_positive=tuple(splits.index[splits["total_net_pips"] > 0]),
+    )
 
 
 def _profit_factor(gross_profit: float, gross_loss: float) -> float:
