@@ -12,6 +12,7 @@ It does no file I/O of its own beyond reading -- it returns the frame and
 leaves writing to the caller, which is what makes it equally usable from a CLI,
 a notebook and a test. What happened to each file
 (rows read, lines skipped, errors) is reported only through `progress`.
+When no file yields any bars it raises `NoUsableSourceFilesError`.
 """
 
 from __future__ import annotations
@@ -25,12 +26,16 @@ from domain.sample_size import SampleSize
 from ports.file_system_access import find_files
 from ports.mt5_file_access import read_frame
 
-__all__ = ["build_clean_dataset"]
+__all__ = ["NoUsableSourceFilesError", "build_clean_dataset"]
 
 Progress = Callable[[str], None]
 
 # Reads one source file into a raw bar frame: (path, *, strict, on_skip) -> frame.
 FileReader = Callable[..., pd.DataFrame]
+
+
+class NoUsableSourceFilesError(RuntimeError):
+    """No source file yielded any bars: none was found, or every one failed to read or was empty."""
 
 
 def build_clean_dataset(
@@ -96,7 +101,7 @@ def build_clean_dataset(
         pieces.append(source)
 
     if not pieces:
-        raise RuntimeError("No usable source files. See errors above.")
+        raise NoUsableSourceFilesError("No usable source files. See errors above.")
 
     return resample_ohlc(_combine_pieces(pieces, say), timeframe)
 

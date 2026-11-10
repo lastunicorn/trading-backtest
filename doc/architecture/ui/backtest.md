@@ -21,7 +21,7 @@ backtest <config>
 
 There is no other UI-level validation: every setting lives in the config, whose format is on the [BacktestConfigSource page](../ports/backtest-config-source.md#file-format-backtest-config-file).
 
-Errors caught (exit 1): every `ValueError` and `FileNotFoundError` class error, from loading the config, loading the data or running the strategy (wrong clock, missing spread column, missing files). Not caught in the Python code: `NO_USABLE_SOURCE_FILES`, which ends with a stack trace.
+Errors caught (exit 1): every `ValueError` and `FileNotFoundError` class error, from loading the config, loading the data or running the strategy (wrong clock, missing spread column, missing files), and `NO_USABLE_SOURCE_FILES` (no source file yielded any bar). Any other error, a strategy's bug included, ends with a stack trace.
 
 ## Output
 

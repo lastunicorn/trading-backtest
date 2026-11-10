@@ -94,6 +94,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
+from application.build_clean_dataset_use_case import NoUsableSourceFilesError
 from application.load_backtest_config_use_case import cost_model, load_backtest_config
 from application.load_historical_data_use_case import SourceFormat, load_source
 from domain.broker_clock import timezone_by_name
@@ -122,9 +123,10 @@ def main() -> int:
 
     try:
         run = _run(config, timeframe, symbol)
-    except (ValueError, FileNotFoundError) as error:
+    except (ValueError, FileNotFoundError, NoUsableSourceFilesError) as error:
         # Data and strategy that don't fit together (wrong clock, no spread
-        # column, missing source files): say so plainly, not as a traceback.
+        # column), missing or unreadable source files: say so plainly, not as
+        # a traceback.
         print(f"ERROR: {error}", file=sys.stderr)
         return 1
 

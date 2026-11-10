@@ -51,7 +51,7 @@ Each page lists the errors its items can return, as **a short code in `UPPER_SNA
 |---|---|
 | `ValueError` (and subclasses) | invalid input, configuration, data or state: almost every error |
 | `FileNotFoundError` | a file or folder that should exist doesn't, or holds no matching file |
-| `RuntimeError` | `NO_USABLE_SOURCE_FILES` only |
+| `RuntimeError` | `NO_USABLE_SOURCE_FILES` only, as its subclass `NoUsableSourceFilesError` (`application/build_clean_dataset_use_case.py`) |
 | `argparse` usage error | a malformed CLI argument (exit code 2) |
 
 Where the UI prints an error's message to the user, the page gives its wording, with placeholders in `{braces}`. Errors about a config file are prefixed with the file's path (`{file}: ...`).

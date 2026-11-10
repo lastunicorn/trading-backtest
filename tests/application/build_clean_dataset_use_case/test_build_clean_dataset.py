@@ -3,8 +3,9 @@
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
-from application.build_clean_dataset_use_case import build_clean_dataset
+from application.build_clean_dataset_use_case import NoUsableSourceFilesError, build_clean_dataset
 from domain.sample_size import SampleSize
 
 EXPORT = "".join(f"2020.01.02,00:{minute:02d},1.1,1.2,1.0,1.15,10\n" for minute in range(10))
@@ -23,6 +24,20 @@ def test_reads_each_file_with_the_given_reader(tmp_path: Path) -> None:
 
     assert calls == [("a.csv", False)]
     assert list(frame.columns) == ["datetime", "open", "high", "low", "close"]
+
+
+def test_no_file_with_bars_raises_no_usable_source_files(tmp_path: Path) -> None:
+    (tmp_path / "garbage.csv").write_text("not, an, export\n")
+
+    with pytest.raises(NoUsableSourceFilesError):
+        build_clean_dataset(tmp_path / "missing_folder", timeframe="M5")
+    with pytest.raises(NoUsableSourceFilesError):
+        build_clean_dataset(tmp_path, timeframe="M5")
+
+
+def test_no_usable_source_files_is_still_a_runtime_error() -> None:
+    # calculate_daily_sessions.py and any caller written before the subclass catch RuntimeError.
+    assert issubclass(NoUsableSourceFilesError, RuntimeError)
 
 
 def test_reads_only_the_files_matching_the_pattern(tmp_path: Path) -> None:
