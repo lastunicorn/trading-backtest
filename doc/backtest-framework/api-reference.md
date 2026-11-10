@@ -168,10 +168,13 @@ pandas rejects custom `tzinfo` objects, so don't pass `BROKER_SERVER_TZ` to `tz_
 
 - **`AmbiguityPolicy`**: `EXCLUDE` (`"exclude"`), `ASSUME_SL` (`"assume-sl"`), `ASSUME_TP` (`"assume-tp"`).
 
-**`BacktestResult(trades, statistics, notes=())`** (frozen):
+**`BacktestResult(strategy, data, cost_model, ambiguity_policy, splits, trades, statistics, verdict, notes=())`** (frozen): what ran, on what, under which rules, and what it produced, so it can be reported on its own.
 
+- `strategy`, `cost_model`, `ambiguity_policy`, `splits`: the `Backtest`'s own.
+- `data`: `data.summary()`, a `DataSummary` (symbol, timeframe, timezone, first and last bar, bar count) rather than the bars.
 - `trades`: the positions frame with its result columns (and `split`, unless `SplitMode.NONE`), sorted by `open_dt`.
 - `statistics`: the `statistics_by_split` table: `all`, then one row per split in chronological order.
+- `verdict`: `split_verdict(statistics)`, a `SplitVerdict`; `None` with `SplitMode.NONE`.
 - `notes`: the cost model's `notes`, printed at the end of the report and recorded in `run.json`.
 
 ## 5. Application (files, provenance)

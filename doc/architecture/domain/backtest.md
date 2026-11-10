@@ -25,7 +25,7 @@ HistoricalData ─► strategy.generate_positions ─► open Positions (entry, 
                                                    │
        positions_to_frame ─► CostModel.cost_pips ─► trade_results ─► sort by open_dt
                                                    │
-                       splits (optional) ─► statistics_by_split ─► BacktestResult(trades, statistics, notes)
+                       splits (optional) ─► statistics_by_split ─► split_verdict ─► BacktestResult(settings, trades, statistics, verdict, notes)
 ```
 
 - **Strategies decide entries only.** They return open positions; how each one closed is decided once, here.
@@ -180,6 +180,8 @@ What to do when one bar touches both SL and TP: `EXCLUDE` (`exclude`, the defaul
 6. Stable-sort `trades` by `open_dt`.
 7. If `splits` is not `NONE`: `by_date = split_labels(strategy.split_days(data), splits)`; add a `split` column, `assign_splits(trades.open_dt, by_date)`; the split names are `by_date`'s values in first-appearance order.
 8. `statistics = statistics_by_split(trades, split names)`.
+9. `verdict = split_verdict(statistics)` if `splits` is not `NONE`, else `null`.
+10. Return a `BacktestResult` of the backtest's settings, `data.summary()`, `trades`, `statistics`, `verdict` and `notes`.
 
 ### The exit rules
 
@@ -200,10 +202,18 @@ Example: a strategy that trades its 14:00 M5 bar and must be flat after it sets 
 
 ### BacktestResult
 
+A finished run: what ran, on what, under which rules, and what it produced. It holds everything a report or a run's record needs ([BacktestResultStore](../ports/backtest-result-store.md)).
+
 | Property | Type | Notes |
 |---|---|---|
+| `strategy` | `TradingStrategy` | the backtest's; its `name` and `parameters()` describe it |
+| `data` | `DataSummary` | `data.summary()` ([HistoricalData](market-data.md#8-historicaldata)): what the bars covered, without them |
+| `cost_model` | `CostModel` | the backtest's; its `parameters()` describe it |
+| `ambiguity_policy` | `AmbiguityPolicy` | the backtest's |
+| `splits` | `SplitMode` | the backtest's |
 | `trades` | `Table<TradeResultRow>` | [Trade results](#5-trade-results) columns, plus `split` when splitting; sorted by `open_dt` |
 | `statistics` | `Table<StatisticsRow>` | row `all`, then one per split, in order ([Statistics](#7-statistics)) |
+| `verdict` | `SplitVerdict?` | `split_verdict(statistics)` ([Statistics](#splitverdict)); `null` with split mode `NONE` |
 | `notes` | `List<String>` | caveats from the cost model, for the report |
 
 ---

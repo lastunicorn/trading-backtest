@@ -6,11 +6,14 @@
     result = Backtest(strategy, data, cost_model=FixedCost(pips=1.7), splits=SplitMode.DVT).run()
     result.trades                                   # one row per trade, P&L and split included
     result.statistics.loc["all", "win_rate_pct"]    # rows: all, discovery, validation, test
+    result.verdict.holds_in_every_split             # net positive in discovery, validation and test?
+    result.strategy, result.data.first_bar          # what ran, on what, under which rules
 
 `run()` goes strategy -> open positions -> exits (`_simulate`) -> costs ->
 per-trade P&L -> split (`SplitMode`, none by default) -> statistics, and returns
-the numbers. It is a pure calculation: no files, no clock, no git. Recording
-provenance and writing results is the `backtest.py` CLI's job.
+the numbers together with what describes the run, so a `BacktestResult` can be
+reported on its own. It is a pure calculation: no files, no clock, no git.
+Recording provenance and writing results is the `backtest.py` CLI's job.
 
 `_simulate` is the one place exit logic lives, so strategies only decide
 entries. Each position is walked independently from its entry bar to its time
@@ -49,10 +52,10 @@ import numpy as np
 import pandas as pd
 
 from domain.pandas_approach.cost_model import CostModel, FixedCost
-from domain.pandas_approach.historical_data import HistoricalData
+from domain.pandas_approach.historical_data import DataSummary, HistoricalData
 from domain.pandas_approach.position import EntryFill, Position, PositionOutcome, Side, positions_to_frame
 from domain.pandas_approach.splits import SplitMode, assign_splits, split_labels
-from domain.pandas_approach.statistics import statistics_by_split
+from domain.pandas_approach.statistics import SplitVerdict, split_verdict, statistics_by_split
 from domain.pandas_approach.trade_results import trade_results
 from domain.pandas_approach.trading_strategy import TradingStrategy
 
@@ -69,7 +72,16 @@ class AmbiguityPolicy(Enum):
 
 @dataclass(frozen=True)
 class BacktestResult:
-    """What a run produced: the trades and their statistics."""
+    """A finished run: what ran, on what, under which rules, and what it produced.
+
+    The first five fields are the `Backtest`'s settings, the data as a summary.
+    """
+
+    strategy: TradingStrategy
+    data: DataSummary
+    cost_model: CostModel
+    ambiguity_policy: AmbiguityPolicy
+    splits: SplitMode
 
     # positions_to_frame + trade_results columns, plus "split" when splitting;
     # sorted by open_dt.
@@ -77,6 +89,9 @@ class BacktestResult:
 
     # statistics_by_split: rows "all" then one per split.
     statistics: pd.DataFrame
+
+    # split_verdict of `statistics`; None without splits (SplitMode.NONE).
+    verdict: SplitVerdict | None
 
     # Caveats about how the numbers were produced (e.g. the cost model's), for the report.
     notes: tuple[str, ...] = ()
@@ -108,9 +123,16 @@ class Backtest:
             trades["split"] = assign_splits(trades["open_dt"], by_date)
             names = list(dict.fromkeys(by_date.values()))
 
+        statistics = statistics_by_split(trades, names)
         return BacktestResult(
+            strategy=self.strategy,
+            data=self.data.summary(),
+            cost_model=self.cost_model,
+            ambiguity_policy=self.ambiguity_policy,
+            splits=self.splits,
             trades=trades,
-            statistics=statistics_by_split(trades, names),
+            statistics=statistics,
+            verdict=split_verdict(statistics) if self.splits is not SplitMode.NONE else None,
             notes=notes,
         )
 

@@ -58,6 +58,30 @@ def test_the_cost_model_notes_are_carried_in_the_result() -> None:
     assert plain.notes == ()
 
 
+def test_the_result_describes_what_ran_and_on_what() -> None:
+    strategy, bars_given, cost = ScriptedStrategy([0]), data(10, {}), FixedCost(pips=0.5)
+
+    result = Backtest(strategy, bars_given, cost_model=cost, ambiguity_policy=AmbiguityPolicy.ASSUME_TP,
+                      splits=SplitMode.DVT).run()
+
+    assert result.strategy is strategy
+    assert result.data == bars_given.summary()
+    assert result.cost_model is cost
+    assert result.ambiguity_policy is AmbiguityPolicy.ASSUME_TP
+    assert result.splits is SplitMode.DVT
+
+
+def test_the_verdict_is_on_the_splits_statistics() -> None:
+    result = Backtest(ScriptedStrategy([0, 1]), data(10, {0: "win", 1: "win"}), splits=SplitMode.DVT).run()
+
+    assert result.verdict.splits == ("discovery", "validation", "test")
+    assert result.verdict.net_positive == ("discovery",)
+
+
+def test_without_splits_there_is_no_verdict() -> None:
+    assert Backtest(ScriptedStrategy([0]), data(10, {})).run().verdict is None
+
+
 def test_ambiguity_policy_is_passed_through() -> None:
     both = data(10, {})
     # Make day 0's 10:05 bar touch both levels.
