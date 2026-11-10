@@ -13,7 +13,7 @@ How the *Python* code is organised (folders, import rules, where new code goes) 
 | [domain-backtest.md](domain-backtest.md) | Domain: `Position`, cost models, the backtest and its exit rules, trade results, splits, statistics |
 | [domain-indicators.md](domain-indicators.md) | Domain: RSI and divergence detection |
 | [plugins.md](plugins.md) | The strategy contract, the registry, parameters, and the five strategies |
-| [ports.md](ports.md) | The seven ports, their actions, errors and DTOs; the format libraries |
+| [ports/](ports/README.md) | The seven ports, one page each: actions, errors, DTOs, and the format libraries behind the bar ports |
 | [use-cases.md](use-cases.md) | The nine use cases: input, output, steps, errors |
 | [ui.md](ui.md) | The five CLIs: arguments, validation at UI level, output; shared presentation |
 | [external-formats.md](external-formats.md) | Every file read or written: bar data, the backtest config, the result files |
@@ -76,7 +76,7 @@ Everything points towards the domain, which can therefore be tested without a fi
 
 ## Rebuilding the application from this blueprint
 
-A workable order: [conventions](conventions.md) → [market data](domain-market-data.md) → [backtest domain](domain-backtest.md) → one strategy ([`orb_break_entry`](plugins.md#5-orb_break_entry-orbbreakentry) is the simplest) → [ports](ports.md) with [external formats](external-formats.md) → [use cases](use-cases.md) → [UI](ui.md) → the remaining strategies and [indicators](domain-indicators.md).
+A workable order: [conventions](conventions.md) → [market data](domain-market-data.md) → [backtest domain](domain-backtest.md) → one strategy ([`orb_break_entry`](plugins.md#5-orb_break_entry-orbbreakentry) is the simplest) → [ports](ports/README.md) with [external formats](external-formats.md) → [use cases](use-cases.md) → [UI](ui.md) → the remaining strategies and [indicators](domain-indicators.md).
 
 To check a rewrite, run the same config on the same data in both versions and compare `positions.csv` and `statistics.csv` (and `statistics.txt`, apart from its `Created` line). The Python tests under `tests/` mirror the source layout, one file per function, and are executable examples of each item's behaviour; `tests/strategies/session_breakout/_script_trades.py` holds the trades the `session_breakout` strategy must reproduce exactly.
 
@@ -86,7 +86,7 @@ The blueprint describes what the Python code does. In a few places it is not wha
 
 | Page | Recommendation |
 |---|---|
-| [ports.md §8](ports.md#8-backtestresultstore) | Writing the result files lives in the `backtest` entry script; put it behind a port like the others. |
+| [ports/backtest-result-store.md](ports/backtest-result-store.md) | Writing the result files lives in the `backtest` entry script; put it behind a port like the others. |
 | [use-cases.md §6](use-cases.md#6-preparebars), [§7](use-cases.md#7-scanrsidivergences) | `read_csv`'s pipeline and `rsi_divergence`'s scan sit in the CLIs' `main()`; give them use-case functions. |
 | [domain-market-data.md §7](domain-market-data.md#7-bar-table-operations) | `resample_ohlc` also accepts raw pandas rules; take a `SampleSize` only. |
 | [ui.md §1](ui.md#1-common-behaviour) | Some use-case errors end in a stack trace; report every one as an `ERROR:` line. |

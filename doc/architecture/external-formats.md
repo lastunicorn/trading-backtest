@@ -1,6 +1,6 @@
 # External Formats
 
-Every file the application reads or writes: the three bar-data formats, the backtest config file and the four result files. These are the contracts a rewrite must keep for existing data, configs and results to keep working. The [ports](ports.md) read and write them. Types and rules are in [conventions.md](conventions.md).
+Every file the application reads or writes: the three bar-data formats, the backtest config file and the four result files. These are the contracts a rewrite must keep for existing data, configs and results to keep working. The [ports](ports/README.md) read and write them. Types and rules are in [conventions.md](conventions.md).
 
 ## Contents
 
@@ -69,7 +69,7 @@ A line is malformed when:
 | the timestamp matches neither format | `unrecognized timestamp '{date} {time}'` |
 | a price, or a non-blank count, is not a number | the number parser's message (Python: `could not convert string to float: '{text}'`) |
 
-Read strictly, the first malformed line is an error (`MT_PARSE_ERROR`); otherwise it is dropped and reported with its exact line number, its fields re-joined with the separator, and the reason ([SkipHandler](ports.md#skiphandler)).
+Read strictly, the first malformed line is an error (`MT_PARSE_ERROR`); otherwise it is dropped and reported with its exact line number, its fields re-joined with the separator, and the reason ([SkipHandler](ports/metatrader-bar-files.md#skiphandler)).
 
 ### Writing
 
@@ -165,7 +165,7 @@ Read back by the MetaTrader reader, a written file gives the same table except f
 
 - An unknown key, a value of the wrong JSON type and a missing required key are errors, never ignored or defaulted. A boolean is never a number.
 - Where SL/TP checking starts is not a setting: each position's `entry_fill`, chosen by the strategy, decides it.
-- Every check and its error: [BacktestConfigSource](ports.md#6-backtestconfigsource) (shape) and [LoadBacktestConfig](use-cases.md#3-loadbacktestconfig) (values).
+- Every check and its error: [BacktestConfigSource](ports/backtest-config-source.md) (shape) and [LoadBacktestConfig](use-cases.md#3-loadbacktestconfig) (values).
 
 ---
 
@@ -274,7 +274,7 @@ all          207         72.0%           257.5       16.140           1.37      
 
 ### `run.json`
 
-The run's provenance, the [RunInfo](ports.md#runinfo) object: JSON indented with one tab per level, keys in RunInfo's order, a trailing newline. Values JSON has no type for (paths, times of day) are written as text.
+The run's provenance, the [RunInfo](ports/backtest-result-store.md#runinfo) object: JSON indented with one tab per level, keys in RunInfo's order, a trailing newline. Values JSON has no type for (paths, times of day) are written as text.
 
 ```json
 {

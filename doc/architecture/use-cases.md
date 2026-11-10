@@ -1,6 +1,6 @@
 # Use Cases
 
-What the application does, as tasks that wire [ports](ports.md), the [domain](domain-backtest.md) and the [plugins](plugins.md) together. Each use case lists its input and output DTOs, its steps and the errors it can return. A use case never prints and never parses command-line arguments: it takes plain values, returns a result and reports progress through a callback ([conventions.md](conventions.md#4-progress-reporting)). The CLIs that call them are in [ui.md](ui.md).
+What the application does, as tasks that wire [ports](ports/README.md), the [domain](domain-backtest.md) and the [plugins](plugins.md) together. Each use case lists its input and output DTOs, its steps and the errors it can return. A use case never prints and never parses command-line arguments: it takes plain values, returns a result and reports progress through a callback ([conventions.md](conventions.md#4-progress-reporting)). The CLIs that call them are in [ui.md](ui.md).
 
 In the Python code, a use case shared by several scripts (or too big for one) is a module in `application/`; the others are a function inside their entry script. Each section names where it lives.
 
@@ -111,7 +111,7 @@ Resampling to the source's own bar size is a no-op. Asking for a size **finer** 
 |---|---|
 | `CLOCK_NOT_UTC` | Dukascopy with a non-UTC clock: `Dukascopy bars are UTC (epoch timestamps), not {timezone}`. |
 | `NO_USABLE_SOURCE_FILES` | From BuildCleanDataset (`METATRADER`, `HISTDATA`). |
-| `DUKASCOPY_*` | From [DukascopyBarFiles](ports.md#4-dukascopybarfiles). |
+| `DUKASCOPY_*` | From [DukascopyBarFiles](ports/dukascopy-bar-files.md). |
 | `NO_BARS`, `MISSING_COLUMNS`, `NON_INTEGRAL_VOLUME`, … | From `HistoricalData` ([invariants](domain-market-data.md#8-historicaldata)), e.g. Dukascopy files with no rows. |
 
 ---
@@ -128,7 +128,7 @@ Reads a backtest config and checks that its values fit what a backtest can run, 
 
 ### Output
 
-`BacktestConfig` ([DTO](ports.md#backtestconfig)), with `strategy.parameters` converted to the strategy's field types.
+`BacktestConfig` ([DTO](ports/backtest-config-source.md#backtestconfig)), with `strategy.parameters` converted to the strategy's field types.
 
 ### Steps
 
@@ -166,7 +166,7 @@ Every message is prefixed with the config file's path, `{file}: `.
 
 | Code | Description |
 |---|---|
-| `CONFIG_*` of BacktestConfigSource | Not found, invalid JSON, unknown key, wrong type, missing key, negative commission ([ports.md](ports.md#6-backtestconfigsource)). |
+| `CONFIG_*` of BacktestConfigSource | Not found, invalid JSON, unknown key, wrong type, missing key, negative commission ([BacktestConfigSource](ports/backtest-config-source.md)). |
 | `CONFIG_INVALID_CHOICE` | `strategy.name`, `splits`, `data_source.format`, `simulation.ambiguity` or a session parameter not among its choices: `"{key}" is "{value}"; choose one of {choices}`. |
 | `CONFIG_UNKNOWN_SYMBOL` | `"data_source.symbol": unknown symbol ticker '{ticker}'`. |
 | `CONFIG_UNKNOWN_TIMEZONE` | `"data_source.timezone" is "{value}": not "broker", "histdata" or an IANA time zone name such as "UTC" or "America/New_York"`. |
@@ -200,14 +200,14 @@ Runs a prepared `Backtest` and records it: the domain result, its provenance (cl
 | Field | Type | Notes |
 |---|---|---|
 | `result` | `BacktestResult` | as `Backtest.run()` returned it |
-| `run_info` | `RunInfo` | [DTO](ports.md#runinfo) |
+| `run_info` | `RunInfo` | [DTO](ports/backtest-result-store.md#runinfo) |
 | `report` | `String` | the content of `statistics.txt` |
 | `paths` | `List<Path>` | the four files written |
 
 ### Steps
 
 1. `result = backtest.run()` ([domain-backtest.md](domain-backtest.md#4-backtest-and-the-exit-rules)).
-2. `run_info = build_run_info(backtest, result, source, strategy_name, now, git_commit)`: the [RunInfo](ports.md#runinfo) fields, from the backtest's strategy, data, cost model and settings, `now()` and `git_commit()`.
+2. `run_info = build_run_info(backtest, result, source, strategy_name, now, git_commit)`: the [RunInfo](ports/backtest-result-store.md#runinfo) fields, from the backtest's strategy, data, cost model and settings, `now()` and `git_commit()`.
 3. `report = format_report(result, run_info)`: the text laid out in [external-formats.md](external-formats.md#statisticstxt).
 4. `paths = BacktestResultStore.write_results(result, run_info, report, out_dir, price_decimals = data.symbol.price_decimals)`.
 
