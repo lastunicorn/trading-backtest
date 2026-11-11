@@ -4,7 +4,7 @@ A [port](README.md) of the [application blueprint](../README.md).
 
 *Python: `ports/backtest_result_access/` (`backtest_result_writer.py`).*
 
-Formats a finished backtest and writes it. Everything about how the results look on disk is decided here: the [BacktestResult](../domain/backtest.md#backtestresult) says what ran and what it produced, the [RunProvenance](#runprovenance) adds what only the caller knows, and the port lays both out.
+Formats a finished backtest and writes it. Everything about how the results look on disk is decided here: the [BacktestResult](../domain/backtesting.md#backtestresult) says what ran and what it produced, the [RunProvenance](#runprovenance) adds what only the caller knows, and the port lays both out.
 
 ## Actions
 
@@ -22,7 +22,7 @@ Formats a finished backtest and writes it. Everything about how the results look
 
 ## DTOs
 
-`BacktestResult` is a domain type ([domain/backtest.md](../domain/backtest.md#backtestresult)).
+`BacktestResult` is a domain type ([domain/backtesting.md](../domain/backtesting.md#backtestresult)).
 
 ### RunProvenance
 
@@ -70,7 +70,7 @@ open_dt,side,open_price,sl,tp,entry_fill,exit_dt,close_dt,close_price,outcome,ta
 
 ### `statistics.csv`
 
-One row per statistics row (`all` first, then each split in order), unrounded. Header: `split`, then the [metrics](../domain/backtest.md#7-statistics) in order. Counts are written as integers.
+One row per statistics row (`all` first, then each split in order), unrounded. Header: `split`, then the [metrics](../domain/backtesting.md#7-statistics) in order. Counts are written as integers.
 
 ### `statistics.txt`
 
@@ -130,7 +130,7 @@ all          207         72.0%           257.5       16.140           1.37      
 2020          30         86.7%           139.5        8.068           4.63         0.269               20.0
 ```
 
-**Verdict:** from `result.verdict` ([SplitVerdict](../domain/backtest.md#splitverdict)).
+**Verdict:** from `result.verdict` ([SplitVerdict](../domain/backtesting.md#splitverdict)).
 
 | Split mode | Line |
 |---|---|

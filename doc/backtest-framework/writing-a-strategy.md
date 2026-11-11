@@ -50,8 +50,8 @@ from datetime import datetime, time
 import pandas as pd
 
 from domain.pandas_approach.historical_data import HistoricalData
-from domain.pandas_approach.position import Position, Side
-from domain.pandas_approach.trading_strategy import TradingStrategy
+from domain.backtesting.position import Position, Side
+from domain.backtesting.trading_strategy import TradingStrategy
 
 
 @dataclass(frozen=True)
@@ -187,7 +187,7 @@ import pandas as pd
 import pytest
 
 from domain.pandas_approach.historical_data import HistoricalData
-from domain.pandas_approach.position import Side
+from domain.backtesting.position import Side
 from domain.sample_size import SampleSize
 from domain.symbol import EURUSD
 from strategies.opening_range_breakout import OpeningRangeBreakout

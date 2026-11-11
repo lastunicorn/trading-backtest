@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 
 from domain.broker_clock import BROKER_SERVER_TZ
-from domain.pandas_approach.position import EntryFill, PositionOutcome, Side
+from domain.backtesting.position import EntryFill, PositionOutcome, Side
 from domain.pandas_approach.shift_timezone import shift_timezone
 from strategies.session_breakout import SessionBreakout
 

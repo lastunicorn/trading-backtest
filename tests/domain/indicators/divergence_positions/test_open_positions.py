@@ -4,7 +4,7 @@ import pandas as pd
 
 from domain.indicators.divergence import Category, Direction, Divergence
 from domain.indicators.divergence_positions import open_positions
-from domain.pandas_approach.side import Side
+from domain.backtesting.side import Side
 
 
 def _frame(n: int) -> pd.DataFrame:

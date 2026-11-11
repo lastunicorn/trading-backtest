@@ -3,9 +3,9 @@
 from datetime import datetime
 
 from backtest import run_backtest
-from domain.pandas_approach.backtest import Backtest
+from domain.backtesting.backtest import Backtest
 from ports.run_environment import GitCommit
-from tests.domain.pandas_approach.backtest._fakes import ScriptedStrategy, data
+from tests.domain.backtesting.backtest._fakes import ScriptedStrategy, data
 
 
 def test_runs_records_and_writes(tmp_path) -> None:

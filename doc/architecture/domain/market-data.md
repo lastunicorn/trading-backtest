@@ -410,7 +410,7 @@ Invariants, checked on construction, which **never changes the table**: a wrong 
 | `start_dt` | `LocalDateTime` | first bar's `datetime` |
 | `end_dt` | `LocalDateTime` | last bar's `datetime` (its open time) |
 | `length` | `Integer` | number of bars |
-| `summary()` | `DataSummary` | what the bars cover, without them: `symbol`, `timeframe`, `timezone`, `first_bar` (= `start_dt`), `last_bar` (= `end_dt`), `bars` (= `length`). How a [BacktestResult](backtest.md#backtestresult) describes its data. |
+| `summary()` | `DataSummary` | what the bars cover, without them: `symbol`, `timeframe`, `timezone`, `first_bar` (= `start_dt`), `last_bar` (= `end_dt`), `bars` (= `length`). How a [BacktestResult](backtesting.md#backtestresult) describes its data. |
 | `locate(stamps: List<LocalDateTime?>)` | `List<Integer>` | For each stamp, the index of the bar it falls in: the last bar whose `datetime <= stamp`. `−1` for a stamp before the first bar, or `null`. |
 
 ---
@@ -424,4 +424,4 @@ Invariants, checked on construction, which **never changes the table**: a wrong 
 | `BarChunks` | splits a `Stream<Bar>` into monthly/yearly runs in constant memory |
 | `shift_bars` | `shift_timezone` for a `Stream<Bar>` |
 | `DailySessionBase`, `DailyStrategyBase` | a bar-by-bar daily session lifecycle (create a session per day, feed it bars, force-close at its end) |
-| `position.Position`, `PendingPosition`, `Outcome` | the script's own position model; the application's is in [backtest.md](backtest.md#2-position) |
+| `position.Position`, `PendingPosition`, `Outcome` | the script's own position model; the application's is in [backtesting.md](backtesting.md#2-position) |

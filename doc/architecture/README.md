@@ -66,14 +66,14 @@ Everything points towards the domain, which can therefore be tested without a fi
 1. The `backtest` CLI passes a config path to [RunBacktestFromConfig](use-cases/run-backtest-from-config.md).
 2. [LoadBacktestConfig](use-cases/load-backtest-config.md) reads the JSON and checks every value against the registry, the symbols, the clocks and the strategy's own parameter rules.
 3. [LoadHistoricalData](use-cases/load-historical-data.md) reads the bars with the format's port, merges files, drops duplicate timestamps, resamples and converts the spread to pips: a validated `HistoricalData`.
-4. The strategy [generates open positions](plugins/README.md#the-plugin-contract-tradingstrategy); the backtest [closes each one](domain/backtest.md#the-exit-rules), charges costs, computes per-trade results and statistics, overall and per split.
+4. The strategy [generates open positions](plugins/README.md#the-plugin-contract-tradingstrategy); the backtest [closes each one](domain/backtesting.md#the-exit-rules), charges costs, computes per-trade results and statistics, overall and per split.
 5. [RecordBacktest](use-cases/record-backtest.md) adds provenance (clock, git), formats the report and writes `positions.csv`, `statistics.txt`, `statistics.csv` and `run.json`.
 
 ---
 
 ## Rebuilding the application from this blueprint
 
-A workable order: [conventions](conventions.md) → [market data](domain/market-data.md) → [backtest domain](domain/backtest.md) → one strategy ([`orb_break_entry`](plugins/orb-break-entry.md) is the simplest) → [ports](ports/README.md), with their file formats → [use cases](use-cases/README.md) → [UI](ui/README.md) → the remaining strategies and [indicators](domain/indicators.md).
+A workable order: [conventions](conventions.md) → [market data](domain/market-data.md) → [backtest domain](domain/backtesting.md) → one strategy ([`orb_break_entry`](plugins/orb-break-entry.md) is the simplest) → [ports](ports/README.md), with their file formats → [use cases](use-cases/README.md) → [UI](ui/README.md) → the remaining strategies and [indicators](domain/indicators.md).
 
 To check a rewrite, run the same config on the same data in both versions and compare `positions.csv` and `statistics.csv` (and `statistics.txt`, apart from its `Created` line). The Python tests under `tests/` mirror the source layout, one file per function, and are executable examples of each item's behaviour; `tests/strategies/session_breakout/_script_trades.py` holds the trades the `session_breakout` strategy must reproduce exactly.
 

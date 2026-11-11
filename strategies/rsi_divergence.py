@@ -58,9 +58,9 @@ import pandas as pd
 from domain.indicators.divergence import filter_regular_by_band, find_divergences
 from domain.indicators.divergence_positions import open_positions
 from domain.pandas_approach.historical_data import HistoricalData
-from domain.pandas_approach.position import EntryFill, Position, Side
+from domain.backtesting.position import EntryFill, Position, Side
 from domain.indicators.rsi import rsi
-from domain.pandas_approach.trading_strategy import TradingStrategy
+from domain.backtesting.trading_strategy import TradingStrategy
 from domain.time_window import TimeWindow, ZonedTime
 
 __all__ = ["RsiDivergence"]

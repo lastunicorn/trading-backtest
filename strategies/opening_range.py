@@ -44,7 +44,7 @@ import pandas as pd
 
 from domain.pandas_approach.historical_data import HistoricalData
 from domain.pandas_approach.shift_timezone import shift_timezone
-from domain.pandas_approach.trading_strategy import TradingStrategy
+from domain.backtesting.trading_strategy import TradingStrategy
 from domain.sample_size import SampleUnit
 from domain.trading_session import NEW_YORK_SESSION, TradingSession
 

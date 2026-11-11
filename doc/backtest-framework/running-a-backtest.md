@@ -30,9 +30,9 @@ Use this for several runs in a loop (parameter sweeps), or the numbers without f
 from application.load_historical_data_use_case import SourceFormat, load_source
 from backtest import run_backtest
 from domain.broker_clock import BROKER_SERVER_TZ
-from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest
-from domain.pandas_approach.cost_model import FixedCost
-from domain.pandas_approach.splits import SplitMode
+from domain.backtesting.backtest import AmbiguityPolicy, Backtest
+from domain.backtesting.cost_model import FixedCost
+from domain.backtesting.splits import SplitMode
 from domain.sample_size import SampleSize
 from domain.symbol import EURUSD
 from strategies.opening_range_breakout import OpeningRangeBreakout

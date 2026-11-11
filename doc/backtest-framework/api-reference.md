@@ -81,11 +81,11 @@ pandas rejects custom `tzinfo` objects, so don't pass `BROKER_SERVER_TZ` to `tz_
 
 ## 2. Positions
 
-### `domain.pandas_approach.side`
+### `domain.backtesting.side`
 
 **`Side`**: `LONG` (`"long"`), `SHORT` (`"short"`).
 
-### `domain.pandas_approach.position`
+### `domain.backtesting.position`
 
 **`PositionOutcome`**:
 
@@ -115,7 +115,7 @@ pandas rejects custom `tzinfo` objects, so don't pass `BROKER_SERVER_TZ` to `tz_
 
 ## 3. Strategies
 
-### `domain.pandas_approach.trading_strategy`
+### `domain.backtesting.trading_strategy`
 
 **`TradingStrategy`** (abstract): see [the contract](writing-a-strategy.md#1-the-contract) in *Writing a new strategy*.
 
@@ -132,7 +132,7 @@ pandas rejects custom `tzinfo` objects, so don't pass `BROKER_SERVER_TZ` to `tz_
 
 ## 4. Costs, results, the backtest
 
-### `domain.pandas_approach.cost_model`
+### `domain.backtesting.cost_model`
 
 **`CostModel`** (abstract): `cost_pips(trades, data) -> pd.Series`, one round-trip cost in pips per row of a positions frame, aligned to its index. Subclass it to model other frictions. `notes(trades, data) -> list[str]` (none by default) is what the report should warn about how the trades were charged; `Backtest.run` puts them in `BacktestResult.notes`. `parameters() -> dict` is what describes it in `run.json` and the report: a dataclass cost model's fields, else `{}` (override for anything else).
 
@@ -141,11 +141,11 @@ pandas rejects custom `tzinfo` objects, so don't pass `BROKER_SERVER_TZ` to `tz_
 | `FixedCost(pips=1.7)` | `pips ≥ 0` | the same cost for every trade |
 | `SpreadCost(commission_pips=0.0)` | `commission_pips ≥ 0` | the `spread` of the entry bar (long) or exit bar (short), plus the commission. Raises if the data has no `spread` column. A trade on a bar without a spread value is charged 0 spread, and `notes` lists it. |
 
-### `domain.pandas_approach.trade_results`
+### `domain.backtesting.trade_results`
 
 **`trade_results(trades, symbol, cost_pips) -> pd.DataFrame`**: a copy of a positions frame with `RESULT_COLUMNS` appended: `gross_pips, cost_pips, net_pips, risk_pips, net_r, duration_min`. Trades without a close price (ambiguous or open) get NaN P&L.
 
-### `domain.pandas_approach.splits`
+### `domain.backtesting.splits`
 
 - **`SplitMode`**: `NONE` (`"none"`), `DVT` (`"dvt"`), `MONTHLY` (`"monthly"`), `YEARLY` (`"yearly"`). How `Backtest` groups trades.
 - **`split_labels(dates, mode) -> dict[date, str]`**: each distinct date's split name, in chronological order: `split_dates`'s cut for `DVT`, `"2024-03"` for `MONTHLY`, `"2024"` for `YEARLY`. Raises for `NONE`.
@@ -153,14 +153,14 @@ pandas rejects custom `tzinfo` objects, so don't pass `BROKER_SERVER_TZ` to `tz_
 - **`split_dates(dates, *, discovery=0.60, validation=0.20) -> dict[date, Split]`**: sorts the distinct dates and cuts them chronologically. The boundaries are identical to the research scripts' `split_dates`.
 - **`assign_splits(open_dts, by_date: dict[date, str]) -> pd.Series`**: the split name of each trade from the date it opens on. Raises if a date isn't covered.
 
-### `domain.pandas_approach.statistics`
+### `domain.backtesting.statistics`
 
 - **`compute_statistics(trades) -> dict`**: every metric in [`statistics.csv`](reading-the-backtest-results.md#statisticscsv) in *Reading the backtest results*, in report order.
 - **`statistics_by_split(trades, splits=()) -> pd.DataFrame`**: one row for `all`, then one per name in `splits`, in that order (a split without trades gets a row of zeros).
 - **`split_verdict(table) -> SplitVerdict`**: the verdict on a `statistics_by_split` table's splits (every row after `all`). **`SplitVerdict`** (frozen) has `splits`, `traded` (those with trades) and `net_positive` (those with `total_net_pips > 0`), each a tuple of split names in table order, and `holds_in_every_split`: every split is net positive, those without trades included.
 - **`max_drawdown(net_pips)`**, **`max_consecutive_losses(net_pips)`**: the two building blocks, usable on any sequence.
 
-### `domain.pandas_approach.backtest`
+### `domain.backtesting.backtest`
 
 **`Backtest(strategy, data, cost_model=FixedCost(), ambiguity_policy=AmbiguityPolicy.EXCLUDE, splits=SplitMode.NONE)`**: one strategy, one dataset, one set of rules.
 

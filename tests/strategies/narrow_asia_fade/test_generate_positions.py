@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 import pytest
 
-from domain.pandas_approach.position import PositionOutcome, Side
+from domain.backtesting.position import PositionOutcome, Side
 from domain.sample_size import SampleSize
 from strategies.narrow_asia_fade import NarrowAsiaFade
 

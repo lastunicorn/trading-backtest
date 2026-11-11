@@ -49,7 +49,7 @@ Notes:
 
 ## `statistics.csv`
 
-The same numbers, one row for `all` and then one per split (`discovery`, `validation`, `test`; or `2024-03`…; or `2024`…), always with every metric, for comparing runs. The metrics, which are also the keys of [`compute_statistics()`](api-reference.md#domainpandas_approachstatistics):
+The same numbers, one row for `all` and then one per split (`discovery`, `validation`, `test`; or `2024-03`…; or `2024`…), always with every metric, for comparing runs. The metrics, which are also the keys of [`compute_statistics()`](api-reference.md#domainbacktestingstatistics):
 
 | Metric | Meaning |
 |---|---|

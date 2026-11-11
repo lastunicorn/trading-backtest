@@ -66,7 +66,7 @@ the statistics report. Strategies come from `strategies.STRATEGIES`.
     statistics.csv   the same numbers, one row for all trades plus one per split, for diffing runs
     run.json         provenance: strategy + parameters, data, simulation settings, git commit
 
-`domain.pandas_approach.backtest.Backtest` computes the result and describes
+`domain.backtesting.backtest.Backtest` computes the result and describes
 the run; `ports.backtest_result_access` formats it and writes the files. This
 script wires them together, adding the provenance only it can know: the clock
 and git (`ports.run_environment`), the source and the config's strategy name.
@@ -98,8 +98,8 @@ from application.build_clean_dataset_use_case import NoUsableSourceFilesError
 from application.load_backtest_config_use_case import cost_model, load_backtest_config
 from application.load_historical_data_use_case import SourceFormat, load_source
 from domain.broker_clock import timezone_by_name
-from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest, BacktestResult
-from domain.pandas_approach.splits import SplitMode
+from domain.backtesting.backtest import AmbiguityPolicy, Backtest, BacktestResult
+from domain.backtesting.splits import SplitMode
 from domain.sample_size import SampleSize
 from domain.symbol import Symbol, get_symbol_by_ticker
 from ports import run_environment

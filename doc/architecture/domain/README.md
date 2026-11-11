@@ -5,5 +5,5 @@ The concepts behind the market data and the trades taken on it, and every calcul
 | Page | Covers |
 |---|---|
 | [market-data.md](market-data.md) | `SampleSize`, `Symbol`, clocks, `TimeWindow`, `TradingSession`, `Bar`, bar table operations, `HistoricalData` |
-| [backtest.md](backtest.md) | `Position`, cost models, the backtest and its exit rules, trade results, splits, statistics |
+| [backtesting.md](backtesting.md) | `Position`, cost models, the backtest and its exit rules, trade results, splits, statistics |
 | [indicators.md](indicators.md) | RSI and divergence detection |

@@ -7,7 +7,7 @@ runnable from the command line; it stays usable from code without that.
 
 from __future__ import annotations
 
-from domain.pandas_approach.trading_strategy import TradingStrategy
+from domain.backtesting.trading_strategy import TradingStrategy
 from strategies.narrow_asia_fade import NarrowAsiaFade
 from strategies.orb_break_entry import OrbBreakEntry
 from strategies.orb_retest_entry import OrbRetestEntry

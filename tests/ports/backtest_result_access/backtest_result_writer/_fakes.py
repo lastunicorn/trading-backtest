@@ -2,10 +2,10 @@
 
 from datetime import datetime
 
-from domain.pandas_approach.backtest import Backtest, BacktestResult
+from domain.backtesting.backtest import Backtest, BacktestResult
 from ports.backtest_result_access import RunProvenance
 from ports.run_environment import GitCommit
-from tests.domain.pandas_approach.backtest._fakes import ScriptedStrategy, data
+from tests.domain.backtesting.backtest._fakes import ScriptedStrategy, data
 
 PROVENANCE = RunProvenance(created=datetime(2026, 3, 4, 5, 6, 7), git=GitCommit("abc1234", dirty=False))
 

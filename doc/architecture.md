@@ -132,7 +132,7 @@ Also:
 
 Keeping the test in step:
 
-- A new domain name a port needs (an entity, an enum, a name table) → add it under its module in `PORT_DOMAIN_NAMES`. Names, not modules: a port may take `BacktestResult` from `domain.pandas_approach.backtest` without being allowed `Backtest`.
+- A new domain name a port needs (an entity, an enum, a name table) → add it under its module in `PORT_DOMAIN_NAMES`. Names, not modules: a port may take `BacktestResult` from `domain.backtesting.backtest` without being allowed `Backtest`.
 - A new top-level package → add it to `PACKAGES` and `ALLOWED_IMPORTS`.
 
 ---
@@ -173,7 +173,7 @@ The split has two benefits:
 |---|---|
 | reads or writes a file, a config, the clock, git | a port: `ports/<resource>/` |
 | …and knows a format any application could use, nothing of this one | a library, `libs/<name>/`, wrapped by a port |
-| defines a market or trading concept, or calculates something from bars | `domain/` (`pandas_approach/` for frame code, `indicators/` for an indicator) |
+| defines a market or trading concept, or calculates something from bars | `domain/` (`pandas_approach/` for frame code, `backtesting/` for backtest code, `indicators/` for an indicator) |
 | decides where a strategy enters | `strategies/`, registered in `STRATEGIES` |
 | combines ports and domain into a task used by one script | that script's use-case function |
 | …used by two or more scripts, or too big for the script | `application/<task>_use_case.py` |
@@ -189,8 +189,11 @@ Tests mirror this layout under `tests/` (see `CLAUDE.md`, "Testing").
 `domain/` holds two parallel approaches:
 
 - `domain/bar_approach/`: one `Bar` object per candle, stdlib only. `bar.py` being stdlib-only is what lets the stdlib ports depend on it.
-- `domain/pandas_approach/`: DataFrames; this is where pandas lives (besides `indicators/`, below).
+- `domain/pandas_approach/`: DataFrames; this is where pandas lives (besides `backtesting/` and `indicators/`, below).
 
 **New work goes in `pandas_approach/`.** It is much faster on the multi-hundred-thousand-bar datasets. `bar_approach/` stays only for the scripts and tests that still use it.
 
-`domain/indicators/` is pandas code too, kept apart because it is grouped by concept rather than by approach: the RSI, divergence detection and the entries divergences give, as in the blueprint's [indicators.md](architecture/domain/indicators.md). A new indicator goes there.
+Two more packages are pandas code too, kept apart because they are grouped by concept rather than by approach, as the blueprint's domain pages are:
+
+- `domain/backtesting/`: the `TradingStrategy` contract, `Position`s, cost models, the exit rules (`Backtest`), trade results, splits and statistics ([backtesting.md](architecture/domain/backtesting.md)). It builds on `pandas_approach/`'s `HistoricalData`, never the other way round.
+- `domain/indicators/`: the RSI, divergence detection and the entries divergences give ([indicators.md](architecture/domain/indicators.md)). A new indicator goes there.

@@ -2,7 +2,7 @@
 
 from application.load_backtest_config_use_case import cost_model
 from ports.backtest_config_access import CostConfig
-from domain.pandas_approach.cost_model import FixedCost, SpreadCost
+from domain.backtesting.cost_model import FixedCost, SpreadCost
 
 
 def test_default_is_no_cost() -> None:

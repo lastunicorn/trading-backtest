@@ -35,8 +35,8 @@ ALLOWED_IMPORTS = {
 # or writes out, and the enums and name tables that spell them. Never logic.
 PORT_DOMAIN_NAMES = {
     "domain.bar_approach.bar": {"Bar"},
-    "domain.pandas_approach.backtest": {"BacktestResult"},
-    "domain.pandas_approach.splits": {"SplitMode"},
+    "domain.backtesting.backtest": {"BacktestResult"},
+    "domain.backtesting.splits": {"SplitMode"},
     "domain.broker_clock": {"timezone_name"},
     "domain.trading_session": {"SESSIONS", "TradingSession"},
 }

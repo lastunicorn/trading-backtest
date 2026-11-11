@@ -14,10 +14,10 @@ from datetime import UTC
 import numpy as np
 import pandas as pd
 
-from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest
-from domain.pandas_approach.cost_model import FixedCost
+from domain.backtesting.backtest import AmbiguityPolicy, Backtest
+from domain.backtesting.cost_model import FixedCost
 from domain.pandas_approach.historical_data import HistoricalData
-from domain.pandas_approach.position import PositionOutcome
+from domain.backtesting.position import PositionOutcome
 from domain.pandas_approach.shift_timezone import shift_timezone
 from domain.sample_size import SampleSize
 from domain.symbol import EURUSD

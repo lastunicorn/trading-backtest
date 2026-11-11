@@ -1,6 +1,6 @@
 # Plugins: Strategies
 
-A strategy is a plugin: it decides where to **enter** and returns open positions; the backtest decides how each one closed ([domain/backtest.md](../domain/backtest.md#4-backtest-and-the-exit-rules)). Strategies are found by name in a registry, built from a config's parameters and recorded in `run.json`. Adding one touches nothing outside the plugins (plus its tests and documentation page). Types and rules are in [conventions.md](../conventions.md).
+A strategy is a plugin: it decides where to **enter** and returns open positions; the backtest decides how each one closed ([domain/backtesting.md](../domain/backtesting.md#4-backtest-and-the-exit-rules)). Strategies are found by name in a registry, built from a config's parameters and recorded in `run.json`. Adding one touches nothing outside the plugins (plus its tests and documentation page). Types and rules are in [conventions.md](../conventions.md).
 
 Each strategy has its own page here. The trading rules of each strategy are also written for traders in `doc/strategies/<name>/<name>-implementation.md`; these pages are the contract a re-implementation must meet.
 
@@ -17,14 +17,14 @@ Each strategy has its own page here. The trading rules of each strategy are also
 
 ## The plugin contract: TradingStrategy
 
-*Python: `domain/pandas_approach/trading_strategy.py`.* An abstract base every strategy implements. A strategy is an **immutable value**: its parameters are fixed at construction, and two runs with the same parameters on the same data return the same positions.
+*Python: `domain/backtesting/trading_strategy.py`.* An abstract base every strategy implements. A strategy is an **immutable value**: its parameters are fixed at construction, and two runs with the same parameters on the same data return the same positions.
 
 | Action | Returns | Description |
 |---|---|---|
 | `name` | `String` | A label for reports; the class name unless overridden. |
 | `parameters()` | `Map<String, Any>` | The settings that define this run: every parameter, in declaration order, with its value (a `TradingSession` stays an object). |
 | `split_days(data: HistoricalData)` | `List<Date>` | The days the discovery / validation / test split is cut over. Default: every date with a bar, in order. Override when the strategy trades only some days, so the boundaries fall between tradable days. |
-| `generate_positions(data: HistoricalData)` | `List<Position>` | **Abstract.** Every entry the strategy takes over `data`, as open positions ([Position](../domain/backtest.md#2-position)): `open_dt`, `open_price`, `side`, `sl`, `tp`, `entry_fill`, optionally `exit_dt` and `tag`. |
+| `generate_positions(data: HistoricalData)` | `List<Position>` | **Abstract.** Every entry the strategy takes over `data`, as open positions ([Position](../domain/backtesting.md#2-position)): `open_dt`, `open_price`, `side`, `sl`, `tp`, `entry_fill`, optionally `exit_dt` and `tag`. |
 
 Obligations of `generate_positions`:
 

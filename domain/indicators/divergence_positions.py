@@ -22,7 +22,7 @@ from datetime import datetime
 import pandas as pd
 
 from domain.indicators.divergence import Category, Divergence
-from domain.pandas_approach.side import Side
+from domain.backtesting.side import Side
 
 __all__ = ["DivergencePosition", "open_positions"]
 
@@ -32,7 +32,7 @@ class DivergencePosition:
     """An entry signal tied to the divergence that produced it.
 
     Entry only -- no SL/TP. `strategies.rsi_divergence` adds the exit levels
-    and turns it into a backtestable `domain.pandas_approach.position.Position`."""
+    and turns it into a backtestable `domain.backtesting.position.Position`."""
 
     divergence: Divergence
     side: Side

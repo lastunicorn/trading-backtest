@@ -2,10 +2,10 @@
 
 from dataclasses import replace
 
-from domain.pandas_approach.splits import SplitMode
+from domain.backtesting.splits import SplitMode
 from ports.backtest_result_access import format_report
 from ports.run_environment import GitCommit
-from tests.domain.pandas_approach.backtest._fakes import NotedCost
+from tests.domain.backtesting.backtest._fakes import NotedCost
 
 from ._fakes import PROVENANCE, result
 

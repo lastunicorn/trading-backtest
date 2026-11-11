@@ -26,9 +26,9 @@ from zoneinfo import ZoneInfoNotFoundError
 
 from application.load_historical_data_use_case import SourceFormat
 from domain.broker_clock import timezone_by_name
-from domain.pandas_approach.backtest import AmbiguityPolicy
-from domain.pandas_approach.splits import SplitMode
-from domain.pandas_approach.cost_model import CostModel, FixedCost, SpreadCost
+from domain.backtesting.backtest import AmbiguityPolicy
+from domain.backtesting.splits import SplitMode
+from domain.backtesting.cost_model import CostModel, FixedCost, SpreadCost
 from domain.sample_size import SampleSize
 from domain.symbol import get_symbol_by_ticker
 from domain.time_window import ZonedTime

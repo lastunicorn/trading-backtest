@@ -38,7 +38,7 @@ Raw data lives under `data/` (gitignored, local-only); `data/eurusd/1min/EURUSD_
 
 ## Code layout
 
-**The architecture is documented in [doc/architecture.md](doc/architecture.md). Read it before adding a module or moving code between folders, and keep it in sync when the structure changes.** In short: seven components, namely the entry scripts at the repo root (one per use case, with `main()` kept apart from the use-case function), `application/` (orchestration), `ports/` (external resources: files, config, clock, git), `libs/` (application-neutral file-format libraries that import nothing from the repo; only ports use them), `domain/` (concepts and calculations, no I/O), `strategies/` (the `TradingStrategy` plugins and the `STRATEGIES` registry) and `ui/` (UI shared by scripts). Their import rules are enforced by `tests/architecture/test_package_imports.py`. **New domain work goes in `domain/pandas_approach/`**, not `bar_approach/`; indicators go in `domain/indicators/`.
+**The architecture is documented in [doc/architecture.md](doc/architecture.md). Read it before adding a module or moving code between folders, and keep it in sync when the structure changes.** In short: seven components, namely the entry scripts at the repo root (one per use case, with `main()` kept apart from the use-case function), `application/` (orchestration), `ports/` (external resources: files, config, clock, git), `libs/` (application-neutral file-format libraries that import nothing from the repo; only ports use them), `domain/` (concepts and calculations, no I/O), `strategies/` (the `TradingStrategy` plugins and the `STRATEGIES` registry) and `ui/` (UI shared by scripts). Their import rules are enforced by `tests/architecture/test_package_imports.py`. **New domain work goes in `domain/pandas_approach/`**, not `bar_approach/`; backtesting goes in `domain/backtesting/` and indicators in `domain/indicators/`.
 
 [doc/architecture/](doc/architecture/README.md) is a language-independent blueprint of the application (domain entities, ports, use cases, strategies, CLIs, file formats), meant for rebuilding it in another language. Keep it in sync when behaviour, a file format, a config key or a CLI flag changes.
 
@@ -115,7 +115,7 @@ python3 read_csv.py data/eurusd/1min --timeframe 5m --output scratch/jan_m5.csv 
 
 ## Backtest framework
 
-A reusable way to backtest any strategy on the same bars and under the same rules, instead of each script re-implementing SL/TP resolution, costs and statistics. **User documentation is in `doc/backtest-framework/`: `README.md` (how the framework works, the simulation rules, the checklist) links to `running-a-backtest.md` (the CLI, the Python API, data sources), `backtest-config.md` (the JSON config: structure, every key, validation), `reading-the-backtest-results.md` (output files, every statistic and column), `writing-a-strategy.md` and `api-reference.md`. Keep them in sync when the framework's public API or CLI changes.** Each strategy has a folder `doc/strategies/<name>/`, indexed by `doc/strategies/README.md`: `<name>-implementation.md` (what the code does: rules, parameters, how to backtest it) and, when the strategy was written down before it was coded, `<name>-rules.md` (that original description). Add a folder with every new strategy. The requirements are in `doc/backtest-framework.md`. Everything is pandas (`domain/pandas_approach/`).
+A reusable way to backtest any strategy on the same bars and under the same rules, instead of each script re-implementing SL/TP resolution, costs and statistics. **User documentation is in `doc/backtest-framework/`: `README.md` (how the framework works, the simulation rules, the checklist) links to `running-a-backtest.md` (the CLI, the Python API, data sources), `backtest-config.md` (the JSON config: structure, every key, validation), `reading-the-backtest-results.md` (output files, every statistic and column), `writing-a-strategy.md` and `api-reference.md`. Keep them in sync when the framework's public API or CLI changes.** Each strategy has a folder `doc/strategies/<name>/`, indexed by `doc/strategies/README.md`: `<name>-implementation.md` (what the code does: rules, parameters, how to backtest it) and, when the strategy was written down before it was coded, `<name>-rules.md` (that original description). Add a folder with every new strategy. The requirements are in `doc/backtest-framework.md`. Everything is pandas: `domain/backtesting/` on top of `domain/pandas_approach/`'s `HistoricalData`.
 
 ```
 HistoricalData ─► TradingStrategy.generate_positions() ─► open Positions (entry, SL, TP, optional exit_dt)
@@ -130,14 +130,14 @@ HistoricalData ─► TradingStrategy.generate_positions() ─► open Positions
 
 ```
 domain/pandas_approach/historical_data.py  HistoricalData (frame + SampleSize + Symbol + timezone), SpreadUnit, locate()
-domain/pandas_approach/side.py             Side ("long"/"short")
-domain/pandas_approach/position.py         Position, PositionOutcome, EntryFill (at-level/at-open: where SL/TP checking starts), positions_to_frame
-domain/pandas_approach/trading_strategy.py TradingStrategy base class (generate_positions, parameters, split_days)
-domain/pandas_approach/cost_model.py       CostModel, FixedCost (default 1.7 pips), SpreadCost
-domain/pandas_approach/trade_results.py    per-trade gross/cost/net pips, risk pips, net R, duration
-domain/pandas_approach/splits.py           SplitMode (none/dvt/monthly/yearly), split_labels, Split, split_dates (the 60/20/20 cut), assign_splits
-domain/pandas_approach/statistics.py       compute_statistics, statistics_by_split, split_verdict → SplitVerdict, max_drawdown, max_consecutive_losses
-domain/pandas_approach/backtest.py         Backtest(strategy, data, cost_model, ambiguity_policy, splits).run(); exits (`_simulate`), AmbiguityPolicy
+domain/backtesting/side.py                 Side ("long"/"short")
+domain/backtesting/position.py             Position, PositionOutcome, EntryFill (at-level/at-open: where SL/TP checking starts), positions_to_frame
+domain/backtesting/trading_strategy.py     TradingStrategy base class (generate_positions, parameters, split_days)
+domain/backtesting/cost_model.py           CostModel, FixedCost (default 1.7 pips), SpreadCost
+domain/backtesting/trade_results.py        per-trade gross/cost/net pips, risk pips, net R, duration
+domain/backtesting/splits.py               SplitMode (none/dvt/monthly/yearly), split_labels, Split, split_dates (the 60/20/20 cut), assign_splits
+domain/backtesting/statistics.py           compute_statistics, statistics_by_split, split_verdict → SplitVerdict, max_drawdown, max_consecutive_losses
+domain/backtesting/backtest.py             Backtest(strategy, data, cost_model, ambiguity_policy, splits).run(); exits (`_simulate`), AmbiguityPolicy
 application/load_historical_data_use_case.py  load_mt5 / load_histdata / load_dukascopy / load_source(source, SourceFormat) → HistoricalData
 strategies/__init__.py                     STRATEGIES registry: the names a backtest.py config's `strategy.name` accepts
 strategies/narrow_asia_fade.py             Candle DNA — Narrow Asia London Fade (NarrowAsiaFade)

@@ -45,7 +45,7 @@ import numpy as np
 import pandas as pd
 
 from domain.pandas_approach.historical_data import HistoricalData
-from domain.pandas_approach.position import Position, Side
+from domain.backtesting.position import Position, Side
 from strategies.opening_range import OpeningRangeStrategy
 
 __all__ = ["OrbRetestEntry"]

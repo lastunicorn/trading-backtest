@@ -5,7 +5,7 @@ from dataclasses import replace
 
 import pandas as pd
 
-from domain.pandas_approach.splits import SplitMode
+from domain.backtesting.splits import SplitMode
 from domain.symbol import XAUUSD
 from ports.backtest_result_access import format_report, run_info, write_results
 

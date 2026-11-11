@@ -29,8 +29,8 @@ from datetime import datetime, time as clock_time
 from pathlib import Path
 
 from domain.broker_clock import timezone_name
-from domain.pandas_approach.backtest import BacktestResult
-from domain.pandas_approach.splits import SplitMode
+from domain.backtesting.backtest import BacktestResult
+from domain.backtesting.splits import SplitMode
 from domain.trading_session import SESSIONS, TradingSession
 from ports.run_environment import GitCommit
 

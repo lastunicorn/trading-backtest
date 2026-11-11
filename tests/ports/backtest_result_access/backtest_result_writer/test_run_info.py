@@ -5,15 +5,15 @@ from datetime import datetime, time
 from zoneinfo import ZoneInfo
 
 from domain.broker_clock import BROKER_SERVER_TZ
-from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest
-from domain.pandas_approach.cost_model import FixedCost
-from domain.pandas_approach.splits import SplitMode
+from domain.backtesting.backtest import AmbiguityPolicy, Backtest
+from domain.backtesting.cost_model import FixedCost
+from domain.backtesting.splits import SplitMode
 from domain.trading_session import LONDON_SESSION, TradingSession
 from ports.backtest_result_access import run_info
 from ports.run_environment import GitCommit
 from strategies.orb_break_entry import OrbBreakEntry
 from strategies.rsi_divergence import RsiDivergence
-from tests.domain.pandas_approach.backtest._fakes import NotedCost, data
+from tests.domain.backtesting.backtest._fakes import NotedCost, data
 
 from ._fakes import PROVENANCE, result
 

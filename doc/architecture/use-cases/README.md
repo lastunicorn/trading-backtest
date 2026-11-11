@@ -1,6 +1,6 @@
 # Use Cases
 
-What the application does, as tasks that wire [ports](../ports/README.md), the [domain](../domain/backtest.md) and the [plugins](../plugins/README.md) together. Each use case has its own page, listing its input and output DTOs, its steps and the errors it can return. A use case never prints and never parses command-line arguments: it takes plain values, returns a result and reports progress through a callback ([conventions.md](../conventions.md#4-progress-reporting)). The CLIs that call them are in [ui/](../ui/README.md).
+What the application does, as tasks that wire [ports](../ports/README.md), the [domain](../domain/backtesting.md) and the [plugins](../plugins/README.md) together. Each use case has its own page, listing its input and output DTOs, its steps and the errors it can return. A use case never prints and never parses command-line arguments: it takes plain values, returns a result and reports progress through a callback ([conventions.md](../conventions.md#4-progress-reporting)). The CLIs that call them are in [ui/](../ui/README.md).
 
 In the Python code, a use case shared by several scripts (or too big for one) is a module in `application/`; the others are a function inside their entry script. Each page names where it lives.
 

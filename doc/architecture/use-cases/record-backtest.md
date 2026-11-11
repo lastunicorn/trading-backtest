@@ -26,7 +26,7 @@ Runs a prepared `Backtest` and records it: the domain result, its provenance (cl
 
 ## Steps
 
-1. `result = backtest.run()` ([domain/backtest.md](../domain/backtest.md#4-backtest-and-the-exit-rules)).
+1. `result = backtest.run()` ([domain/backtesting.md](../domain/backtesting.md#4-backtest-and-the-exit-rules)).
 2. `provenance = RunProvenance(created = now(), git = git_commit(), source, strategy_name)`.
 3. `paths = BacktestResultStore.write_results(result, provenance, out_dir)`: the port formats and writes all four files ([BacktestResultStore](../ports/backtest-result-store.md)).
 

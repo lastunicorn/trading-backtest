@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 
 from domain.broker_clock import BROKER_SERVER_TZ
-from domain.pandas_approach.position import PositionOutcome, Side
+from domain.backtesting.position import PositionOutcome, Side
 from domain.trading_session import LONDON_SESSION
 from strategies.orb_break_entry import OrbBreakEntry
 

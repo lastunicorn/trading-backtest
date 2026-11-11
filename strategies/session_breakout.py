@@ -59,9 +59,9 @@ import pandas as pd
 
 from domain.broker_clock import timezone_by_name
 from domain.pandas_approach.historical_data import HistoricalData
-from domain.pandas_approach.position import EntryFill, Position, Side
+from domain.backtesting.position import EntryFill, Position, Side
 from domain.pandas_approach.shift_timezone import shift_timezone
-from domain.pandas_approach.trading_strategy import TradingStrategy
+from domain.backtesting.trading_strategy import TradingStrategy
 from domain.trading_session import TradingSession
 
 __all__ = ["SessionBreakout"]
