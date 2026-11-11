@@ -101,7 +101,7 @@ from domain.broker_clock import timezone_by_name
 from domain.pandas_approach.backtest import AmbiguityPolicy, Backtest, BacktestResult
 from domain.pandas_approach.splits import SplitMode
 from domain.sample_size import SampleSize
-from domain.symbol import Symbol, by_ticker
+from domain.symbol import Symbol, get_symbol_by_ticker
 from ports import run_environment
 from ports.backtest_config_access import CONFIG_FILE_NAME, BacktestConfig
 from ports.backtest_result_access import RunProvenance, format_report, write_results
@@ -116,7 +116,7 @@ def main() -> int:
     try:
         config = load_backtest_config(args.config)
         timeframe = SampleSize.Parse(config.simulation.timeframe)
-        symbol = by_ticker(config.data_source.symbol)
+        symbol = get_symbol_by_ticker(config.data_source.symbol)
     except (ValueError, FileNotFoundError) as error:
         print(f"ERROR: {error}", file=sys.stderr)
         return 1
@@ -193,7 +193,11 @@ def run_backtest(
     pass fakes to make the record deterministic.
     """
     result = backtest.run()
-    provenance = RunProvenance(created=now(), git=git_commit(), source=source, strategy_name=strategy_name)
+    provenance = RunProvenance(
+        created=now(),
+        git=git_commit(),
+        source=source,
+        strategy_name=strategy_name)
     return BacktestRun(result, provenance, write_results(result, provenance, out_dir))
 
 

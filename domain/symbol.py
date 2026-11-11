@@ -38,7 +38,7 @@ __all__ = [
     "XAGUSD",
     "DEUIDXEUR",
     "SYMBOLS",
-    "by_ticker",
+    "get_symbol_by_ticker",
 ]
 
 
@@ -108,7 +108,7 @@ SYMBOLS: dict[str, Symbol] = {
 }
 
 
-def by_ticker(ticker: str) -> Symbol:
+def get_symbol_by_ticker(ticker: str) -> Symbol:
     """Look up a symbol in `SYMBOLS` by its ticker (case-insensitive)."""
     try:
         return SYMBOLS[ticker.upper()]

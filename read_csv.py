@@ -55,7 +55,7 @@ from domain.pandas_approach.frames import clean_frame, resample_ohlc
 from domain.broker_clock import BROKER_SERVER_TZ, is_utc, timezone_name
 from domain.pandas_approach.shift_timezone import shift_timezone
 from domain.sample_size import SampleSize
-from domain.symbol import by_ticker
+from domain.symbol import get_symbol_by_ticker
 from ports import dukascopy_file_access, histdata_file_access, mt5_file_access
 from ports.file_system_access.file_system import find_files
 from ports.mt5_file_access import write_frame
@@ -89,7 +89,7 @@ def main():
 
     if args.source_symbol:
         try:
-            symbol = by_ticker(args.source_symbol)
+            symbol = get_symbol_by_ticker(args.source_symbol)
         except ValueError as exc:
             print(f"ERROR: {exc}", file=sys.stderr)
             return 1

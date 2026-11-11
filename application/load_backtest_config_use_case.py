@@ -30,7 +30,7 @@ from domain.pandas_approach.backtest import AmbiguityPolicy
 from domain.pandas_approach.splits import SplitMode
 from domain.pandas_approach.cost_model import CostModel, FixedCost, SpreadCost
 from domain.sample_size import SampleSize
-from domain.symbol import by_ticker
+from domain.symbol import get_symbol_by_ticker
 from domain.time_window import ZonedTime
 from domain.trading_session import SESSIONS, TradingSession
 from ports.backtest_config_access import (
@@ -89,7 +89,7 @@ def _check_data_source(data_source: DataSourceConfig, fail: Fail) -> None:
     _check_choice(data_source.format, "data_source.format",
                   [source_format.value for source_format in SourceFormat], fail)
     try:
-        by_ticker(data_source.symbol)
+        get_symbol_by_ticker(data_source.symbol)
     except ValueError as error:
         raise fail(f'"data_source.symbol": {error}') from error
     try:

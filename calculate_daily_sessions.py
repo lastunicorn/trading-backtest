@@ -52,7 +52,7 @@ from application.load_historical_data_use_case import SourceFormat, load_source
 from domain.broker_clock import BROKER_TZ_NAME, HISTDATA_TZ_NAME, timezone_by_name, timezone_name
 from domain.pandas_approach.session_ohlc import session_ohlc
 from domain.sample_size import SampleSize
-from domain.symbol import EURUSD, Symbol, by_ticker
+from domain.symbol import EURUSD, Symbol, get_symbol_by_ticker
 from domain.trading_session import ASIA_SESSION, SESSIONS, TradingSession
 
 DEFAULT_SOURCE = "/nfs/YubabaFinance/trading/historical data/arty/eurusd/1min"
@@ -72,7 +72,7 @@ def main() -> int:
         return 1
 
     try:
-        symbol = by_ticker(args.source_symbol)
+        symbol = get_symbol_by_ticker(args.source_symbol)
     except ValueError as error:
         print(f"ERROR: {error}", file=sys.stderr)
         return 1
