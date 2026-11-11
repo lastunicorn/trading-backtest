@@ -30,7 +30,7 @@ Entry window: `start_time` / `end_time` (both optional, None by default)
 limit entries to a time of day. Each is a timezone-aware `datetime.time`, so
 08:00 London stays 08:00 London across DST whatever clock the data is on; a
 signal whose entry bar opens outside [start_time, end_time) is skipped (see
-`domain.time_window.TimeWindow` for wrapping and one-sided windows). Only
+`domain.market_data.time_window.TimeWindow` for wrapping and one-sided windows). Only
 entries are limited: RSI and pivots still run over every bar, and a position
 opened inside the window is managed to its stop or target like any other.
 From a config: `"start_time": "08:00 Europe/London"`, `"end_time": "16:00 broker"`.
@@ -57,11 +57,11 @@ import pandas as pd
 
 from domain.indicators.divergence import filter_regular_by_band, find_divergences
 from domain.indicators.divergence_positions import open_positions
-from domain.pandas_approach.historical_data import HistoricalData
+from domain.market_data.historical_data import HistoricalData
 from domain.backtesting.position import EntryFill, Position, Side
 from domain.indicators.rsi import rsi
 from domain.backtesting.trading_strategy import TradingStrategy
-from domain.time_window import TimeWindow, ZonedTime
+from domain.market_data.time_window import TimeWindow, ZonedTime
 
 __all__ = ["RsiDivergence"]
 

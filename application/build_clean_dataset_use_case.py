@@ -21,8 +21,8 @@ from collections.abc import Callable, Sequence
 
 import pandas as pd
 
-from domain.pandas_approach.frames import clean_frame, resample_ohlc
-from domain.sample_size import SampleSize
+from domain.market_data.frames import clean_frame, resample_ohlc
+from domain.market_data.sample_size import SampleSize
 from ports.file_system_access import find_files
 from ports.mt5_file_access import read_frame
 

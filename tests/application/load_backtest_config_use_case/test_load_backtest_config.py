@@ -10,8 +10,8 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from application.load_backtest_config_use_case import load_backtest_config
-from domain.broker_clock import BROKER_SERVER_TZ
-from domain.trading_session import LONDON_SESSION
+from domain.market_data.broker_clock import BROKER_SERVER_TZ
+from domain.market_data.trading_session import LONDON_SESSION
 from ports.backtest_config_access import BacktestConfig, DataSourceConfig, SimulationConfig, StrategyConfig
 from strategies import STRATEGIES
 from strategies.rsi_divergence import RsiDivergence

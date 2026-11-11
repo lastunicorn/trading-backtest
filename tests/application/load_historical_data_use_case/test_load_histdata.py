@@ -5,9 +5,9 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from application.load_historical_data_use_case import load_histdata
-from domain.broker_clock import BROKER_SERVER_TZ, HISTDATA_TZ
-from domain.sample_size import SampleSize
-from domain.symbol import EURUSD
+from domain.market_data.broker_clock import BROKER_SERVER_TZ, HISTDATA_TZ
+from domain.market_data.sample_size import SampleSize
+from domain.market_data.symbol import EURUSD
 
 from ._fakes import START, write_histdata_export
 

@@ -1,6 +1,6 @@
 """Tests for `domain.backtesting.trading_strategy.TradingStrategy.parameters`."""
 
-from domain.trading_session import LONDON_SESSION
+from domain.market_data.trading_session import LONDON_SESSION
 
 from ._fakes import DataclassStrategy, PlainStrategy, SessionStrategy
 

@@ -37,8 +37,8 @@ PORT_DOMAIN_NAMES = {
     "domain.bar_approach.bar": {"Bar"},
     "domain.backtesting.backtest": {"BacktestResult"},
     "domain.backtesting.splits": {"SplitMode"},
-    "domain.broker_clock": {"timezone_name"},
-    "domain.trading_session": {"SESSIONS", "TradingSession"},
+    "domain.market_data.broker_clock": {"timezone_name"},
+    "domain.market_data.trading_session": {"SESSIONS", "TradingSession"},
 }
 
 

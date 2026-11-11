@@ -9,11 +9,11 @@ from datetime import tzinfo
 
 import pandas as pd
 
-from domain.broker_clock import BROKER_SERVER_TZ
+from domain.market_data.broker_clock import BROKER_SERVER_TZ
 from domain.indicators.divergence import Category, Direction, Divergence
-from domain.pandas_approach.historical_data import HistoricalData
-from domain.sample_size import SampleSize
-from domain.symbol import EURUSD
+from domain.market_data.historical_data import HistoricalData
+from domain.market_data.sample_size import SampleSize
+from domain.market_data.symbol import EURUSD
 
 T0 = pd.Timestamp("2026-01-05 00:00")
 PIVOT = 20     # the newer pivot bar

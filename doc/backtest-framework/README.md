@@ -35,7 +35,7 @@ The framework follows the repo's [architecture](../architecture.md). Each compon
 | entry script | `backtest.py` | the command line; `run_backtest()` runs the backtest, gathers the provenance (git commit, time) and has the result files written |
 | application | `application/` | validates the config (`load_backtest_config`) and loads the historical data (`load_historical_data_use_case.load_source`) |
 | ports | `ports/` | read the config file, the MT5 and Dukascopy exports, the clock and git; format and write the result files (`backtest_result_access`) |
-| domain | `domain/backtesting/`, `domain/pandas_approach/`, `domain/broker_clock.py`, `domain/time_window.py`, `domain/sample_size.py`, `domain/symbol.py` | the concepts and all the calculations; no file access, no clock, no git |
+| domain | `domain/backtesting/`, `domain/market_data/` | the concepts and all the calculations; no file access, no clock, no git |
 | strategies | `strategies/` | concrete `TradingStrategy` subclasses and the registry the config's `strategy.name` looks up |
 
 Everything is pandas-based. Before running anything, activate the repo's virtual environment:

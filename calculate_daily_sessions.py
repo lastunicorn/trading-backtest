@@ -8,7 +8,7 @@ For every day in the source data this computes, per session:
   * lowest value  -- min low over the window
   * closing value -- close of the last bar in the session window
 
-The sessions are the standard ones in `domain.trading_session.SESSIONS`
+The sessions are the standard ones in `domain.market_data.trading_session.SESSIONS`
 (Tokyo, Asia, London, New York), picked with --session; the FX Asia session
 (09:00-18:00 Asia/Tokyo, i.e. 00:00-09:00 UTC) by default. Each is a window in
 its own timezone, so DST is resolved per date, and a day is the date the
@@ -19,7 +19,7 @@ picks from its config's `data_source.format` (`application.load_source`):
 "metatrader" (this repo's MT5 exports, the default), "histdata" (histdata.com
 MetaTrader downloads) or "dukascopy" (bid/ask pairs). Every file is read into
 one frame, sorted and deduplicated (where two files hold the same timestamp,
-the later file wins); `domain.pandas_approach.session_ohlc` does the rest. The
+the later file wins); `domain.market_data.session_ohlc` does the rest. The
 exports carry no timezone: --source-timezone says which clock their timestamps
 are on, "broker" (this repo's MT5 broker-server clock, New York + 7h) by
 default, "histdata" (histdata.com's clock: New York's, switching daylight
@@ -49,11 +49,11 @@ from zoneinfo import ZoneInfoNotFoundError
 import pandas as pd
 
 from application.load_historical_data_use_case import SourceFormat, load_source
-from domain.broker_clock import BROKER_TZ_NAME, HISTDATA_TZ_NAME, timezone_by_name, timezone_name
-from domain.pandas_approach.session_ohlc import session_ohlc
-from domain.sample_size import SampleSize
-from domain.symbol import EURUSD, Symbol, get_symbol_by_ticker
-from domain.trading_session import ASIA_SESSION, SESSIONS, TradingSession
+from domain.market_data.broker_clock import BROKER_TZ_NAME, HISTDATA_TZ_NAME, timezone_by_name, timezone_name
+from domain.market_data.session_ohlc import session_ohlc
+from domain.market_data.sample_size import SampleSize
+from domain.market_data.symbol import EURUSD, Symbol, get_symbol_by_ticker
+from domain.market_data.trading_session import ASIA_SESSION, SESSIONS, TradingSession
 
 DEFAULT_SOURCE = "/nfs/YubabaFinance/trading/historical data/arty/eurusd/1min"
 DEFAULT_SOURCE_FORMAT = SourceFormat.METATRADER

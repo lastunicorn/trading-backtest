@@ -30,7 +30,7 @@ Each one can be set from a config's `strategy.parameters`. They are `OrbBreakEnt
 
 | Parameter | Default | Meaning |
 |---|---|---|
-| `session` | `"New York"` | the session whose start opens the range and whose end is the time stop: a name in `domain.trading_session.SESSIONS` (`"Tokyo"`, `"Asia"`, `"London"`, `"New York"`). From Python, any `TradingSession` |
+| `session` | `"New York"` | the session whose start opens the range and whose end is the time stop: a name in `domain.market_data.trading_session.SESSIONS` (`"Tokyo"`, `"Asia"`, `"London"`, `"New York"`). From Python, any `TradingSession` |
 | `opening_range_minutes` | 15 | the opening range's length in minutes (end exclusive, wall clock); the break can come from its end |
 | `order_expiry_minutes` | 120 | minutes from the session's start (wall clock) after which neither a break nor a fill counts; not before the range's end, and before the session's end |
 | `exit_at_session_end` | `true` | time stop (`exit_dt`) at the session's end; `false` for none |

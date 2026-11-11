@@ -3,7 +3,7 @@
 import pytest
 
 from application.load_historical_data_use_case import SourceFormat
-from domain.symbol import EURUSD
+from domain.market_data.symbol import EURUSD
 from ports.mt5_file_access import BarParseError
 from read_csv import read_source
 from tests.application.load_historical_data_use_case._fakes import (

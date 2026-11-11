@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 
 from application.build_clean_dataset_use_case import NoUsableSourceFilesError, build_clean_dataset
-from domain.sample_size import SampleSize
+from domain.market_data.sample_size import SampleSize
 
 EXPORT = "".join(f"2020.01.02,00:{minute:02d},1.1,1.2,1.0,1.15,10\n" for minute in range(10))
 

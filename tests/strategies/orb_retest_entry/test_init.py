@@ -4,7 +4,7 @@ Checking the parameters is `OpeningRangeStrategy.__post_init__`'s, tested in
 `tests/strategies/opening_range/`.
 """
 
-from domain.trading_session import NEW_YORK_SESSION
+from domain.market_data.trading_session import NEW_YORK_SESSION
 from strategies.orb_retest_entry import OrbRetestEntry
 
 

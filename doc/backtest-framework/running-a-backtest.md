@@ -29,12 +29,12 @@ Use this for several runs in a loop (parameter sweeps), or the numbers without f
 ```python
 from application.load_historical_data_use_case import SourceFormat, load_source
 from backtest import run_backtest
-from domain.broker_clock import BROKER_SERVER_TZ
+from domain.market_data.broker_clock import BROKER_SERVER_TZ
 from domain.backtesting.backtest import AmbiguityPolicy, Backtest
 from domain.backtesting.cost_model import FixedCost
 from domain.backtesting.splits import SplitMode
-from domain.sample_size import SampleSize
-from domain.symbol import EURUSD
+from domain.market_data.sample_size import SampleSize
+from domain.market_data.symbol import EURUSD
 from strategies.opening_range_breakout import OpeningRangeBreakout
 
 data = load_source("data/eurusd/1min", SourceFormat.METATRADER,
@@ -94,4 +94,4 @@ The clock is not part of the format: two MetaTrader exports can be on different 
 | histdata.com MT exports (`DAT_MT_EURUSD_M1_*.csv`) | `histdata` | `load_histdata` (volume dropped: always 0) | none | `"histdata"`: New York time before 2019; from 2019 New York's clock on the EU daylight-saving dates (London − 5h). The week opens Sunday 17:00 (broker time − 7h), except, from 2019, in the weeks the US and EU switch dates disagree, when it opens 16:00 (broker time − 8h); checked against the broker exports for 2020–2025 and the week edges for 2016–2019. Not enforced: any clock is accepted |
 | Dukascopy bid/ask pairs | `dukascopy` | `load_dukascopy` | price units (ask − bid) | `"UTC"`, the only one accepted (the timestamps are epoch milliseconds) |
 
-The loaders convert spread to pips. The **broker-server clock is New York + 7 hours** (GMT+2 in winter, GMT+3 in summer, switching on the US daylight-saving dates), available as `domain.broker_clock.BROKER_SERVER_TZ`. To move a frame between clocks, use `domain.pandas_approach.shift_timezone.shift_timezone`.
+The loaders convert spread to pips. The **broker-server clock is New York + 7 hours** (GMT+2 in winter, GMT+3 in summer, switching on the US daylight-saving dates), available as `domain.market_data.broker_clock.BROKER_SERVER_TZ`. To move a frame between clocks, use `domain.market_data.shift_timezone.shift_timezone`.

@@ -1,6 +1,6 @@
 """Opening Range Break, Break Entry (doc/strategies/orb-break-entry/orb-break-entry-rules.md), as a `TradingStrategy`.
 
-    from domain.trading_session import LONDON_SESSION
+    from domain.market_data.trading_session import LONDON_SESSION
     from strategies.orb_break_entry import OrbBreakEntry
 
     positions = OrbBreakEntry().generate_positions(data)                        # M1 bars, any clock
@@ -35,7 +35,7 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
-from domain.pandas_approach.historical_data import HistoricalData
+from domain.market_data.historical_data import HistoricalData
 from domain.backtesting.position import Position, Side
 from strategies.opening_range import OpeningRangeStrategy
 

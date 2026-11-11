@@ -18,11 +18,11 @@ rather than a hardcoded delta staying wrong for half of the year. A
 `datetime.timezone(timedelta(hours=N))` still works as `from_tz`/`to_tz` for
 a source that genuinely never observes DST, which is a plain conversion with
 no transition to look up. The MT5 broker-server clock is neither -- it is New
-York + 7h -- and `domain.broker_clock.BROKER_SERVER_TZ` models it as a
+York + 7h -- and `domain.market_data.broker_clock.BROKER_SERVER_TZ` models it as a
 `tzinfo`, which this stdlib conversion accepts as-is.
 
     from domain.bar_approach.shift_bars import shift_bars
-    from domain.broker_clock import BROKER_SERVER_TZ
+    from domain.market_data.broker_clock import BROKER_SERVER_TZ
 
     utc_bars = shift_bars(server_bars, BROKER_SERVER_TZ)
 """

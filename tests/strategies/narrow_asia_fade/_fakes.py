@@ -11,9 +11,9 @@ from datetime import date
 
 import pandas as pd
 
-from domain.pandas_approach.historical_data import HistoricalData
-from domain.sample_size import SampleSize
-from domain.symbol import EURUSD
+from domain.market_data.historical_data import HistoricalData
+from domain.market_data.sample_size import SampleSize
+from domain.market_data.symbol import EURUSD
 
 MONDAY = date(2026, 1, 5)
 ASIA = (1.1000, 1.1005, 1.0995, 1.1000, 10)

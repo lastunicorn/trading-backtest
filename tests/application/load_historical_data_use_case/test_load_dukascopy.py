@@ -6,8 +6,8 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from application.load_historical_data_use_case import load_dukascopy
-from domain.sample_size import SampleSize
-from domain.symbol import EURUSD
+from domain.market_data.sample_size import SampleSize
+from domain.market_data.symbol import EURUSD
 
 from ._fakes import START, write_dukascopy_month
 

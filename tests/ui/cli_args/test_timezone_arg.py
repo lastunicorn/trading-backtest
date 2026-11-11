@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from domain.broker_clock import BROKER_SERVER_TZ, HISTDATA_TZ
+from domain.market_data.broker_clock import BROKER_SERVER_TZ, HISTDATA_TZ
 from ui.cli_args import timezone_arg
 
 

@@ -36,7 +36,7 @@ Each bound carries its own timezone, so `"08:00 Europe/London"` stays 08:00 Lond
 - The two bounds may be in different zones.
 - The window is compared with real instants, so `data_source.timezone` must be right for the source (`"histdata"` for histdata, `"UTC"` for Dukascopy, `"broker"` for this repo's MT5 exports).
 
-`run.json` and the report record the bounds with their zone (`08:00:00 Europe/London`). The rule itself is `domain.time_window.TimeWindow`, which other strategies can reuse.
+`run.json` and the report record the bounds with their zone (`08:00:00 Europe/London`). The rule itself is `domain.market_data.time_window.TimeWindow`, which other strategies can reuse.
 
 ## Running it
 

@@ -57,12 +57,12 @@ from zoneinfo import ZoneInfoNotFoundError
 import numpy as np
 import pandas as pd
 
-from domain.broker_clock import timezone_by_name
-from domain.pandas_approach.historical_data import HistoricalData
+from domain.market_data.broker_clock import timezone_by_name
+from domain.market_data.historical_data import HistoricalData
 from domain.backtesting.position import EntryFill, Position, Side
-from domain.pandas_approach.shift_timezone import shift_timezone
+from domain.market_data.shift_timezone import shift_timezone
 from domain.backtesting.trading_strategy import TradingStrategy
-from domain.trading_session import TradingSession
+from domain.market_data.trading_session import TradingSession
 
 __all__ = ["SessionBreakout"]
 

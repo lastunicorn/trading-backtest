@@ -5,8 +5,8 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from domain.broker_clock import BROKER_SERVER_TZ
-from domain.trading_session import LONDON_SESSION, NEW_YORK_SESSION, TradingSession
+from domain.market_data.broker_clock import BROKER_SERVER_TZ
+from domain.market_data.trading_session import LONDON_SESSION, NEW_YORK_SESSION, TradingSession
 
 from ._fakes import RangeOnly
 

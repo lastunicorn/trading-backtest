@@ -52,7 +52,7 @@ import numpy as np
 import pandas as pd
 
 from domain.backtesting.cost_model import CostModel, FixedCost
-from domain.pandas_approach.historical_data import DataSummary, HistoricalData
+from domain.market_data.historical_data import DataSummary, HistoricalData
 from domain.backtesting.position import EntryFill, Position, PositionOutcome, Side, positions_to_frame
 from domain.backtesting.splits import SplitMode, assign_splits, split_labels
 from domain.backtesting.statistics import SplitVerdict, split_verdict, statistics_by_split

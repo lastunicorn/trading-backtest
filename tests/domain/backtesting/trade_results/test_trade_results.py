@@ -7,7 +7,7 @@ import pytest
 
 from domain.backtesting.position import FRAME_COLUMNS, Position, PositionOutcome, Side, positions_to_frame
 from domain.backtesting.trade_results import RESULT_COLUMNS, trade_results
-from domain.symbol import EURUSD, USDJPY
+from domain.market_data.symbol import EURUSD, USDJPY
 
 T0 = pd.Timestamp("2026-01-05 10:00")
 

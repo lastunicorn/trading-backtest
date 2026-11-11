@@ -4,12 +4,12 @@ from dataclasses import dataclass
 
 import pandas as pd
 
-from domain.pandas_approach.historical_data import HistoricalData
+from domain.market_data.historical_data import HistoricalData
 from domain.backtesting.position import Position
 from domain.backtesting.trading_strategy import TradingStrategy
-from domain.sample_size import SampleSize
-from domain.symbol import EURUSD
-from domain.trading_session import NEW_YORK_SESSION, TradingSession
+from domain.market_data.sample_size import SampleSize
+from domain.market_data.symbol import EURUSD
+from domain.market_data.trading_session import NEW_YORK_SESSION, TradingSession
 
 
 @dataclass(frozen=True)

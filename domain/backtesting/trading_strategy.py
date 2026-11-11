@@ -26,7 +26,7 @@ from collections.abc import Iterable
 from dataclasses import fields, is_dataclass
 from datetime import date
 
-from domain.pandas_approach.historical_data import HistoricalData
+from domain.market_data.historical_data import HistoricalData
 from domain.backtesting.position import Position
 
 __all__ = ["TradingStrategy"]

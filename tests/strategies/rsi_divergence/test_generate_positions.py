@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from domain.broker_clock import BROKER_SERVER_TZ
+from domain.market_data.broker_clock import BROKER_SERVER_TZ
 
 from domain.indicators.divergence import Category, Direction
 from domain.backtesting.position import EntryFill, Side

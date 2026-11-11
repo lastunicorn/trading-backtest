@@ -20,7 +20,7 @@ The concepts behind the bars themselves: timeframes, instruments, clocks, daily 
 
 ## 1. SampleSize
 
-*Python: `domain/sample_size.py`.* A bar width: an amount and a unit, written compactly as `"5m"`, `"4h"`, `"7d"`, `"2w"`, `"3M"`. Used for every timeframe in configs, CLIs and `HistoricalData`.
+*Python: `domain/market_data/sample_size.py`.* A bar width: an amount and a unit, written compactly as `"5m"`, `"4h"`, `"7d"`, `"2w"`, `"3M"`. Used for every timeframe in configs, CLIs and `HistoricalData`.
 
 ### SampleUnit (Enum)
 
@@ -62,7 +62,7 @@ Immutable; two sizes are equal when amount and unit are.
 
 ## 2. Symbol
 
-*Python: `domain/symbol.py`.* The fixed specification of a tradeable instrument. It knows nothing about prices observed or strategies.
+*Python: `domain/market_data/symbol.py`.* The fixed specification of a tradeable instrument. It knows nothing about prices observed or strategies.
 
 ### SymbolCategory (Enum)
 
@@ -114,7 +114,7 @@ Immutable.
 
 ## 3. Clocks (time zones)
 
-*Python: `domain/broker_clock.py`.* Two of the sources run on clocks no IANA zone describes, so the application defines two kinds of `TimeZone` of its own. Any `TimeZone` must answer: the UTC offset at a wall-clock reading, and the wall-clock reading of an instant.
+*Python: `domain/market_data/broker_clock.py`.* Two of the sources run on clocks no IANA zone describes, so the application defines two kinds of `TimeZone` of its own. Any `TimeZone` must answer: the UTC offset at a wall-clock reading, and the wall-clock reading of an instant.
 
 ### ShiftedZone
 
@@ -176,7 +176,7 @@ An IANA zone's display name is its key (`UTC`, `Europe/London`).
 
 ## 4. TimeWindow
 
-*Python: `domain/time_window.py`.* A daily time-of-day window, each bound optional and in its own zone, so "08:00–16:00 London" stays London hours across daylight saving whatever clock the data is on. Used for `RsiDivergence`'s entry window.
+*Python: `domain/market_data/time_window.py`.* A daily time-of-day window, each bound optional and in its own zone, so "08:00–16:00 London" stays London hours across daylight saving whatever clock the data is on. Used for `RsiDivergence`'s entry window.
 
 ### Properties
 
@@ -212,7 +212,7 @@ A wall reading that falls in a daylight-saving gap or overlap resolves with the 
 
 ## 5. TradingSession
 
-*Python: `domain/trading_session.py`, `domain/trading_session_instance.py`.* A named daily session window, and one dated occurrence of it.
+*Python: `domain/market_data/trading_session.py`, `domain/market_data/trading_session_instance.py`.* A named daily session window, and one dated occurrence of it.
 
 ### TradingSession
 
@@ -314,7 +314,7 @@ Bars folded into one OHLC span as they arrive. Empty until the first `add`.
 
 ## 7. Bar table operations
 
-*Python: `domain/pandas_approach/frames.py`, `shift_timezone.py`, `session_ohlc.py`.* What happens to a bar table between reading it and backtesting it.
+*Python: `domain/market_data/frames.py`, `shift_timezone.py`, `session_ohlc.py`.* What happens to a bar table between reading it and backtesting it.
 
 ### `clean_frame(table) -> Table<BarRow>`
 
@@ -375,7 +375,7 @@ An empty input gives an empty table with these columns.
 
 ## 8. HistoricalData
 
-*Python: `domain/pandas_approach/historical_data.py`.* The bars a backtest runs on: a clean bar table plus what it takes to interpret it.
+*Python: `domain/market_data/historical_data.py`.* The bars a backtest runs on: a clean bar table plus what it takes to interpret it.
 
 ### SpreadUnit (Enum)
 
@@ -397,7 +397,7 @@ Invariants, checked on construction, which **never changes the table**: a wrong 
 | columns `datetime`, `open`, `high`, `low`, `close` exist | `MISSING_COLUMNS` (`historical data is missing required column(s): [...]`) |
 | at least one row | `NO_BARS` (`historical data has no bars`) |
 | `datetime` is a zone-less timestamp column | `DATETIME_NOT_NAIVE` |
-| `datetime` strictly increasing | `NOT_STRICTLY_INCREASING` (`'datetime' must be strictly increasing -- run domain.pandas_approach.frames.clean_frame first`) |
+| `datetime` strictly increasing | `NOT_STRICTLY_INCREASING` (`'datetime' must be strictly increasing -- run domain.market_data.frames.clean_frame first`) |
 | `open`/`high`/`low`/`close` are `Float` with no nulls | `OHLC_NOT_FLOAT`, `OHLC_MISSING` |
 | `tick_volume`/`volume`, if present, are `Integer?` | `VOLUME_NOT_INTEGER` |
 | `spread`, if present, is `Float?` (pips) | `SPREAD_NOT_FLOAT` |

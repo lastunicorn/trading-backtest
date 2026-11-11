@@ -5,8 +5,8 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from domain.broker_clock import BROKER_SERVER_TZ
-from domain.trading_session import TradingSession
+from domain.market_data.broker_clock import BROKER_SERVER_TZ
+from domain.market_data.trading_session import TradingSession
 
 from ._fakes import FLAT, QUIET, TUESDAY, WEDNESDAY, RangeOnly, data, day_frame, range_at
 

@@ -16,11 +16,11 @@ import pandas as pd
 
 from domain.backtesting.backtest import AmbiguityPolicy, Backtest
 from domain.backtesting.cost_model import FixedCost
-from domain.pandas_approach.historical_data import HistoricalData
+from domain.market_data.historical_data import HistoricalData
 from domain.backtesting.position import PositionOutcome
-from domain.pandas_approach.shift_timezone import shift_timezone
-from domain.sample_size import SampleSize
-from domain.symbol import EURUSD
+from domain.market_data.shift_timezone import shift_timezone
+from domain.market_data.sample_size import SampleSize
+from domain.market_data.symbol import EURUSD
 from strategies.session_breakout import SessionBreakout
 from ._script_trades import SCRIPT_TRADES
 

@@ -30,10 +30,10 @@ one frame, clean it up (sort, drop duplicate timestamps), optionally shift
 timezone (--timezone, from the exports' own clock, --source-timezone, which
 is broker-server time by default and must be UTC for dukascopy; off by default -- bars display on the
 exports' own clock otherwise), optionally resample (--timeframe), then display or write
-(--output). See domain.sample_size.SampleSize for the --timeframe syntax (5m,
+(--output). See domain.market_data.sample_size.SampleSize for the --timeframe syntax (5m,
 4h, 7d, 2w, 3M, ...); resampling uses plain pandas bucket semantics (see
-domain.pandas_approach.frames.resample_ohlc). Price decimals come from
---decimals if given, else --source-symbol's ticker (via domain.symbol
+domain.market_data.frames.resample_ohlc). Price decimals come from
+--decimals if given, else --source-symbol's ticker (via domain.market_data.symbol
 .by_ticker), else default number formatting; --output writes prices with
 that same formatting.
 
@@ -51,11 +51,11 @@ import time
 import pandas as pd
 
 from application.load_historical_data_use_case import SourceFormat
-from domain.pandas_approach.frames import clean_frame, resample_ohlc
-from domain.broker_clock import BROKER_SERVER_TZ, is_utc, timezone_name
-from domain.pandas_approach.shift_timezone import shift_timezone
-from domain.sample_size import SampleSize
-from domain.symbol import get_symbol_by_ticker
+from domain.market_data.frames import clean_frame, resample_ohlc
+from domain.market_data.broker_clock import BROKER_SERVER_TZ, is_utc, timezone_name
+from domain.market_data.shift_timezone import shift_timezone
+from domain.market_data.sample_size import SampleSize
+from domain.market_data.symbol import get_symbol_by_ticker
 from ports import dukascopy_file_access, histdata_file_access, mt5_file_access
 from ports.file_system_access.file_system import find_files
 from ports.mt5_file_access import write_frame
@@ -209,7 +209,7 @@ def parse_args():
         default=BROKER_SERVER_TZ,
         metavar="TZ",
         help="The clock the exports' timestamps are on: 'broker' (New York + 7h, "
-             "see domain.broker_clock), 'histdata' for histdata.com exports, or an "
+             "see domain.market_data.broker_clock), 'histdata' for histdata.com exports, or an "
              "IANA name such as 'America/New_York' (default: broker; dukascopy must be UTC). "
              "Only --timezone uses it.",
     )

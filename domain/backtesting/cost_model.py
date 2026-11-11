@@ -33,7 +33,7 @@ from dataclasses import dataclass, fields, is_dataclass
 
 import pandas as pd
 
-from domain.pandas_approach.historical_data import HistoricalData
+from domain.market_data.historical_data import HistoricalData
 from domain.backtesting.side import Side
 
 __all__ = ["CostModel", "FixedCost", "SpreadCost"]

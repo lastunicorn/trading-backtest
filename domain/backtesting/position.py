@@ -19,7 +19,7 @@ tell whether the bar's extremes came before or after the fill, so it can't
 (`AT_LEVEL`, the default).
 
 Prices are raw price units, not pips: a `Position` doesn't know its symbol's
-pip size. Converting to pips is the caller's job, via `domain.symbol.Symbol`.
+pip size. Converting to pips is the caller's job, via `domain.market_data.symbol.Symbol`.
 
 `Side` is re-exported from `domain.backtesting.side` for convenience.
 """

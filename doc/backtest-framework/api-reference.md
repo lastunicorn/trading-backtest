@@ -16,7 +16,7 @@ Only the public names are listed. Everything below `domain/` performs no I/O.
 
 ## 1. Data
 
-### `domain.pandas_approach.historical_data`
+### `domain.market_data.historical_data`
 
 **`HistoricalData(data, timeframe, symbol, timezone=BROKER_SERVER_TZ)`**: bars for one symbol at one timeframe. Frozen; don't modify `data` in place.
 
@@ -36,7 +36,7 @@ Frame layout:
 | `tick_volume`, `volume` | integer (`Int64` allowed) | no |
 | `spread` | `float64`, **in pips** | no |
 
-Extra columns are kept. The constructor only **validates**, and raises `ValueError` with a hint. For unsorted or duplicate timestamps, the hint is to run `domain.pandas_approach.frames.clean_frame` first.
+Extra columns are kept. The constructor only **validates**, and raises `ValueError` with a hint. For unsorted or duplicate timestamps, the hint is to run `domain.market_data.frames.clean_frame` first.
 
 | Member | Returns |
 |---|---|
@@ -48,15 +48,15 @@ Extra columns are kept. The constructor only **validates**, and raises `ValueErr
 
 **`SpreadUnit`**: the unit of a source's `spread` column: `PIPS`, `POINTS` (multiples of tick size, MT5), `PRICE` (ask − bid, Dukascopy).
 
-### `domain.sample_size`
+### `domain.market_data.sample_size`
 
 **`SampleSize(amount, unit)`**: a bar size. `SampleSize.Parse("15m")` builds one: `m` minutes, `h` hours, `d` days, `w` weeks, `M` months (case-sensitive). `str(size)` gives `"15m"` back, and `size.to_pandas_rule()` gives the pandas resample rule (`"15min"`; weeks are hours, `"1w"` → `"168h"`, resampled from a Monday so each week is labelled by its Monday).
 
-### `domain.symbol`
+### `domain.market_data.symbol`
 
 **`Symbol`**: an instrument's constants: `ticker`, `pip_size`, `tick_size`, `to_pips(price_diff)`, `price_decimals`. Instances: `EURUSD`, `GBPUSD`, `USDJPY`, `XAUUSD`, …, all in `SYMBOLS` by ticker; `by_ticker("EURUSD")` looks one up.
 
-### `domain.broker_clock`
+### `domain.market_data.broker_clock`
 
 | Name | Meaning |
 |---|---|
@@ -69,13 +69,13 @@ Extra columns are kept. The constructor only **validates**, and raises `ValueErr
 
 pandas rejects custom `tzinfo` objects, so don't pass `BROKER_SERVER_TZ` to `tz_localize`; use `shift_timezone`.
 
-### `domain.time_window`
+### `domain.market_data.time_window`
 
 **`TimeWindow(start=None, end=None)`**: a daily `[start, end)` window. Each bound is a timezone-aware `datetime.time` or `None` (open). `window.contains(instant)` takes a timezone-aware `datetime`. An `end` at or before `start` wraps past midnight, and the bounds may be in different zones. **`ZonedTime`** is the annotation for a strategy field holding such a bound; the config reads it as `"HH:MM <zone>"`.
 
-**`TradingSession(start_time, end_time, name=None)`** (`domain.trading_session`): a session's daily window, each bound a timezone-aware `datetime.time`; `create_session(date)` resolves one date's window to UTC, the end on the next day when it wraps past midnight. The standard ones are `TOKYO_SESSION`, `ASIA_SESSION`, `LONDON_SESSION` and `NEW_YORK_SESSION`, collected by name in `SESSIONS`. A strategy field typed `TradingSession` (ORB's `session`) is set from a config by a `SESSIONS` name.
+**`TradingSession(start_time, end_time, name=None)`** (`domain.market_data.trading_session`): a session's daily window, each bound a timezone-aware `datetime.time`; `create_session(date)` resolves one date's window to UTC, the end on the next day when it wraps past midnight. The standard ones are `TOKYO_SESSION`, `ASIA_SESSION`, `LONDON_SESSION` and `NEW_YORK_SESSION`, collected by name in `SESSIONS`. A strategy field typed `TradingSession` (ORB's `session`) is set from a config by a `SESSIONS` name.
 
-### `domain.pandas_approach.shift_timezone`
+### `domain.market_data.shift_timezone`
 
 **`shift_timezone(frame, to_tz, *, from_tz=BROKER_SERVER_TZ)`**: returns a copy of `frame` with `datetime` re-expressed from `from_tz` to `to_tz`, still naive.
 

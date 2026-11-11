@@ -97,11 +97,11 @@ from pathlib import Path
 from application.build_clean_dataset_use_case import NoUsableSourceFilesError
 from application.load_backtest_config_use_case import cost_model, load_backtest_config
 from application.load_historical_data_use_case import SourceFormat, load_source
-from domain.broker_clock import timezone_by_name
+from domain.market_data.broker_clock import timezone_by_name
 from domain.backtesting.backtest import AmbiguityPolicy, Backtest, BacktestResult
 from domain.backtesting.splits import SplitMode
-from domain.sample_size import SampleSize
-from domain.symbol import Symbol, get_symbol_by_ticker
+from domain.market_data.sample_size import SampleSize
+from domain.market_data.symbol import Symbol, get_symbol_by_ticker
 from ports import run_environment
 from ports.backtest_config_access import CONFIG_FILE_NAME, BacktestConfig
 from ports.backtest_result_access import RunProvenance, format_report, write_results

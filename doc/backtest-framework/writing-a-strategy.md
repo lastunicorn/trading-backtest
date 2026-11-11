@@ -49,7 +49,7 @@ from datetime import datetime, time
 
 import pandas as pd
 
-from domain.pandas_approach.historical_data import HistoricalData
+from domain.market_data.historical_data import HistoricalData
 from domain.backtesting.position import Position, Side
 from domain.backtesting.trading_strategy import TradingStrategy
 
@@ -121,7 +121,7 @@ Things this example gets right, and every strategy should:
 - **Session times use the data's clock.** Here that is broker-server time. If your windows only make sense on one clock, check `data.timezone` and raise on any other, as `NarrowAsiaFade` does:
 
   ```python
-  from domain.broker_clock import BROKER_SERVER_TZ
+  from domain.market_data.broker_clock import BROKER_SERVER_TZ
   
   if data.timezone != BROKER_SERVER_TZ:
       raise ValueError(f"windows are broker-server times; the data is on {data.timezone}")
@@ -162,7 +162,7 @@ From the command line, set the fields in the config's `strategy.parameters`. Eac
 }
 ```
 
-The config can set fields typed `int`, `float`, `bool`, `str`, `datetime.time` (as `"HH:MM"`, on the data's clock) `domain.time_window.ZonedTime` (a timezone-aware time, as `"HH:MM <zone>"`, e.g. `"08:00 Europe/London"`) and `domain.trading_session.TradingSession` (a name in `SESSIONS`, e.g. `"London"`; `run.json` records it the same way, or by its bounds for a session not in `SESSIONS`). Any of these can also be `X | None`, which takes `null`. For a time-of-day filter whose bounds carry their own zones, use `ZonedTime | None` fields plus `TimeWindow`, as `RsiDivergence` does. A field of any other type still works from Python but makes the config fail with a clear error; to support it, extend `_strategy_parameter` in `application/load_backtest_config_use_case.py`.
+The config can set fields typed `int`, `float`, `bool`, `str`, `datetime.time` (as `"HH:MM"`, on the data's clock) `domain.market_data.time_window.ZonedTime` (a timezone-aware time, as `"HH:MM <zone>"`, e.g. `"08:00 Europe/London"`) and `domain.market_data.trading_session.TradingSession` (a name in `SESSIONS`, e.g. `"London"`; `run.json` records it the same way, or by its bounds for a session not in `SESSIONS`). Any of these can also be `X | None`, which takes `null`. For a time-of-day filter whose bounds carry their own zones, use `ZonedTime | None` fields plus `TimeWindow`, as `RsiDivergence` does. A field of any other type still works from Python but makes the config fail with a clear error; to support it, extend `_strategy_parameter` in `application/load_backtest_config_use_case.py`.
 
 When a variant is worth keeping under its own name, register a subclass that changes the defaults instead:
 
@@ -186,10 +186,10 @@ Tests go in `tests/strategies/<module>/`, one file per method, with an `__init__
 import pandas as pd
 import pytest
 
-from domain.pandas_approach.historical_data import HistoricalData
+from domain.market_data.historical_data import HistoricalData
 from domain.backtesting.position import Side
-from domain.sample_size import SampleSize
-from domain.symbol import EURUSD
+from domain.market_data.sample_size import SampleSize
+from domain.market_data.symbol import EURUSD
 from strategies.opening_range_breakout import OpeningRangeBreakout
 
 RANGE_BAR = (1.1000, 1.1005, 1.0995, 1.1000)  # sets the opening range: 1.0995-1.1005

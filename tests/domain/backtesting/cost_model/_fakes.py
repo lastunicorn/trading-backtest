@@ -2,10 +2,10 @@
 
 import pandas as pd
 
-from domain.pandas_approach.historical_data import HistoricalData
+from domain.market_data.historical_data import HistoricalData
 from domain.backtesting.position import Position, PositionOutcome, Side, positions_to_frame
-from domain.sample_size import SampleSize
-from domain.symbol import EURUSD
+from domain.market_data.sample_size import SampleSize
+from domain.market_data.symbol import EURUSD
 
 T0 = pd.Timestamp("2026-01-05 10:00")
 

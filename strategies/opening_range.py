@@ -42,11 +42,11 @@ from datetime import UTC, date, datetime, timedelta
 import numpy as np
 import pandas as pd
 
-from domain.pandas_approach.historical_data import HistoricalData
-from domain.pandas_approach.shift_timezone import shift_timezone
+from domain.market_data.historical_data import HistoricalData
+from domain.market_data.shift_timezone import shift_timezone
 from domain.backtesting.trading_strategy import TradingStrategy
-from domain.sample_size import SampleUnit
-from domain.trading_session import NEW_YORK_SESSION, TradingSession
+from domain.market_data.sample_size import SampleUnit
+from domain.market_data.trading_session import NEW_YORK_SESSION, TradingSession
 
 __all__ = ["OpeningRange", "OpeningRangeStrategy"]
 

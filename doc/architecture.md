@@ -10,7 +10,7 @@ This page is about the Python code's layout. What the application does, independ
 2. [Import rules](#2-import-rules)
 3. [Inside an entry script](#3-inside-an-entry-script)
 4. [Where does new code go?](#4-where-does-new-code-go)
-5. [Two domain approaches: bars and frames](#5-two-domain-approaches-bars-and-frames)
+5. [Inside the domain](#5-inside-the-domain)
 
 ---
 
@@ -173,7 +173,7 @@ The split has two benefits:
 |---|---|
 | reads or writes a file, a config, the clock, git | a port: `ports/<resource>/` |
 | …and knows a format any application could use, nothing of this one | a library, `libs/<name>/`, wrapped by a port |
-| defines a market or trading concept, or calculates something from bars | `domain/` (`pandas_approach/` for frame code, `backtesting/` for backtest code, `indicators/` for an indicator) |
+| defines a market or trading concept, or calculates something from bars | `domain/`, in its concept's package: `market_data/`, `backtesting/` or `indicators/` |
 | decides where a strategy enters | `strategies/`, registered in `STRATEGIES` |
 | combines ports and domain into a task used by one script | that script's use-case function |
 | …used by two or more scripts, or too big for the script | `application/<task>_use_case.py` |
@@ -184,16 +184,18 @@ Tests mirror this layout under `tests/` (see `CLAUDE.md`, "Testing").
 
 ---
 
-## 5. Two domain approaches: bars and frames
+## 5. Inside the domain
 
-`domain/` holds two parallel approaches:
+`domain/` is split by concept, one package per page of the blueprint's [domain](architecture/domain/README.md):
 
-- `domain/bar_approach/`: one `Bar` object per candle, stdlib only. `bar.py` being stdlib-only is what lets the stdlib ports depend on it.
-- `domain/pandas_approach/`: DataFrames; this is where pandas lives (besides `backtesting/` and `indicators/`, below).
+| Package | Holds | Blueprint page |
+|---|---|---|
+| `domain/market_data/` | timeframes (`SampleSize`), instruments (`Symbol`), clocks, `TimeWindow`, `TradingSession`, the bar frame's operations (`frames`, `shift_timezone`, `session_ohlc`) and `HistoricalData` | [market-data.md](architecture/domain/market-data.md) |
+| `domain/backtesting/` | the `TradingStrategy` contract, `Position`s, cost models, the exit rules (`Backtest`), trade results, splits and statistics | [backtesting.md](architecture/domain/backtesting.md) |
+| `domain/indicators/` | the RSI, divergence detection and the entries divergences give | [indicators.md](architecture/domain/indicators.md) |
+| `domain/bar_approach/` | one `Bar` object per candle, and the legacy engine built on it | [market-data.md](architecture/domain/market-data.md#6-bar-and-barblock), §6 and §9 |
 
-**New work goes in `pandas_approach/`.** It is much faster on the multi-hundred-thousand-bar datasets. `bar_approach/` stays only for the scripts and tests that still use it.
-
-Two more packages are pandas code too, kept apart because they are grouped by concept rather than by approach, as the blueprint's domain pages are:
-
-- `domain/backtesting/`: the `TradingStrategy` contract, `Position`s, cost models, the exit rules (`Backtest`), trade results, splits and statistics ([backtesting.md](architecture/domain/backtesting.md)). It builds on `pandas_approach/`'s `HistoricalData`, never the other way round.
-- `domain/indicators/`: the RSI, divergence detection and the entries divergences give ([indicators.md](architecture/domain/indicators.md)). A new indicator goes there.
+- **New work goes in its concept's package**, on DataFrames: pandas is much faster on the multi-hundred-thousand-bar datasets. A concept none of them covers gets a package of its own, and a blueprint page.
+- **The packages build on each other in one direction:** `indicators/` → `backtesting/` → `market_data/` → `bar_approach/` (an arrow means "imports"). `indicators/` takes `Side` from `backtesting/`; `backtesting/` runs on `market_data/`'s `HistoricalData`; `market_data/`'s `TradingSessionInstance` holds `Bar`s.
+- **pandas comes only with the modules that need it.** Every package's `__init__` imports nothing, so a stdlib port can import `domain.bar_approach.bar` or `domain.market_data.trading_session` without gaining a pandas dependency.
+- **`bar_approach/` is stdlib only and stays only for the code and tests that still use it.** `bar.py` being stdlib-only is what lets the stdlib ports depend on it.

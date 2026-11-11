@@ -1,4 +1,4 @@
-"""Console display for a bar DataFrame (`domain.pandas_approach`).
+"""Console display for a bar DataFrame (`domain.market_data.frames`).
 
     from ui.frame_table_view import display_frame
 

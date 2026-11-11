@@ -1,14 +1,14 @@
-"""Display every `Symbol` defined in domain.symbol, or just the ones matching
+"""Display every `Symbol` defined in domain.market_data.symbol, or just the ones matching
 a ticker/name filter.
 
 Utility -- reads nothing from disk, just prints the
-fixed pip/tick specifications domain.symbol defines.
+fixed pip/tick specifications domain.market_data.symbol defines.
 
     python3 show_symbols.py                # every symbol
     python3 show_symbols.py --filter jpy    # ticker or name contains "jpy" (case-insensitive)
     python3 show_symbols.py --filter dollar
 
-Lists `domain.symbol.SYMBOLS`, so a symbol registered there shows up here
+Lists `domain.market_data.symbol.SYMBOLS`, so a symbol registered there shows up here
 with nothing to update.
 
 Stdlib only.
@@ -17,7 +17,7 @@ Stdlib only.
 import argparse
 import sys
 
-from domain.symbol import SYMBOLS
+from domain.market_data.symbol import SYMBOLS
 from ui.text_table import format_table
 
 
@@ -43,7 +43,7 @@ def main():
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Display the Symbol specifications defined in domain.symbol."
+        description="Display the Symbol specifications defined in domain.market_data.symbol."
     )
 
     parser.add_argument(
@@ -56,7 +56,7 @@ def parse_args():
 
 
 def get_all_symbols():
-    """Every symbol in `domain.symbol.SYMBOLS`, sorted by ticker."""
+    """Every symbol in `domain.market_data.symbol.SYMBOLS`, sorted by ticker."""
     return sorted(SYMBOLS.values(), key=lambda symbol: symbol.ticker)
 
 

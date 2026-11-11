@@ -24,7 +24,7 @@ from __future__ import annotations
 import pandas as pd
 
 from domain.backtesting.side import Side
-from domain.symbol import Symbol
+from domain.market_data.symbol import Symbol
 
 __all__ = ["RESULT_COLUMNS", "trade_results"]
 

@@ -6,8 +6,8 @@ import pytest
 
 from application.load_historical_data_use_case import SourceFormat
 from calculate_daily_sessions import collect_sessions
-from domain.broker_clock import BROKER_SERVER_TZ, HISTDATA_TZ
-from domain.trading_session import ASIA_SESSION, LONDON_SESSION, TradingSession
+from domain.market_data.broker_clock import BROKER_SERVER_TZ, HISTDATA_TZ
+from domain.market_data.trading_session import ASIA_SESSION, LONDON_SESSION, TradingSession
 from tests.application.load_historical_data_use_case._fakes import write_dukascopy_month, write_histdata_export
 from tests.calculate_daily_sessions._fakes import export
 

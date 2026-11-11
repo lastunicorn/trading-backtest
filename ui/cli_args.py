@@ -15,7 +15,7 @@ import argparse
 from datetime import tzinfo
 from zoneinfo import ZoneInfoNotFoundError
 
-from domain.broker_clock import BROKER_TZ_NAME, HISTDATA_TZ_NAME, timezone_by_name
+from domain.market_data.broker_clock import BROKER_TZ_NAME, HISTDATA_TZ_NAME, timezone_by_name
 
 
 def timezone_arg(name: str) -> tzinfo:

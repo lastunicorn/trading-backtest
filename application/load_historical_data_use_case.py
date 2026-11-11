@@ -40,11 +40,11 @@ from enum import Enum
 import pandas as pd
 
 from application.build_clean_dataset_use_case import build_clean_dataset
-from domain.broker_clock import is_utc
-from domain.pandas_approach.frames import clean_frame, resample_ohlc
-from domain.pandas_approach.historical_data import HistoricalData, SpreadUnit
-from domain.sample_size import SampleSize
-from domain.symbol import Symbol
+from domain.market_data.broker_clock import is_utc
+from domain.market_data.frames import clean_frame, resample_ohlc
+from domain.market_data.historical_data import HistoricalData, SpreadUnit
+from domain.market_data.sample_size import SampleSize
+from domain.market_data.symbol import Symbol
 from ports import dukascopy_file_access, histdata_file_access
 
 __all__ = ["SourceFormat", "load_dukascopy", "load_histdata", "load_mt5", "load_source"]
@@ -98,7 +98,7 @@ def load_histdata(
     """A folder of histdata.com MetaTrader downloads (`DAT_MT_*.csv`), or one, merged and resampled.
 
     Built by `build_clean_dataset`, like `load_mt5`. histdata's timestamps are
-    on `domain.broker_clock.HISTDATA_TZ` (New York's clock, on the EU
+    on `domain.market_data.broker_clock.HISTDATA_TZ` (New York's clock, on the EU
     daylight-saving dates from 2019), which is what `timezone` should normally be. Any
     zone is accepted and labels the bars as given: nothing checks it.
 

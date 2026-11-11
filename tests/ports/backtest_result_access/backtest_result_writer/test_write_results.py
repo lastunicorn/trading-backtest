@@ -6,7 +6,7 @@ from dataclasses import replace
 import pandas as pd
 
 from domain.backtesting.splits import SplitMode
-from domain.symbol import XAUUSD
+from domain.market_data.symbol import XAUUSD
 from ports.backtest_result_access import format_report, run_info, write_results
 
 from ._fakes import PROVENANCE, result

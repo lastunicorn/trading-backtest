@@ -15,11 +15,11 @@ from datetime import date
 import pandas as pd
 
 from domain.backtesting.cost_model import FixedCost
-from domain.pandas_approach.historical_data import HistoricalData
+from domain.market_data.historical_data import HistoricalData
 from domain.backtesting.position import Position, Side
 from domain.backtesting.trading_strategy import TradingStrategy
-from domain.sample_size import SampleSize
-from domain.symbol import EURUSD
+from domain.market_data.sample_size import SampleSize
+from domain.market_data.symbol import EURUSD
 
 FIRST_DAY = pd.Timestamp("2026-01-05")
 QUIET = (1.1000, 1.1005, 1.0995, 1.1000)

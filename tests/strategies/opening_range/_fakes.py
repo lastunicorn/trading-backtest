@@ -13,11 +13,11 @@ from zoneinfo import ZoneInfo
 
 import pandas as pd
 
-from domain.pandas_approach.historical_data import HistoricalData
+from domain.market_data.historical_data import HistoricalData
 from domain.backtesting.position import Position
-from domain.pandas_approach.shift_timezone import shift_timezone
-from domain.sample_size import SampleSize
-from domain.symbol import EURUSD
+from domain.market_data.shift_timezone import shift_timezone
+from domain.market_data.sample_size import SampleSize
+from domain.market_data.symbol import EURUSD
 from strategies.opening_range import OpeningRangeStrategy
 
 NEW_YORK = ZoneInfo("America/New_York")
