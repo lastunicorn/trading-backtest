@@ -5,7 +5,7 @@
     positions = RsiDivergence(risk_reward=2.0).generate_positions(data)   # built on M15 bars
 
 Entries reproduce the former M15 scan script `rsi_divergence_strategy.py`
-(removed in 55eda77; see `domain.pandas_approach.divergence` and
+(removed in 55eda77; see `domain.indicators.divergence` and
 `divergence_positions.open_positions`). The root `rsi_divergence.py` is a
 different tool -- the plain indicator on M5, without the 30/70 filter below --
 so its output does not match these entries:
@@ -55,11 +55,11 @@ from dataclasses import dataclass
 
 import pandas as pd
 
-from domain.pandas_approach.divergence import filter_regular_by_band, find_divergences
-from domain.pandas_approach.divergence_positions import open_positions
+from domain.indicators.divergence import filter_regular_by_band, find_divergences
+from domain.indicators.divergence_positions import open_positions
 from domain.pandas_approach.historical_data import HistoricalData
 from domain.pandas_approach.position import EntryFill, Position, Side
-from domain.pandas_approach.rsi import rsi
+from domain.indicators.rsi import rsi
 from domain.pandas_approach.trading_strategy import TradingStrategy
 from domain.time_window import TimeWindow, ZonedTime
 

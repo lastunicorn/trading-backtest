@@ -38,7 +38,7 @@ Raw data lives under `data/` (gitignored, local-only); `data/eurusd/1min/EURUSD_
 
 ## Code layout
 
-**The architecture is documented in [doc/architecture.md](doc/architecture.md). Read it before adding a module or moving code between folders, and keep it in sync when the structure changes.** In short: seven components, namely the entry scripts at the repo root (one per use case, with `main()` kept apart from the use-case function), `application/` (orchestration), `ports/` (external resources: files, config, clock, git), `libs/` (application-neutral file-format libraries that import nothing from the repo; only ports use them), `domain/` (concepts and calculations, no I/O), `strategies/` (the `TradingStrategy` plugins and the `STRATEGIES` registry) and `ui/` (UI shared by scripts). Their import rules are enforced by `tests/architecture/test_package_imports.py`. **New domain work goes in `domain/pandas_approach/`**, not `bar_approach/`.
+**The architecture is documented in [doc/architecture.md](doc/architecture.md). Read it before adding a module or moving code between folders, and keep it in sync when the structure changes.** In short: seven components, namely the entry scripts at the repo root (one per use case, with `main()` kept apart from the use-case function), `application/` (orchestration), `ports/` (external resources: files, config, clock, git), `libs/` (application-neutral file-format libraries that import nothing from the repo; only ports use them), `domain/` (concepts and calculations, no I/O), `strategies/` (the `TradingStrategy` plugins and the `STRATEGIES` registry) and `ui/` (UI shared by scripts). Their import rules are enforced by `tests/architecture/test_package_imports.py`. **New domain work goes in `domain/pandas_approach/`**, not `bar_approach/`; indicators go in `domain/indicators/`.
 
 [doc/architecture/](doc/architecture/README.md) is a language-independent blueprint of the application (domain entities, ports, use cases, strategies, CLIs, file formats), meant for rebuilding it in another language. Keep it in sync when behaviour, a file format, a config key or a CLI flag changes.
 
@@ -63,6 +63,9 @@ domain/trading_session_instance.py        TradingSessionInstance: one dated sess
 domain/bar_approach/bar.py                the `Bar` entity — one OHLC candle (dt, OHLC, volumes, spread)  [stdlib]
 domain/pandas_approach/frames.py          clean a frame (stable sort + dedup), resample it to a coarser timeframe, each bar labelled by its start (a week by its Monday) [pandas]
 domain/pandas_approach/session_ohlc.py    session_ohlc(frame, session, timezone=): per-day open/high/low/close/bar_count of a TradingSession's window [pandas]
+domain/indicators/rsi.py                  rsi(close, length=14): Wilder's RSI, matching Pine's `ta.rsi` [pandas]
+domain/indicators/divergence.py           find_divergences (regular, optionally hidden, between an oscillator's pivots and price), filter_regular_by_band [pandas]
+domain/indicators/divergence_positions.py open_positions: the entry (side, bar open) a confirmed regular divergence gives, `pivot_right + 1` bars after its pivot [pandas]
 application/build_clean_dataset_use_case.py  folder of exports → one clean, deduplicated frame (in memory)
 read_csv.py                               CLI that prints an export (`--source-format`: metatrader, histdata or dukascopy) as an aligned table, raw or resampled [pandas]
 rsi_divergence.py                         CLI: RSI divergence indicator (regular, optionally hidden) on M5, printed; not the `RsiDivergence` entries [pandas]

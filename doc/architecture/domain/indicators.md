@@ -14,7 +14,7 @@ The RSI and the RSI divergence detection, used by the [`rsi_divergence` plugin](
 
 ## 1. RSI
 
-*Python: `domain/pandas_approach/rsi.py`.* Wilder's Relative Strength Index, matching TradingView Pine's `ta.rsi`.
+*Python: `domain/indicators/rsi.py`.* Wilder's Relative Strength Index, matching TradingView Pine's `ta.rsi`.
 
 ### `rsi(close: List<Float>, length: Integer = 14) -> List<Float?>`
 
@@ -36,7 +36,7 @@ Seeding with the simple average matters: an exponential average seeded from the 
 
 ## 2. Divergence
 
-*Python: `domain/pandas_approach/divergence.py`.* A translation of the LuxAlgo-style regular/hidden divergence indicator (`temp/RSI Divergence Indicator.pine`).
+*Python: `domain/indicators/divergence.py`.* A translation of the LuxAlgo-style regular/hidden divergence indicator (`temp/RSI Divergence Indicator.pine`).
 
 ### Category (Enum)
 
@@ -85,7 +85,7 @@ Keeps every hidden divergence, and a regular one only when its `start_value` is 
 
 ## 3. Divergence entries
 
-*Python: `domain/pandas_approach/divergence_positions.py`.*
+*Python: `domain/indicators/divergence_positions.py`.*
 
 ### DivergencePosition
 

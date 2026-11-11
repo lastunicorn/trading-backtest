@@ -4,7 +4,7 @@
 Python translation of `temp/RSI Divergence Indicator.pine` (the LuxAlgo-style
 regular/hidden divergence indicator): find pivot points in RSI, pair each with
 the previous pivot of the same kind, and flag a divergence wherever RSI and
-price disagree on direction. See `domain/divergence.py` for the algorithm.
+price disagree on direction. See `domain/indicators/divergence.py` for the algorithm.
 
     python3 rsi_divergence.py data/eurusd/1min
     python3 rsi_divergence.py data/eurusd/1min/EURUSD_2024_03.csv
@@ -26,8 +26,8 @@ import argparse
 import time
 
 from application.build_clean_dataset_use_case import build_clean_dataset
-from domain.pandas_approach.divergence import find_divergences
-from domain.pandas_approach.rsi import rsi
+from domain.indicators.divergence import find_divergences
+from domain.indicators.rsi import rsi
 
 WIDTH = 90
 

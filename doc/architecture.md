@@ -173,7 +173,7 @@ The split has two benefits:
 |---|---|
 | reads or writes a file, a config, the clock, git | a port: `ports/<resource>/` |
 | …and knows a format any application could use, nothing of this one | a library, `libs/<name>/`, wrapped by a port |
-| defines a market or trading concept, or calculates something from bars | `domain/` (`pandas_approach/` for frame code) |
+| defines a market or trading concept, or calculates something from bars | `domain/` (`pandas_approach/` for frame code, `indicators/` for an indicator) |
 | decides where a strategy enters | `strategies/`, registered in `STRATEGIES` |
 | combines ports and domain into a task used by one script | that script's use-case function |
 | …used by two or more scripts, or too big for the script | `application/<task>_use_case.py` |
@@ -189,6 +189,8 @@ Tests mirror this layout under `tests/` (see `CLAUDE.md`, "Testing").
 `domain/` holds two parallel approaches:
 
 - `domain/bar_approach/`: one `Bar` object per candle, stdlib only. `bar.py` being stdlib-only is what lets the stdlib ports depend on it.
-- `domain/pandas_approach/`: DataFrames; this is where pandas lives.
+- `domain/pandas_approach/`: DataFrames; this is where pandas lives (besides `indicators/`, below).
 
 **New work goes in `pandas_approach/`.** It is much faster on the multi-hundred-thousand-bar datasets. `bar_approach/` stays only for the scripts and tests that still use it.
+
+`domain/indicators/` is pandas code too, kept apart because it is grouped by concept rather than by approach: the RSI, divergence detection and the entries divergences give, as in the blueprint's [indicators.md](architecture/domain/indicators.md). A new indicator goes there.

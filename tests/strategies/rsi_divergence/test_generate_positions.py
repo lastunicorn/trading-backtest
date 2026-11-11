@@ -7,7 +7,7 @@ import pytest
 
 from domain.broker_clock import BROKER_SERVER_TZ
 
-from domain.pandas_approach.divergence import Category, Direction
+from domain.indicators.divergence import Category, Direction
 from domain.pandas_approach.position import EntryFill, Side
 from strategies.rsi_divergence import RsiDivergence
 

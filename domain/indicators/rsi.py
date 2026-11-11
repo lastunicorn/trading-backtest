@@ -1,6 +1,6 @@
 """Relative Strength Index -- Wilder's smoothed RSI.
 
-    from domain.rsi import rsi
+    from domain.indicators.rsi import rsi
     df["rsi"] = rsi(df["close"], length=14)
 
 Matches Pine's `ta.rsi`: gains and losses smoothed with Wilder's RMA -- `na`

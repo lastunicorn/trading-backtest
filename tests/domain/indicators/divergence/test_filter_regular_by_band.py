@@ -1,8 +1,8 @@
-"""Tests for `domain.pandas_approach.divergence.filter_regular_by_band`."""
+"""Tests for `domain.indicators.divergence.filter_regular_by_band`."""
 
 import pandas as pd
 
-from domain.pandas_approach.divergence import Category, Direction, Divergence, filter_regular_by_band
+from domain.indicators.divergence import Category, Direction, Divergence, filter_regular_by_band
 
 T = pd.Timestamp("2026-01-05 10:00")
 

@@ -1,6 +1,6 @@
 """Simulated positions opened off confirmed regular RSI divergences.
 
-    from domain.pandas_approach.divergence_positions import open_positions
+    from domain.indicators.divergence_positions import open_positions
     positions = open_positions(df, divergences, pivot_right=5, rsi_lower=30, rsi_upper=70)
     for p in positions:
         print(p.side.value, p.open_time, p.open_price)
@@ -8,7 +8,7 @@
 A divergence's `end_time` is the pivot bar itself, but `find_divergences`
 only recognises that bar as a pivot once `pivot_right` bars after it exist
 (`ta.pivotlow`/`ta.pivothigh`'s confirmation delay -- see
-`domain.pandas_approach.divergence`). A position entered right on `end_time`
+`domain.indicators.divergence`). A position entered right on `end_time`
 would be look-ahead: nobody watching the oscillator live could have known
 about the divergence yet. The earliest honest entry is the open of the bar
 right after confirmation, i.e. `pivot_right + 1` bars after `end_time`.
@@ -21,7 +21,7 @@ from datetime import datetime
 
 import pandas as pd
 
-from domain.pandas_approach.divergence import Category, Divergence
+from domain.indicators.divergence import Category, Divergence
 from domain.pandas_approach.side import Side
 
 __all__ = ["DivergencePosition", "open_positions"]

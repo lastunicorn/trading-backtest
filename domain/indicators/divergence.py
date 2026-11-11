@@ -2,7 +2,7 @@
 `temp/RSI Divergence Indicator.pine` (the LuxAlgo-style regular/hidden
 divergence indicator).
 
-    from domain.divergence import find_divergences
+    from domain.indicators.divergence import find_divergences
     divergences = find_divergences(df, rsi_series)
     for d in divergences:
         print(d.category.value, d.direction.value, d.start_time, "->", d.end_time)

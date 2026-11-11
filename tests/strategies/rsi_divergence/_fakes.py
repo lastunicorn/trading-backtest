@@ -10,7 +10,7 @@ from datetime import tzinfo
 import pandas as pd
 
 from domain.broker_clock import BROKER_SERVER_TZ
-from domain.pandas_approach.divergence import Category, Direction, Divergence
+from domain.indicators.divergence import Category, Direction, Divergence
 from domain.pandas_approach.historical_data import HistoricalData
 from domain.sample_size import SampleSize
 from domain.symbol import EURUSD

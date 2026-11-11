@@ -1,8 +1,8 @@
-"""Tests for `domain.pandas_approach.divergence.find_divergences`."""
+"""Tests for `domain.indicators.divergence.find_divergences`."""
 
 import pandas as pd
 
-from domain.pandas_approach.divergence import Category, Direction, find_divergences
+from domain.indicators.divergence import Category, Direction, find_divergences
 
 
 def _frame(times: pd.DatetimeIndex, low: list[float], high: list[float]) -> pd.DataFrame:
